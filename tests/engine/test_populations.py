@@ -44,6 +44,78 @@ def test_different_period_and_currency_change_population_identity() -> None:
     )[0].population_id
 
 
+def test_equivalent_scope_filter_order_has_same_population_identity() -> None:
+    first = _request(
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(
+                ScopeFilter(field="product_id", operator="equals", value="p1"),
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+            ),
+        )
+    )
+    second = _request(
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+                ScopeFilter(field="product_id", operator="equals", value="p1"),
+            ),
+        )
+    )
+
+    assert build_population_definitions(first, _sufficiency(first))[0].population_fingerprint == build_population_definitions(
+        second, _sufficiency(second)
+    )[0].population_fingerprint
+
+
+def test_materially_different_filters_change_population_identity() -> None:
+    product = _request(
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+                ScopeFilter(field="product_id", operator="equals", value="p1"),
+            ),
+        )
+    )
+    category = _request(
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+                ScopeFilter(field="category_id", operator="equals", value="c1"),
+            ),
+        )
+    )
+
+    assert build_population_definitions(product, _sufficiency(product))[0].population_fingerprint != build_population_definitions(
+        category, _sufficiency(category)
+    )[0].population_fingerprint
+
+
+def test_scope_description_does_not_change_semantic_population_identity() -> None:
+    plain = _request(scope=ScopeDefinition(scope_id="all"))
+    described = _request(scope=ScopeDefinition(scope_id="all", description="For display only"))
+
+    assert build_population_definitions(plain, _sufficiency(plain))[0].population_fingerprint == build_population_definitions(
+        described, _sufficiency(described)
+    )[0].population_fingerprint
+
+
+def test_population_grouping_changes_material_identity() -> None:
+    total = _request(grouping=GroupingDimension.NONE)
+    product = _request(grouping=GroupingDimension.PRODUCT)
+    category = _request(grouping=GroupingDimension.CATEGORY)
+
+    assert build_population_definitions(total, _sufficiency(total))[0].population_fingerprint != build_population_definitions(
+        product, _sufficiency(product)
+    )[0].population_fingerprint
+    assert build_population_definitions(product, _sufficiency(product))[0].population_fingerprint != build_population_definitions(
+        category, _sufficiency(category)
+    )[0].population_fingerprint
+
+
 def test_scope_filters_are_limited_to_phase2_governed_contract() -> None:
     with pytest.raises(ValidationError):
         ScopeFilter(field="arbitrary_sql", operator="equals", value="1=1")

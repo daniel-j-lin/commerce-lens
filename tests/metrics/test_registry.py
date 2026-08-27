@@ -3,9 +3,11 @@ from pydantic import ValidationError
 
 from commerce_lens.contracts.common import GroupingDimension
 from commerce_lens.metrics import (
+    DependencyPeriodRole,
     EXECUTION_NOT_IMPLEMENTED_REF,
     METRIC_DEFINITION_VERSION,
     Additivity,
+    MetricDependency,
     MetricRegistry,
     approved_metric_ids,
     get_metric_registry,
@@ -67,6 +69,10 @@ def test_required_inputs_dependencies_and_additivity_are_governed() -> None:
     assert "line_revenue" in revenue.required_canonical_fields
     assert "order_id" in orders.required_canonical_fields
     assert aov.prerequisite_metric_ids == ("revenue", "orders")
+    assert tuple(dependency.period_role for dependency in aov.dependencies) == (
+        DependencyPeriodRole.SAME_AS_PARENT,
+        DependencyPeriodRole.SAME_AS_PARENT,
+    )
     assert aov.additivity is Additivity.DERIVED_NON_ADDITIVE
     assert "orders_equals_zero" in aov.undefined_conditions
     assert "total_revenue_change_equals_zero" in share.undefined_conditions
@@ -86,3 +92,39 @@ def test_registry_cannot_silently_redefine_metric_id() -> None:
 
     with pytest.raises(ValidationError):
         MetricRegistry(definitions=(revenue, revenue))
+
+
+def test_registry_rejects_cyclic_dependency_metadata() -> None:
+    registry = get_metric_registry()
+    revenue = registry.require("revenue").model_copy(
+        update={
+            "prerequisite_metric_ids": ("orders",),
+            "dependencies": (MetricDependency(metric_id="orders", period_role=DependencyPeriodRole.SAME_AS_PARENT),),
+        }
+    )
+    orders = registry.require("orders").model_copy(
+        update={
+            "prerequisite_metric_ids": ("revenue",),
+            "dependencies": (MetricDependency(metric_id="revenue", period_role=DependencyPeriodRole.SAME_AS_PARENT),),
+        }
+    )
+    definitions = tuple(
+        revenue if definition.metric_id == "revenue" else orders if definition.metric_id == "orders" else definition
+        for definition in registry.definitions
+    )
+
+    with pytest.raises(ValidationError):
+        MetricRegistry(definitions=definitions)
+
+
+def test_ranking_registry_declares_grouping_dependent_dependencies() -> None:
+    positive = get_metric_registry().require("leading_positive_contributors")
+
+    assert positive.supported_groupings == (GroupingDimension.PRODUCT, GroupingDimension.CATEGORY)
+    assert {
+        (dependency.metric_id, dependency.grouping, dependency.applies_to_groupings)
+        for dependency in positive.dependencies
+    } == {
+        ("product_absolute_contribution", GroupingDimension.PRODUCT, (GroupingDimension.PRODUCT,)),
+        ("category_absolute_contribution", GroupingDimension.CATEGORY, (GroupingDimension.CATEGORY,)),
+    }

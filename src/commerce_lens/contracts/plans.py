@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import Field
 
 from commerce_lens.contracts.common import ContractBase, FailureDetail, GroupingDimension
+from commerce_lens.contracts.populations import PopulationDefinition
 
 
 class PlanMetricNode(ContractBase):
@@ -34,6 +35,7 @@ class ExecutionPlan(ContractBase):
     request_id: str = Field(min_length=1)
     sufficiency_id: str | None = None
     ordered_metrics: tuple[PlanMetricNode, ...] = ()
+    population_definitions: tuple[PopulationDefinition, ...] = ()
     period_refs: tuple[str, ...] = ()
     population_refs: tuple[str, ...] = ()
     blocked_metric_refs: tuple[str, ...] = ()

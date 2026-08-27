@@ -35,6 +35,21 @@ class Additivity(str, Enum):
     RANKING = "ranking"
 
 
+class DependencyPeriodRole(str, Enum):
+    SAME_AS_PARENT = "same_as_parent"
+    BASELINE = "baseline"
+    COMPARISON = "comparison"
+    BASELINE_AND_COMPARISON = "baseline_and_comparison"
+    NO_PERIOD = "no_period"
+
+
+class MetricDependency(ContractBase):
+    metric_id: str = Field(min_length=1)
+    period_role: DependencyPeriodRole
+    grouping: GroupingDimension | None = None
+    applies_to_groupings: tuple[GroupingDimension, ...] = ()
+
+
 class MetricDefinition(ContractBase):
     metric_id: str = Field(min_length=1)
     definition_version: str = METRIC_DEFINITION_VERSION
@@ -43,8 +58,10 @@ class MetricDefinition(ContractBase):
     metric_category: MetricCategory
     required_canonical_fields: tuple[str, ...] = ()
     prerequisite_metric_ids: tuple[str, ...] = ()
+    dependencies: tuple[MetricDependency, ...] = ()
     population_definition_ref: str = Field(min_length=1)
     grouping_requirement: GroupingDimension = GroupingDimension.NONE
+    supported_groupings: tuple[GroupingDimension, ...] = ()
     period_requirement: PeriodRequirement
     currency_unit_semantics: str = Field(min_length=1)
     additivity: Additivity
@@ -67,6 +84,9 @@ class MetricRegistry(ContractBase):
             raise ValueError("Metric Registry cannot contain duplicate Metric IDs")
         defined = set(ids)
         for definition in self.definitions:
+            dependency_ids = tuple(dict.fromkeys(dependency.metric_id for dependency in definition.dependencies))
+            if dependency_ids != definition.prerequisite_metric_ids:
+                raise ValueError(f"Metric {definition.metric_id} dependency metadata must match prerequisite Metric IDs")
             missing = [metric_id for metric_id in definition.prerequisite_metric_ids if metric_id not in defined]
             if missing:
                 raise ValueError(f"Metric {definition.metric_id} references unknown prerequisite(s): {missing}")
@@ -95,13 +115,41 @@ def approved_metric_ids() -> tuple[str, ...]:
     return _DEFAULT_REGISTRY.metric_ids
 
 
+def assert_registry_matches_approved_authority(registry: MetricRegistry) -> None:
+    """Fail when a supplied registry changes the approved P3-001 authority."""
+    approved = get_metric_registry()
+    if registry.registry_version != approved.registry_version:
+        raise ValueError("Metric Registry version does not match approved P3-001 authority")
+    if registry.metric_ids != approved.metric_ids:
+        raise ValueError("Metric Registry Metric set does not match approved P3-001 authority")
+    approved_by_id = {definition.metric_id: definition for definition in approved.definitions}
+    for definition in registry.definitions:
+        if definition.model_dump(mode="json") != approved_by_id[definition.metric_id].model_dump(mode="json"):
+            raise ValueError(f"Metric {definition.metric_id} does not match approved P3-001 authority")
+
+
+def _dependency(
+    metric_id: str,
+    period_role: DependencyPeriodRole,
+    *,
+    grouping: GroupingDimension | None = None,
+    applies_to_groupings: tuple[GroupingDimension, ...] = (),
+) -> MetricDependency:
+    return MetricDependency(
+        metric_id=metric_id,
+        period_role=period_role,
+        grouping=grouping,
+        applies_to_groupings=applies_to_groupings,
+    )
+
+
 def _definition(
     metric_id: str,
     display_name: str,
     business_definition: str,
     metric_category: MetricCategory,
     required_canonical_fields: tuple[str, ...],
-    prerequisites: tuple[str, ...],
+    dependencies: tuple[MetricDependency, ...],
     grouping: GroupingDimension,
     period_requirement: PeriodRequirement,
     additivity: Additivity,
@@ -110,6 +158,7 @@ def _definition(
     *,
     undefined: tuple[str, ...] = (),
     qualifications: tuple[str, ...] = (),
+    supported_groupings: tuple[GroupingDimension, ...] | None = None,
     currency: str = "single governed currency for monetary metrics; count unit for Orders",
 ) -> MetricDefinition:
     return MetricDefinition(
@@ -118,9 +167,11 @@ def _definition(
         business_definition=business_definition,
         metric_category=metric_category,
         required_canonical_fields=required_canonical_fields,
-        prerequisite_metric_ids=prerequisites,
+        prerequisite_metric_ids=tuple(dict.fromkeys(dependency.metric_id for dependency in dependencies)),
+        dependencies=dependencies,
         population_definition_ref="population_mvp_v1:governed_eligible_order_lines",
         grouping_requirement=grouping,
+        supported_groupings=supported_groupings or (),
         period_requirement=period_requirement,
         currency_unit_semantics=currency,
         additivity=additivity,
@@ -185,7 +236,10 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Revenue divided by Orders for the identical governed scope, period, eligibility rules, and currency basis.",
             MetricCategory.CORE,
             ("order_id", "order_line_id", "order_date", "quantity", "line_revenue", "currency", "eligibility_status"),
-            ("revenue", "orders"),
+            (
+                _dependency("revenue", DependencyPeriodRole.SAME_AS_PARENT, grouping=GroupingDimension.NONE),
+                _dependency("orders", DependencyPeriodRole.SAME_AS_PARENT, grouping=GroupingDimension.NONE),
+            ),
             GroupingDimension.NONE,
             PeriodRequirement.SINGLE_PERIOD,
             Additivity.DERIVED_NON_ADDITIVE,
@@ -199,7 +253,10 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Comparison Revenue minus Baseline Revenue for the governed scope.",
             MetricCategory.PERIOD_COMPARISON,
             ("order_date", "line_revenue", "currency"),
-            ("revenue",),
+            (
+                _dependency("revenue", DependencyPeriodRole.BASELINE, grouping=GroupingDimension.NONE),
+                _dependency("revenue", DependencyPeriodRole.COMPARISON, grouping=GroupingDimension.NONE),
+            ),
             GroupingDimension.NONE,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.ADDITIVE,
@@ -212,7 +269,10 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Revenue Change divided by Baseline Revenue, multiplied by 100, using authoritative unrounded values.",
             MetricCategory.PERIOD_COMPARISON,
             ("order_date", "line_revenue", "currency"),
-            ("revenue", "revenue_change"),
+            (
+                _dependency("revenue", DependencyPeriodRole.BASELINE, grouping=GroupingDimension.NONE),
+                _dependency("revenue", DependencyPeriodRole.COMPARISON, grouping=GroupingDimension.NONE),
+            ),
             GroupingDimension.NONE,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.DERIVED_NON_ADDITIVE,
@@ -226,7 +286,7 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Eligible Revenue aggregated by authoritative product_id under the common eligible population.",
             MetricCategory.PRODUCT,
             ("product_id", "line_revenue", "currency", "order_date", "eligibility_status"),
-            ("revenue",),
+            (_dependency("revenue", DependencyPeriodRole.SAME_AS_PARENT, grouping=GroupingDimension.NONE),),
             GroupingDimension.PRODUCT,
             PeriodRequirement.SINGLE_PERIOD,
             Additivity.ADDITIVE,
@@ -239,7 +299,7 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Distinct eligible order_id values containing at least one eligible line for the product in the governed period.",
             MetricCategory.PRODUCT,
             ("product_id", "order_id", "order_date", "eligibility_status"),
-            ("orders",),
+            (_dependency("orders", DependencyPeriodRole.SAME_AS_PARENT, grouping=GroupingDimension.NONE),),
             GroupingDimension.PRODUCT,
             PeriodRequirement.SINGLE_PERIOD,
             Additivity.NON_ADDITIVE,
@@ -253,7 +313,10 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Product Comparison Revenue minus Product Baseline Revenue over the union of product_id values across complete periods.",
             MetricCategory.PRODUCT,
             ("product_id", "order_date", "line_revenue", "currency"),
-            ("product_revenue",),
+            (
+                _dependency("product_revenue", DependencyPeriodRole.BASELINE, grouping=GroupingDimension.PRODUCT),
+                _dependency("product_revenue", DependencyPeriodRole.COMPARISON, grouping=GroupingDimension.PRODUCT),
+            ),
             GroupingDimension.PRODUCT,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.ADDITIVE,
@@ -266,7 +329,10 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Product Revenue Change divided by Product Baseline Revenue, multiplied by 100, when the baseline denominator is non-zero.",
             MetricCategory.PRODUCT,
             ("product_id", "order_date", "line_revenue", "currency"),
-            ("product_revenue", "product_revenue_change"),
+            (
+                _dependency("product_revenue", DependencyPeriodRole.BASELINE, grouping=GroupingDimension.PRODUCT),
+                _dependency("product_revenue", DependencyPeriodRole.COMPARISON, grouping=GroupingDimension.PRODUCT),
+            ),
             GroupingDimension.PRODUCT,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.DERIVED_NON_ADDITIVE,
@@ -280,7 +346,10 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Product Revenue Change, used as the additive product contribution to net Revenue Change.",
             MetricCategory.PRODUCT,
             ("product_id", "order_date", "line_revenue", "currency"),
-            ("product_revenue_change", "revenue_change"),
+            (
+                _dependency("product_revenue_change", DependencyPeriodRole.NO_PERIOD, grouping=GroupingDimension.PRODUCT),
+                _dependency("revenue_change", DependencyPeriodRole.NO_PERIOD, grouping=GroupingDimension.NONE),
+            ),
             GroupingDimension.PRODUCT,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.ADDITIVE,
@@ -293,7 +362,10 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Product Absolute Contribution divided by non-zero Total Revenue Change, multiplied by 100.",
             MetricCategory.PRODUCT,
             ("product_id", "order_date", "line_revenue", "currency"),
-            ("product_absolute_contribution", "revenue_change"),
+            (
+                _dependency("product_absolute_contribution", DependencyPeriodRole.NO_PERIOD, grouping=GroupingDimension.PRODUCT),
+                _dependency("revenue_change", DependencyPeriodRole.NO_PERIOD, grouping=GroupingDimension.NONE),
+            ),
             GroupingDimension.PRODUCT,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.DERIVED_NON_ADDITIVE,
@@ -308,7 +380,7 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Eligible Revenue aggregated by authoritative category_id or governed Unclassified bucket.",
             MetricCategory.CATEGORY,
             ("category_id", "line_revenue", "currency", "order_date", "eligibility_status"),
-            ("revenue",),
+            (_dependency("revenue", DependencyPeriodRole.SAME_AS_PARENT, grouping=GroupingDimension.NONE),),
             GroupingDimension.CATEGORY,
             PeriodRequirement.SINGLE_PERIOD,
             Additivity.ADDITIVE,
@@ -322,7 +394,7 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Distinct eligible order_id values containing at least one eligible line in the category bucket during the governed period.",
             MetricCategory.CATEGORY,
             ("category_id", "order_id", "order_date", "eligibility_status"),
-            ("orders",),
+            (_dependency("orders", DependencyPeriodRole.SAME_AS_PARENT, grouping=GroupingDimension.NONE),),
             GroupingDimension.CATEGORY,
             PeriodRequirement.SINGLE_PERIOD,
             Additivity.NON_ADDITIVE,
@@ -336,7 +408,10 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Category Comparison Revenue minus Category Baseline Revenue over the union of category buckets across complete periods.",
             MetricCategory.CATEGORY,
             ("category_id", "order_date", "line_revenue", "currency"),
-            ("category_revenue",),
+            (
+                _dependency("category_revenue", DependencyPeriodRole.BASELINE, grouping=GroupingDimension.CATEGORY),
+                _dependency("category_revenue", DependencyPeriodRole.COMPARISON, grouping=GroupingDimension.CATEGORY),
+            ),
             GroupingDimension.CATEGORY,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.ADDITIVE,
@@ -349,7 +424,10 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Category Revenue Change divided by Category Baseline Revenue, multiplied by 100, when the baseline denominator is non-zero.",
             MetricCategory.CATEGORY,
             ("category_id", "order_date", "line_revenue", "currency"),
-            ("category_revenue", "category_revenue_change"),
+            (
+                _dependency("category_revenue", DependencyPeriodRole.BASELINE, grouping=GroupingDimension.CATEGORY),
+                _dependency("category_revenue", DependencyPeriodRole.COMPARISON, grouping=GroupingDimension.CATEGORY),
+            ),
             GroupingDimension.CATEGORY,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.DERIVED_NON_ADDITIVE,
@@ -364,7 +442,10 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Category Revenue Change, used as the additive category contribution to net Revenue Change.",
             MetricCategory.CATEGORY,
             ("category_id", "order_date", "line_revenue", "currency"),
-            ("category_revenue_change", "revenue_change"),
+            (
+                _dependency("category_revenue_change", DependencyPeriodRole.NO_PERIOD, grouping=GroupingDimension.CATEGORY),
+                _dependency("revenue_change", DependencyPeriodRole.NO_PERIOD, grouping=GroupingDimension.NONE),
+            ),
             GroupingDimension.CATEGORY,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.ADDITIVE,
@@ -378,7 +459,10 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Category Absolute Contribution divided by non-zero Total Revenue Change, multiplied by 100.",
             MetricCategory.CATEGORY,
             ("category_id", "order_date", "line_revenue", "currency"),
-            ("category_absolute_contribution", "revenue_change"),
+            (
+                _dependency("category_absolute_contribution", DependencyPeriodRole.NO_PERIOD, grouping=GroupingDimension.CATEGORY),
+                _dependency("revenue_change", DependencyPeriodRole.NO_PERIOD, grouping=GroupingDimension.NONE),
+            ),
             GroupingDimension.CATEGORY,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.DERIVED_NON_ADDITIVE,
@@ -393,12 +477,26 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Entities with Absolute Contribution greater than zero, ordered by unrounded Absolute Contribution descending.",
             MetricCategory.RANKING,
             ("product_id", "category_id", "line_revenue", "currency", "order_date"),
-            ("product_absolute_contribution", "category_absolute_contribution"),
+            (
+                _dependency(
+                    "product_absolute_contribution",
+                    DependencyPeriodRole.NO_PERIOD,
+                    grouping=GroupingDimension.PRODUCT,
+                    applies_to_groupings=(GroupingDimension.PRODUCT,),
+                ),
+                _dependency(
+                    "category_absolute_contribution",
+                    DependencyPeriodRole.NO_PERIOD,
+                    grouping=GroupingDimension.CATEGORY,
+                    applies_to_groupings=(GroupingDimension.CATEGORY,),
+                ),
+            ),
             GroupingDimension.PRODUCT_AND_CATEGORY,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.RANKING,
             ("validation:positive_ranking_uses_absolute_contribution",),
             "ranking",
+            supported_groupings=(GroupingDimension.PRODUCT, GroupingDimension.CATEGORY),
         ),
         _definition(
             "leading_negative_contributors",
@@ -406,12 +504,26 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Entities with Absolute Contribution less than zero, ordered from most negative to least negative using unrounded Absolute Contribution.",
             MetricCategory.RANKING,
             ("product_id", "category_id", "line_revenue", "currency", "order_date"),
-            ("product_absolute_contribution", "category_absolute_contribution"),
+            (
+                _dependency(
+                    "product_absolute_contribution",
+                    DependencyPeriodRole.NO_PERIOD,
+                    grouping=GroupingDimension.PRODUCT,
+                    applies_to_groupings=(GroupingDimension.PRODUCT,),
+                ),
+                _dependency(
+                    "category_absolute_contribution",
+                    DependencyPeriodRole.NO_PERIOD,
+                    grouping=GroupingDimension.CATEGORY,
+                    applies_to_groupings=(GroupingDimension.CATEGORY,),
+                ),
+            ),
             GroupingDimension.PRODUCT_AND_CATEGORY,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.RANKING,
             ("validation:negative_ranking_uses_absolute_contribution",),
             "ranking",
+            supported_groupings=(GroupingDimension.PRODUCT, GroupingDimension.CATEGORY),
         ),
     )
 )

@@ -25,6 +25,8 @@ class PopulationDefinitionError(ValueError):
 def build_population_definitions(
     request: AnalysisRequest,
     sufficiency: DataSufficiencyResult,
+    *,
+    groupings: tuple[GroupingDimension, ...] | None = None,
 ) -> tuple[PopulationDefinition, ...]:
     """Create deterministic Baseline and Comparison population definitions.
 
@@ -38,9 +40,11 @@ def build_population_definitions(
     if request.dataset_ref_id != sufficiency.dataset_ref_id:
         raise PopulationDefinitionError("AnalysisRequest and DataSufficiencyResult dataset refs must match")
 
-    return (
-        _population_for_period(request, sufficiency, PopulationPeriodRole.BASELINE),
-        _population_for_period(request, sufficiency, PopulationPeriodRole.COMPARISON),
+    requested_groupings = tuple(dict.fromkeys(groupings or (request.grouping,)))
+    return tuple(
+        _population_for_period(request, sufficiency, period_role, grouping)
+        for grouping in requested_groupings
+        for period_role in (PopulationPeriodRole.BASELINE, PopulationPeriodRole.COMPARISON)
     )
 
 
@@ -48,9 +52,9 @@ def _population_for_period(
     request: AnalysisRequest,
     sufficiency: DataSufficiencyResult,
     period_role: PopulationPeriodRole,
+    grouping: GroupingDimension,
 ) -> PopulationDefinition:
     period = request.baseline_period if period_role is PopulationPeriodRole.BASELINE else request.comparison_period
-    grouping = request.grouping
     grouping_keys = _grouping_keys(grouping)
     preserves_unclassified = grouping in (GroupingDimension.CATEGORY, GroupingDimension.PRODUCT_AND_CATEGORY)
     currency_basis_ref = _currency_basis_ref(request)
@@ -62,7 +66,7 @@ def _population_for_period(
         "period_role": period_role.value,
         "eligibility_rule_ref": "canonical_dictionary:27:phase2_governed_eligible_population",
         "currency_basis_ref": currency_basis_ref,
-        "scope": request.scope.model_dump(mode="json"),
+        "scope": material_scope_payload(request.scope),
         "grouping": grouping.value,
         "grouping_keys": grouping_keys,
         "supported_filter_fields": sorted(SUPPORTED_SCOPE_FILTER_FIELDS),
@@ -103,6 +107,23 @@ def _currency_basis_ref(request: AnalysisRequest) -> str:
     if len(currency_filters) == 1 and currency_filters[0].operator == "equals":
         return f"currency:{currency_filters[0].value}"
     if len(currency_filters) > 1:
-        values = ",".join(str(item.value) for item in currency_filters)
+        values = ",".join(str(item.value) for item in _canonical_filters(currency_filters))
         return f"currency_filters:{values}"
     return "currency_basis:phase2_single_governed_currency"
+
+
+def material_scope_payload(scope) -> dict[str, object]:
+    return {
+        "scope_id": scope.scope_id,
+        "population_ref": scope.population_ref,
+        "filters": [item.model_dump(mode="json") for item in _canonical_filters(scope.filters)],
+    }
+
+
+def _canonical_filters(filters) -> tuple:
+    return tuple(
+        sorted(
+            filters,
+            key=lambda item: (item.field, item.operator, type(item.value).__name__, str(item.value)),
+        )
+    )

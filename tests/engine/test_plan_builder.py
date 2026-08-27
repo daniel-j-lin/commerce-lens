@@ -2,13 +2,13 @@ from datetime import date
 
 import pytest
 
-from commerce_lens.contracts.common import FailureDetail, FailureStage, GroupingDimension, MetricState, PeriodDefinition, ScopeDefinition
+from commerce_lens.contracts.common import FailureDetail, FailureStage, GroupingDimension, MetricState, PeriodDefinition, ScopeDefinition, ScopeFilter
 from commerce_lens.contracts.evidence import MetricReference
 from commerce_lens.contracts.plans import ExecutionPlan, PlanMetricNode
 from commerce_lens.contracts.requests import AnalysisRequest
 from commerce_lens.contracts.sufficiency import DataSufficiencyResult, MetricEligibility, SufficiencyState
 from commerce_lens.engine import PlanningError, build_execution_plan, validate_execution_plan_pre_execution
-from commerce_lens.metrics import METRIC_DEFINITION_VERSION, METRIC_REGISTRY_VERSION, PRECISION_POLICY_REF
+from commerce_lens.metrics import METRIC_DEFINITION_VERSION, METRIC_REGISTRY_VERSION, PRECISION_POLICY_REF, MetricRegistry, get_metric_registry
 
 
 def test_valid_metric_request_builds_deterministic_plan_without_execution() -> None:
@@ -32,6 +32,35 @@ def test_material_request_difference_changes_plan_fingerprint() -> None:
     second = build_execution_plan(revenue_and_aov, _sufficiency(revenue_and_aov))
 
     assert first.plan_fingerprint != second.plan_fingerprint
+
+
+def test_equivalent_scope_filter_order_has_same_plan_fingerprint() -> None:
+    first = _request(
+        metrics=("revenue_change",),
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(
+                ScopeFilter(field="product_id", operator="equals", value="p1"),
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+            ),
+            description="presentation text",
+        ),
+    )
+    second = _request(
+        metrics=("revenue_change",),
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+                ScopeFilter(field="product_id", operator="equals", value="p1"),
+            ),
+            description="different presentation text",
+        ),
+    )
+
+    assert build_execution_plan(first, _sufficiency(first)).plan_fingerprint == build_execution_plan(
+        second, _sufficiency(second)
+    ).plan_fingerprint
 
 
 def test_aov_nodes_depend_on_revenue_and_orders_for_identical_population() -> None:
@@ -99,6 +128,193 @@ def test_ineligible_chain_is_blocked_while_independent_chain_survives() -> None:
     assert blocked.failure_details[0].independent_chains_may_continue
 
 
+def test_ineligible_metric_with_empty_failure_details_cannot_become_executable() -> None:
+    request = _request(metrics=("revenue_change", "aov"))
+    sufficiency = _sufficiency(
+        request,
+        ineligible={"revenue_change": ()},
+    )
+
+    plan = build_execution_plan(request, sufficiency)
+
+    blocked = next(node for node in plan.ordered_metrics if node.metric_ref == "revenue_change")
+    assert blocked.planning_state == "blocked"
+    assert blocked.failure_details
+    assert "revenue_change" in plan.blocked_metric_refs
+    assert any(node.metric_ref == "aov" and node.planning_state == "executable" for node in plan.ordered_metrics)
+
+
+def test_missing_requested_metric_eligibility_fails_closed() -> None:
+    request = _request(metrics=("revenue_change", "aov"))
+    sufficiency = _sufficiency(request).model_copy(
+        update={
+            "metric_eligibility": (
+                MetricEligibility(metric_ref="revenue_change", eligible=True),
+            )
+        }
+    )
+
+    with pytest.raises(PlanningError):
+        build_execution_plan(request, sufficiency)
+
+
+def test_duplicate_requested_metric_eligibility_fails_closed() -> None:
+    request = _request(metrics=("revenue_change",))
+    sufficiency = _sufficiency(request).model_copy(
+        update={
+            "metric_eligibility": (
+                MetricEligibility(metric_ref="revenue_change", eligible=True),
+                MetricEligibility(metric_ref="revenue_change", eligible=True),
+            )
+        }
+    )
+
+    with pytest.raises(PlanningError):
+        build_execution_plan(request, sufficiency)
+
+
+def test_wrong_requested_metric_definition_version_fails_closed() -> None:
+    request = _request(metrics=("revenue_change",)).model_copy(
+        update={"metrics": (MetricReference(metric_id="revenue_change", definition_version="wrong_version"),)}
+    )
+
+    with pytest.raises(PlanningError):
+        build_execution_plan(request, _sufficiency(request))
+
+
+def test_custom_registry_with_unsupported_metric_cannot_be_planned() -> None:
+    registry = get_metric_registry()
+    gross_margin = registry.require("revenue").model_copy(
+        update={
+            "metric_id": "gross_margin",
+            "display_name": "Gross Margin",
+            "business_definition": "Unsupported injected Metric.",
+            "prerequisite_metric_ids": (),
+            "dependencies": (),
+        }
+    )
+    custom_registry = MetricRegistry(definitions=(*registry.definitions, gross_margin))
+    request = _request(metrics=("gross_margin",))
+
+    with pytest.raises(PlanningError):
+        build_execution_plan(request, _sufficiency(request), registry=custom_registry)
+
+
+@pytest.mark.parametrize(
+    ("metric", "grouping", "root_dependencies"),
+    (
+        (
+            "revenue_change",
+            GroupingDimension.NONE,
+            (("revenue", ("baseline",), GroupingDimension.NONE), ("revenue", ("comparison",), GroupingDimension.NONE)),
+        ),
+        (
+            "revenue_change_pct",
+            GroupingDimension.NONE,
+            (("revenue", ("baseline",), GroupingDimension.NONE), ("revenue", ("comparison",), GroupingDimension.NONE)),
+        ),
+        (
+            "product_revenue_change",
+            GroupingDimension.PRODUCT,
+            (
+                ("product_revenue", ("baseline",), GroupingDimension.PRODUCT),
+                ("product_revenue", ("comparison",), GroupingDimension.PRODUCT),
+            ),
+        ),
+        (
+            "category_revenue_change",
+            GroupingDimension.CATEGORY,
+            (
+                ("category_revenue", ("baseline",), GroupingDimension.CATEGORY),
+                ("category_revenue", ("comparison",), GroupingDimension.CATEGORY),
+            ),
+        ),
+        (
+            "product_absolute_contribution",
+            GroupingDimension.PRODUCT,
+            (
+                ("product_revenue_change", ("baseline", "comparison"), GroupingDimension.PRODUCT),
+                ("revenue_change", ("baseline", "comparison"), GroupingDimension.NONE),
+            ),
+        ),
+        (
+            "category_absolute_contribution",
+            GroupingDimension.CATEGORY,
+            (
+                ("category_revenue_change", ("baseline", "comparison"), GroupingDimension.CATEGORY),
+                ("revenue_change", ("baseline", "comparison"), GroupingDimension.NONE),
+            ),
+        ),
+        (
+            "product_contribution_share",
+            GroupingDimension.PRODUCT,
+            (
+                ("product_absolute_contribution", ("baseline", "comparison"), GroupingDimension.PRODUCT),
+                ("revenue_change", ("baseline", "comparison"), GroupingDimension.NONE),
+            ),
+        ),
+        (
+            "category_contribution_share",
+            GroupingDimension.CATEGORY,
+            (
+                ("category_absolute_contribution", ("baseline", "comparison"), GroupingDimension.CATEGORY),
+                ("revenue_change", ("baseline", "comparison"), GroupingDimension.NONE),
+            ),
+        ),
+    ),
+)
+def test_two_period_dependency_graphs_are_exact_and_not_duplicated(
+    metric: str,
+    grouping: GroupingDimension,
+    root_dependencies: tuple[tuple[str, tuple[str, ...], GroupingDimension], ...],
+) -> None:
+    request = _request(metrics=(metric,), grouping=grouping)
+    plan = build_execution_plan(request, _sufficiency(request))
+    nodes = {node.node_id: node for node in plan.ordered_metrics}
+    root = next(node for node in plan.ordered_metrics if node.metric_ref == metric)
+
+    assert tuple(
+        (nodes[node_id].metric_ref, tuple(nodes[node_id].period_refs), nodes[node_id].grouping)
+        for node_id in root.dependency_node_ids
+    ) == root_dependencies
+    assert _semantic_node_keys(plan) == tuple(dict.fromkeys(_semantic_node_keys(plan)))
+
+
+@pytest.mark.parametrize("metric", ("leading_positive_contributors", "leading_negative_contributors"))
+@pytest.mark.parametrize(
+    ("grouping", "dependency_metric"),
+    (
+        (GroupingDimension.PRODUCT, "product_absolute_contribution"),
+        (GroupingDimension.CATEGORY, "category_absolute_contribution"),
+    ),
+)
+def test_ranking_plan_uses_one_grouping_dependent_contributor_chain(
+    metric: str,
+    grouping: GroupingDimension,
+    dependency_metric: str,
+) -> None:
+    request = _request(metrics=(metric,), grouping=grouping)
+    plan = build_execution_plan(request, _sufficiency(request))
+    nodes = {node.node_id: node for node in plan.ordered_metrics}
+    ranking = next(node for node in plan.ordered_metrics if node.metric_ref == metric)
+
+    assert ranking.grouping is grouping
+    assert ranking.dependency_metric_refs == (dependency_metric,)
+    assert {node.metric_ref for node in plan.ordered_metrics if node.grouping is grouping} >= {dependency_metric, metric}
+    assert not any(
+        node.metric_ref in {"product_absolute_contribution", "category_absolute_contribution"} and node.metric_ref != dependency_metric
+        for node in plan.ordered_metrics
+    )
+
+
+@pytest.mark.parametrize("grouping", (GroupingDimension.NONE, GroupingDimension.PRODUCT_AND_CATEGORY))
+def test_unsupported_ranking_grouping_fails_closed(grouping: GroupingDimension) -> None:
+    request = _request(metrics=("leading_positive_contributors",), grouping=grouping)
+
+    with pytest.raises(PlanningError):
+        build_execution_plan(request, _sufficiency(request))
+
+
 def test_pre_execution_validation_rejects_incompatible_aov_populations() -> None:
     revenue = PlanMetricNode(
         node_id="node_revenue",
@@ -139,10 +355,88 @@ def test_pre_execution_validation_rejects_incompatible_aov_populations() -> None
         validate_execution_plan_pre_execution(plan)
 
 
+def test_pre_execution_validation_rejects_wrong_metric_definition_version() -> None:
+    request = _request(metrics=("revenue_change",))
+    plan = build_execution_plan(request, _sufficiency(request))
+    bad_node = plan.ordered_metrics[0].model_copy(update={"metric_version": "wrong_version"})
+    bad_plan = plan.model_copy(update={"ordered_metrics": (bad_node, *plan.ordered_metrics[1:])})
+
+    with pytest.raises(PlanningError):
+        validate_execution_plan_pre_execution(bad_plan)
+
+
+def test_pre_execution_validation_rejects_missing_dependency_node() -> None:
+    request = _request(metrics=("aov",))
+    plan = build_execution_plan(request, _sufficiency(request))
+    aov = next(node for node in plan.ordered_metrics if node.metric_ref == "aov")
+    bad_aov = aov.model_copy(update={"dependency_node_ids": ("missing_node",)})
+    bad_plan = plan.model_copy(
+        update={
+            "ordered_metrics": tuple(bad_aov if node.node_id == aov.node_id else node for node in plan.ordered_metrics),
+        }
+    )
+
+    with pytest.raises(PlanningError):
+        validate_execution_plan_pre_execution(bad_plan)
+
+
+def test_pre_execution_validation_rejects_non_not_executed_node() -> None:
+    request = _request(metrics=("revenue_change",))
+    plan = build_execution_plan(request, _sufficiency(request))
+    payload = plan.ordered_metrics[0].model_dump()
+    payload["execution_status"] = "executed"
+    bad_node = PlanMetricNode.model_construct(**payload)
+    bad_plan = plan.model_copy(update={"ordered_metrics": (bad_node, *plan.ordered_metrics[1:])})
+
+    with pytest.raises(PlanningError):
+        validate_execution_plan_pre_execution(bad_plan)
+
+
+def test_total_and_grouped_nodes_reference_compatible_populations() -> None:
+    request = _request(metrics=("product_absolute_contribution",), grouping=GroupingDimension.PRODUCT)
+    plan = build_execution_plan(request, _sufficiency(request))
+    populations = {population.population_id: population for population in plan.population_definitions}
+
+    for node in plan.ordered_metrics:
+        assert {populations[population_ref].grouping for population_ref in node.population_refs} == {node.grouping}
+    assert all(
+        populations[population_ref].grouping is GroupingDimension.NONE
+        for node in plan.ordered_metrics
+        if node.metric_ref == "revenue"
+        for population_ref in node.population_refs
+    )
+    assert all(
+        populations[population_ref].grouping is GroupingDimension.PRODUCT
+        for node in plan.ordered_metrics
+        if node.metric_ref.startswith("product_")
+        for population_ref in node.population_refs
+    )
+
+
+def test_category_nodes_reference_category_populations() -> None:
+    request = _request(metrics=("category_absolute_contribution",), grouping=GroupingDimension.CATEGORY)
+    plan = build_execution_plan(request, _sufficiency(request))
+    populations = {population.population_id: population for population in plan.population_definitions}
+
+    assert all(
+        populations[population_ref].grouping is GroupingDimension.CATEGORY
+        for node in plan.ordered_metrics
+        if node.metric_ref.startswith("category_")
+        for population_ref in node.population_refs
+    )
+    assert all(
+        populations[population_ref].preserves_unclassified_category
+        for node in plan.ordered_metrics
+        if node.metric_ref.startswith("category_")
+        for population_ref in node.population_refs
+    )
+
+
 def _request(
     *,
     metrics: tuple[str, ...],
     grouping: GroupingDimension = GroupingDimension.NONE,
+    scope: ScopeDefinition = ScopeDefinition(scope_id="all_eligible"),
 ) -> AnalysisRequest:
     return AnalysisRequest(
         canonical_business_question_id="canonical_revenue_change",
@@ -164,7 +458,7 @@ def _request(
             end_date=date(2026, 1, 4),
             date_convention_ref="order_date_utc",
         ),
-        scope=ScopeDefinition(scope_id="all_eligible"),
+        scope=scope,
         grouping=grouping,
         dataset_ref_id="ds_1",
         canonical_schema_version="canonical_mvp_v1",
@@ -193,4 +487,11 @@ def _sufficiency(
             for metric in request.metrics
         ),
         state=SufficiencyState.PARTIAL if ineligible else SufficiencyState.SUFFICIENT,
+    )
+
+
+def _semantic_node_keys(plan: ExecutionPlan) -> tuple[tuple[str, tuple[str, ...], GroupingDimension, tuple[str, ...]], ...]:
+    return tuple(
+        (node.metric_ref, tuple(node.period_refs), node.grouping, tuple(node.population_refs))
+        for node in plan.ordered_metrics
     )
