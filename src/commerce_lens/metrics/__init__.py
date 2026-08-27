@@ -1,2 +1,29 @@
-"""Metric registry boundary placeholder. Metric formulas are not implemented in Phase 1."""
+"""Metric Registry authority for approved CommerceLens MVP metrics."""
 
+from commerce_lens.metrics.registry import (
+    EXECUTION_NOT_IMPLEMENTED_REF,
+    METRIC_DEFINITION_VERSION,
+    METRIC_REGISTRY_VERSION,
+    PRECISION_POLICY_REF,
+    Additivity,
+    MetricCategory,
+    MetricDefinition,
+    MetricRegistry,
+    PeriodRequirement,
+    approved_metric_ids,
+    get_metric_registry,
+)
+
+__all__ = [
+    "EXECUTION_NOT_IMPLEMENTED_REF",
+    "METRIC_DEFINITION_VERSION",
+    "METRIC_REGISTRY_VERSION",
+    "PRECISION_POLICY_REF",
+    "Additivity",
+    "MetricCategory",
+    "MetricDefinition",
+    "MetricRegistry",
+    "PeriodRequirement",
+    "approved_metric_ids",
+    "get_metric_registry",
+]

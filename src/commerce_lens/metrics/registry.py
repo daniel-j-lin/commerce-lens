@@ -1,0 +1,417 @@
+"""Single governed Metric Registry authority for the approved MVP metrics."""
+
+from __future__ import annotations
+
+from enum import Enum
+
+from pydantic import Field, model_validator
+
+from commerce_lens.contracts.common import ContractBase, GroupingDimension
+
+
+METRIC_REGISTRY_VERSION = "metric_registry_mvp_v1"
+METRIC_DEFINITION_VERSION = "metric_dictionary_v1"
+PRECISION_POLICY_REF = "canonical_dictionary:34:exact_decimal_presentation_rounding_only"
+EXECUTION_NOT_IMPLEMENTED_REF = "not_implemented:p3_001_metric_execution_not_authorized"
+
+
+class MetricCategory(str, Enum):
+    CORE = "core"
+    PERIOD_COMPARISON = "period_comparison"
+    PRODUCT = "product"
+    CATEGORY = "category"
+    RANKING = "ranking"
+
+
+class PeriodRequirement(str, Enum):
+    SINGLE_PERIOD = "single_period"
+    BASELINE_AND_COMPARISON = "baseline_and_comparison"
+
+
+class Additivity(str, Enum):
+    ADDITIVE = "additive"
+    NON_ADDITIVE = "non_additive"
+    DERIVED_NON_ADDITIVE = "derived_non_additive"
+    RANKING = "ranking"
+
+
+class MetricDefinition(ContractBase):
+    metric_id: str = Field(min_length=1)
+    definition_version: str = METRIC_DEFINITION_VERSION
+    display_name: str = Field(min_length=1)
+    business_definition: str = Field(min_length=1)
+    metric_category: MetricCategory
+    required_canonical_fields: tuple[str, ...] = ()
+    prerequisite_metric_ids: tuple[str, ...] = ()
+    population_definition_ref: str = Field(min_length=1)
+    grouping_requirement: GroupingDimension = GroupingDimension.NONE
+    period_requirement: PeriodRequirement
+    currency_unit_semantics: str = Field(min_length=1)
+    additivity: Additivity
+    undefined_conditions: tuple[str, ...] = ()
+    qualification_conditions: tuple[str, ...] = ()
+    precision_policy_ref: str = PRECISION_POLICY_REF
+    required_validation_rule_refs: tuple[str, ...] = ()
+    execution_implementation_ref: str = EXECUTION_NOT_IMPLEMENTED_REF
+    output_shape: str = Field(min_length=1)
+
+
+class MetricRegistry(ContractBase):
+    registry_version: str = METRIC_REGISTRY_VERSION
+    definitions: tuple[MetricDefinition, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_registry(self) -> "MetricRegistry":
+        ids = [definition.metric_id for definition in self.definitions]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Metric Registry cannot contain duplicate Metric IDs")
+        defined = set(ids)
+        for definition in self.definitions:
+            missing = [metric_id for metric_id in definition.prerequisite_metric_ids if metric_id not in defined]
+            if missing:
+                raise ValueError(f"Metric {definition.metric_id} references unknown prerequisite(s): {missing}")
+        _assert_acyclic({definition.metric_id: definition.prerequisite_metric_ids for definition in self.definitions})
+        return self
+
+    @property
+    def metric_ids(self) -> tuple[str, ...]:
+        return tuple(definition.metric_id for definition in self.definitions)
+
+    def get(self, metric_id: str) -> MetricDefinition | None:
+        return next((definition for definition in self.definitions if definition.metric_id == metric_id), None)
+
+    def require(self, metric_id: str) -> MetricDefinition:
+        definition = self.get(metric_id)
+        if definition is None:
+            raise KeyError(f"unsupported Metric ID: {metric_id}")
+        return definition
+
+
+def get_metric_registry() -> MetricRegistry:
+    return _DEFAULT_REGISTRY
+
+
+def approved_metric_ids() -> tuple[str, ...]:
+    return _DEFAULT_REGISTRY.metric_ids
+
+
+def _definition(
+    metric_id: str,
+    display_name: str,
+    business_definition: str,
+    metric_category: MetricCategory,
+    required_canonical_fields: tuple[str, ...],
+    prerequisites: tuple[str, ...],
+    grouping: GroupingDimension,
+    period_requirement: PeriodRequirement,
+    additivity: Additivity,
+    validation_refs: tuple[str, ...],
+    output_shape: str,
+    *,
+    undefined: tuple[str, ...] = (),
+    qualifications: tuple[str, ...] = (),
+    currency: str = "single governed currency for monetary metrics; count unit for Orders",
+) -> MetricDefinition:
+    return MetricDefinition(
+        metric_id=metric_id,
+        display_name=display_name,
+        business_definition=business_definition,
+        metric_category=metric_category,
+        required_canonical_fields=required_canonical_fields,
+        prerequisite_metric_ids=prerequisites,
+        population_definition_ref="population_mvp_v1:governed_eligible_order_lines",
+        grouping_requirement=grouping,
+        period_requirement=period_requirement,
+        currency_unit_semantics=currency,
+        additivity=additivity,
+        undefined_conditions=undefined,
+        qualification_conditions=qualifications,
+        required_validation_rule_refs=validation_refs,
+        output_shape=output_shape,
+    )
+
+
+def _assert_acyclic(graph: dict[str, tuple[str, ...]]) -> None:
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(metric_id: str) -> None:
+        if metric_id in visiting:
+            raise ValueError(f"Metric dependency cycle detected at {metric_id}")
+        if metric_id in visited:
+            return
+        visiting.add(metric_id)
+        for dependency in graph[metric_id]:
+            visit(dependency)
+        visiting.remove(metric_id)
+        visited.add(metric_id)
+
+    for metric_id in graph:
+        visit(metric_id)
+
+
+_DEFAULT_REGISTRY = MetricRegistry(
+    definitions=(
+        _definition(
+            "revenue",
+            "Revenue",
+            "Sum of authoritative post-discount eligible merchandise sales value across eligible canonical order lines, excluding tax and shipping.",
+            MetricCategory.CORE,
+            ("order_id", "order_line_id", "order_date", "quantity", "line_revenue", "currency", "eligibility_status"),
+            (),
+            GroupingDimension.NONE,
+            PeriodRequirement.SINGLE_PERIOD,
+            Additivity.ADDITIVE,
+            ("validation:revenue_sum", "validation:currency_consistency", "validation:population_consistency"),
+            "scalar_decimal",
+        ),
+        _definition(
+            "orders",
+            "Orders",
+            "Count of distinct eligible order_id values with at least one eligible canonical line in the governed scope and period.",
+            MetricCategory.CORE,
+            ("order_id", "order_line_id", "order_date", "eligibility_status"),
+            (),
+            GroupingDimension.NONE,
+            PeriodRequirement.SINGLE_PERIOD,
+            Additivity.NON_ADDITIVE,
+            ("validation:distinct_order_count", "validation:population_consistency"),
+            "scalar_integer",
+            currency="count of distinct governed orders",
+        ),
+        _definition(
+            "aov",
+            "AOV",
+            "Revenue divided by Orders for the identical governed scope, period, eligibility rules, and currency basis.",
+            MetricCategory.CORE,
+            ("order_id", "order_line_id", "order_date", "quantity", "line_revenue", "currency", "eligibility_status"),
+            ("revenue", "orders"),
+            GroupingDimension.NONE,
+            PeriodRequirement.SINGLE_PERIOD,
+            Additivity.DERIVED_NON_ADDITIVE,
+            ("validation:aov_from_revenue_orders", "validation:population_consistency"),
+            "scalar_decimal",
+            undefined=("orders_equals_zero",),
+        ),
+        _definition(
+            "revenue_change",
+            "Revenue Change",
+            "Comparison Revenue minus Baseline Revenue for the governed scope.",
+            MetricCategory.PERIOD_COMPARISON,
+            ("order_date", "line_revenue", "currency"),
+            ("revenue",),
+            GroupingDimension.NONE,
+            PeriodRequirement.BASELINE_AND_COMPARISON,
+            Additivity.ADDITIVE,
+            ("validation:revenue_change_direction", "validation:comparison_population_consistency"),
+            "scalar_decimal",
+        ),
+        _definition(
+            "revenue_change_pct",
+            "Revenue Change Percentage",
+            "Revenue Change divided by Baseline Revenue, multiplied by 100, using authoritative unrounded values.",
+            MetricCategory.PERIOD_COMPARISON,
+            ("order_date", "line_revenue", "currency"),
+            ("revenue", "revenue_change"),
+            GroupingDimension.NONE,
+            PeriodRequirement.BASELINE_AND_COMPARISON,
+            Additivity.DERIVED_NON_ADDITIVE,
+            ("validation:revenue_change_pct_denominator", "validation:comparison_population_consistency"),
+            "scalar_percentage",
+            undefined=("baseline_revenue_equals_zero",),
+        ),
+        _definition(
+            "product_revenue",
+            "Product Revenue",
+            "Eligible Revenue aggregated by authoritative product_id under the common eligible population.",
+            MetricCategory.PRODUCT,
+            ("product_id", "line_revenue", "currency", "order_date", "eligibility_status"),
+            ("revenue",),
+            GroupingDimension.PRODUCT,
+            PeriodRequirement.SINGLE_PERIOD,
+            Additivity.ADDITIVE,
+            ("validation:product_revenue_reconciles_to_total",),
+            "grouped_decimal",
+        ),
+        _definition(
+            "product_orders",
+            "Product Orders",
+            "Distinct eligible order_id values containing at least one eligible line for the product in the governed period.",
+            MetricCategory.PRODUCT,
+            ("product_id", "order_id", "order_date", "eligibility_status"),
+            ("orders",),
+            GroupingDimension.PRODUCT,
+            PeriodRequirement.SINGLE_PERIOD,
+            Additivity.NON_ADDITIVE,
+            ("validation:product_orders_distinct", "validation:orders_non_additive"),
+            "grouped_integer",
+            currency="count of distinct governed orders",
+        ),
+        _definition(
+            "product_revenue_change",
+            "Product Revenue Change",
+            "Product Comparison Revenue minus Product Baseline Revenue over the union of product_id values across complete periods.",
+            MetricCategory.PRODUCT,
+            ("product_id", "order_date", "line_revenue", "currency"),
+            ("product_revenue",),
+            GroupingDimension.PRODUCT,
+            PeriodRequirement.BASELINE_AND_COMPARISON,
+            Additivity.ADDITIVE,
+            ("validation:product_revenue_change_reconciles",),
+            "grouped_decimal",
+        ),
+        _definition(
+            "product_revenue_change_pct",
+            "Product Revenue Change Percentage",
+            "Product Revenue Change divided by Product Baseline Revenue, multiplied by 100, when the baseline denominator is non-zero.",
+            MetricCategory.PRODUCT,
+            ("product_id", "order_date", "line_revenue", "currency"),
+            ("product_revenue", "product_revenue_change"),
+            GroupingDimension.PRODUCT,
+            PeriodRequirement.BASELINE_AND_COMPARISON,
+            Additivity.DERIVED_NON_ADDITIVE,
+            ("validation:product_revenue_change_pct_denominator",),
+            "grouped_percentage",
+            undefined=("product_baseline_revenue_equals_zero",),
+        ),
+        _definition(
+            "product_absolute_contribution",
+            "Product Absolute Contribution",
+            "Product Revenue Change, used as the additive product contribution to net Revenue Change.",
+            MetricCategory.PRODUCT,
+            ("product_id", "order_date", "line_revenue", "currency"),
+            ("product_revenue_change", "revenue_change"),
+            GroupingDimension.PRODUCT,
+            PeriodRequirement.BASELINE_AND_COMPARISON,
+            Additivity.ADDITIVE,
+            ("validation:product_contribution_sum_equals_total_revenue_change",),
+            "grouped_decimal",
+        ),
+        _definition(
+            "product_contribution_share",
+            "Product Contribution Share",
+            "Product Absolute Contribution divided by non-zero Total Revenue Change, multiplied by 100.",
+            MetricCategory.PRODUCT,
+            ("product_id", "order_date", "line_revenue", "currency"),
+            ("product_absolute_contribution", "revenue_change"),
+            GroupingDimension.PRODUCT,
+            PeriodRequirement.BASELINE_AND_COMPARISON,
+            Additivity.DERIVED_NON_ADDITIVE,
+            ("validation:product_contribution_share_denominator",),
+            "grouped_percentage",
+            undefined=("total_revenue_change_equals_zero",),
+            qualifications=("positive_and_negative_contributors_offset_against_net_change",),
+        ),
+        _definition(
+            "category_revenue",
+            "Category Revenue",
+            "Eligible Revenue aggregated by authoritative category_id or governed Unclassified bucket.",
+            MetricCategory.CATEGORY,
+            ("category_id", "line_revenue", "currency", "order_date", "eligibility_status"),
+            ("revenue",),
+            GroupingDimension.CATEGORY,
+            PeriodRequirement.SINGLE_PERIOD,
+            Additivity.ADDITIVE,
+            ("validation:category_revenue_reconciles_to_total", "validation:unclassified_preserved"),
+            "grouped_decimal",
+            qualifications=("unclassified_category_present",),
+        ),
+        _definition(
+            "category_orders",
+            "Category Orders",
+            "Distinct eligible order_id values containing at least one eligible line in the category bucket during the governed period.",
+            MetricCategory.CATEGORY,
+            ("category_id", "order_id", "order_date", "eligibility_status"),
+            ("orders",),
+            GroupingDimension.CATEGORY,
+            PeriodRequirement.SINGLE_PERIOD,
+            Additivity.NON_ADDITIVE,
+            ("validation:category_orders_distinct", "validation:orders_non_additive", "validation:unclassified_preserved"),
+            "grouped_integer",
+            currency="count of distinct governed orders",
+        ),
+        _definition(
+            "category_revenue_change",
+            "Category Revenue Change",
+            "Category Comparison Revenue minus Category Baseline Revenue over the union of category buckets across complete periods.",
+            MetricCategory.CATEGORY,
+            ("category_id", "order_date", "line_revenue", "currency"),
+            ("category_revenue",),
+            GroupingDimension.CATEGORY,
+            PeriodRequirement.BASELINE_AND_COMPARISON,
+            Additivity.ADDITIVE,
+            ("validation:category_revenue_change_reconciles", "validation:unclassified_preserved"),
+            "grouped_decimal",
+        ),
+        _definition(
+            "category_revenue_change_pct",
+            "Category Revenue Change Percentage",
+            "Category Revenue Change divided by Category Baseline Revenue, multiplied by 100, when the baseline denominator is non-zero.",
+            MetricCategory.CATEGORY,
+            ("category_id", "order_date", "line_revenue", "currency"),
+            ("category_revenue", "category_revenue_change"),
+            GroupingDimension.CATEGORY,
+            PeriodRequirement.BASELINE_AND_COMPARISON,
+            Additivity.DERIVED_NON_ADDITIVE,
+            ("validation:category_revenue_change_pct_denominator", "validation:unclassified_preserved"),
+            "grouped_percentage",
+            undefined=("category_baseline_revenue_equals_zero",),
+            qualifications=("unclassified_category_present",),
+        ),
+        _definition(
+            "category_absolute_contribution",
+            "Category Absolute Contribution",
+            "Category Revenue Change, used as the additive category contribution to net Revenue Change.",
+            MetricCategory.CATEGORY,
+            ("category_id", "order_date", "line_revenue", "currency"),
+            ("category_revenue_change", "revenue_change"),
+            GroupingDimension.CATEGORY,
+            PeriodRequirement.BASELINE_AND_COMPARISON,
+            Additivity.ADDITIVE,
+            ("validation:category_contribution_sum_equals_total_revenue_change", "validation:unclassified_preserved"),
+            "grouped_decimal",
+            qualifications=("unclassified_category_present",),
+        ),
+        _definition(
+            "category_contribution_share",
+            "Category Contribution Share",
+            "Category Absolute Contribution divided by non-zero Total Revenue Change, multiplied by 100.",
+            MetricCategory.CATEGORY,
+            ("category_id", "order_date", "line_revenue", "currency"),
+            ("category_absolute_contribution", "revenue_change"),
+            GroupingDimension.CATEGORY,
+            PeriodRequirement.BASELINE_AND_COMPARISON,
+            Additivity.DERIVED_NON_ADDITIVE,
+            ("validation:category_contribution_share_denominator", "validation:unclassified_preserved"),
+            "grouped_percentage",
+            undefined=("total_revenue_change_equals_zero",),
+            qualifications=("unclassified_category_present", "positive_and_negative_contributors_offset_against_net_change"),
+        ),
+        _definition(
+            "leading_positive_contributors",
+            "Leading Positive Contributors",
+            "Entities with Absolute Contribution greater than zero, ordered by unrounded Absolute Contribution descending.",
+            MetricCategory.RANKING,
+            ("product_id", "category_id", "line_revenue", "currency", "order_date"),
+            ("product_absolute_contribution", "category_absolute_contribution"),
+            GroupingDimension.PRODUCT_AND_CATEGORY,
+            PeriodRequirement.BASELINE_AND_COMPARISON,
+            Additivity.RANKING,
+            ("validation:positive_ranking_uses_absolute_contribution",),
+            "ranking",
+        ),
+        _definition(
+            "leading_negative_contributors",
+            "Leading Negative Contributors",
+            "Entities with Absolute Contribution less than zero, ordered from most negative to least negative using unrounded Absolute Contribution.",
+            MetricCategory.RANKING,
+            ("product_id", "category_id", "line_revenue", "currency", "order_date"),
+            ("product_absolute_contribution", "category_absolute_contribution"),
+            GroupingDimension.PRODUCT_AND_CATEGORY,
+            PeriodRequirement.BASELINE_AND_COMPARISON,
+            Additivity.RANKING,
+            ("validation:negative_ranking_uses_absolute_contribution",),
+            "ranking",
+        ),
+    )
+)
