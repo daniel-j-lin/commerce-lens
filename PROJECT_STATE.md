@@ -127,7 +127,7 @@ No alternative execution foundation is currently adopted.
 
 ---
 
-## Current Pending Technical Decision
+## Completed Technical Decision
 
 Decision ID:
 
@@ -137,48 +137,45 @@ Decision:
 
 Wren Foundation Feasibility
 
-Current Wren status:
+Status:
 
-FOUNDATION CANDIDATE
+COMPLETED / CLOSED
+
+Independent review outcome:
+
+REVIEW CONFIRMED
+
+Final Main Project decision:
+
+KEEP DUCKDB
+
+Wren production status:
 
 NOT ADOPTED
 
-NOT PRODUCTION AUTHORITY
+Wren future classification:
 
-NOT AN APPROVED REPLACEMENT FOR DUCKDB
+REFERENCE / FUTURE RE-EVALUATION CANDIDATE
 
-The purpose of R-001 is to determine whether Wren Core can reuse or replace selected commodity execution responsibilities without weakening:
+Architecture Amendment:
 
-- CommerceLens Metric authority;
-- analytical correctness;
-- exact numerical semantics;
-- Data Sufficiency;
-- deterministic validation;
-- evidence traceability;
-- reproducibility;
-- maintainability;
-- MVP scope discipline.
+NOT REQUIRED
+
+The Frozen Architecture choice of DuckDB remains authoritative.
 
 ---
 
-## R-001 Research Boundary
+## R-001 Closure Summary
 
-The Wren feasibility investigation may evaluate, in isolation:
+R-001 is complete and no longer blocks the next separately authorized implementation slice.
 
-- whether Wren Core can be used without full GenBI / LLM / RAG infrastructure;
-- semantic compilation capability;
-- Revenue execution;
-- Orders execution;
-- AOV execution;
-- simple product/category relationship handling;
-- deterministic result extraction;
-- Decimal fidelity;
-- execution provenance;
-- repeat-run reproducibility;
-- adapter complexity;
-- runtime and dependency surface.
+Wren demonstrated local Core isolation and semantic/execution capability, but the tested MVP path did not provide sufficient incremental value to justify adoption given derived-metric Decimal handling, tested relationship-path limitations, adapter/dependency surface, and the amount of CommerceLens governance that would remain necessary.
 
-This research does NOT authorize production adoption.
+This conclusion does not claim Wren has no value.
+
+DuckDB remains the production execution foundation.
+
+Phase 3 may begin only through a separately authorized task.
 
 ---
 
@@ -215,46 +212,21 @@ Any Wren experiment should be isolated in a research boundary or separate worktr
 
 ---
 
-## Decision Gate After R-001
+## R-001 Architecture Consequence
 
-R-001 may result in one of only these project decisions:
+No Architecture Amendment is required.
 
-### KEEP DUCKDB
+DuckDB remains the Frozen production execution foundation.
 
-Evidence does not justify adopting Wren for the MVP execution foundation.
+Wren is not adopted into production.
 
-Continue the Frozen DuckDB architecture.
-
-### PARTIAL ADAPT
-
-Evidence supports reuse of a narrowly isolated Wren capability, but not replacement of the execution foundation.
-
-A specific integration proposal must be reviewed before production adoption.
-
-### WREN FOUNDATION CANDIDATE PASSES
-
-Evidence supports Wren as a replacement or wrapper for material DuckDB execution responsibilities.
-
-This does NOT automatically authorize adoption.
-
-Before production integration:
-
-1. identify exactly which Frozen Architecture responsibilities change;
-2. prove Metric authority remains with CommerceLens;
-3. prove validation and Evidence Contract semantics remain unchanged;
-4. document migration and dependency implications;
-5. submit an Architecture Amendment;
-6. obtain Main Project approval.
-
-Only after approval may production Architecture change.
+Wren may be reconsidered later if material capabilities or project requirements change.
 
 ---
 
 ## Next Authorized Work
 
-The next authorized work is:
-
-R-001 — Wren Foundation Feasibility
+R-001 no longer blocks the next separately authorized implementation slice.
 
 Phase 3 implementation is NOT yet authorized.
 
