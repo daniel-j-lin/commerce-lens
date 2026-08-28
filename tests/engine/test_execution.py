@@ -32,6 +32,7 @@ from commerce_lens.contracts.requests import AnalysisRequest
 from commerce_lens.contracts.sufficiency import DataSufficiencyResult, MetricEligibility, SufficiencyState
 from commerce_lens.engine import MetricExecutionError, execute_plan
 from commerce_lens.engine.plan_builder import build_execution_plan
+from commerce_lens.engine.populations import population_fingerprint, population_id_for_fingerprint
 from commerce_lens.intake.registry import DatasetRegistry
 from commerce_lens.contracts.execution import ExecutedResult
 from commerce_lens.evidence.identifiers import sha256_file
@@ -214,6 +215,109 @@ def test_aov_orders_zero_is_undefined_not_execution_failure(tmp_path) -> None:
     assert result.undefined_reason == "orders_equals_zero"
     assert result.execution_status.value == "completed"
     assert record.status.value == "completed"
+
+
+def test_explicit_currency_empty_physical_baseline_executes_zero_and_persists(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("aov",),
+        [_row(order_id="o2", order_date="2026-01-03", line_revenue="12.00", currency="USD")],
+        filename="explicit_currency_empty_baseline.csv",
+        scope=ScopeDefinition(
+            scope_id="usd_only",
+            filters=(ScopeFilter(field="currency", operator="equals", value="USD"),),
+        ),
+    )
+    metadata_store = MetadataStore(tmp_path / "explicit_empty_registry.sqlite")
+
+    outcome = execute_plan(plan, canonical, store, metadata_store)
+    revenue = _result(outcome, "revenue", "baseline")
+    orders = _result(outcome, "orders", "baseline")
+    aov = _result(outcome, "aov", "baseline")
+    revenue_record = _record(outcome, "revenue", "baseline")
+    orders_record = _record(outcome, "orders", "baseline")
+    aov_record = _record(outcome, "aov", "baseline")
+
+    assert revenue.value == Decimal("0")
+    assert revenue.metric_state is MetricState.VALID
+    assert revenue.currency == "USD"
+    assert revenue_record.resolved_currency == "USD"
+    assert revenue_record.eligible_input_row_count == 0
+    assert orders.value == 0
+    assert orders.metric_state is MetricState.VALID
+    assert orders.currency is None
+    assert orders_record.eligible_input_row_count == 0
+    assert aov.value is None
+    assert aov.metric_state is MetricState.UNDEFINED
+    assert aov.undefined_reason == "orders_equals_zero"
+    assert aov.currency == "USD"
+    assert aov_record.resolved_currency == "USD"
+    assert aov_record.eligible_input_row_count == 0
+
+    restored_revenue = ExecutedResult.model_validate_json(
+        store.safe_path(revenue_record.output_artifacts[0].path).read_text(encoding="utf-8")
+    )
+    restored_aov = ExecutedResult.model_validate_json(
+        store.safe_path(aov_record.output_artifacts[0].path).read_text(encoding="utf-8")
+    )
+    assert restored_revenue == revenue
+    assert restored_revenue.value == Decimal("0")
+    assert isinstance(restored_revenue.value, Decimal)
+    assert restored_revenue.metric_state is MetricState.VALID
+    assert restored_revenue.currency == "USD"
+    assert restored_aov == aov
+    assert restored_aov.value is None
+    assert restored_aov.metric_state is MetricState.UNDEFINED
+    assert restored_aov.undefined_reason == "orders_equals_zero"
+    assert restored_aov.currency == "USD"
+
+
+def test_phase2_single_currency_empty_physical_baseline_uses_dataset_authority(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("aov",),
+        [_row(order_id="o2", order_date="2026-01-03", line_revenue="12.00", currency="USD")],
+        filename="phase2_currency_empty_baseline.csv",
+    )
+
+    outcome = execute_plan(plan, canonical, store)
+
+    assert _result(outcome, "revenue", "baseline").value == Decimal("0")
+    assert _result(outcome, "revenue", "baseline").metric_state is MetricState.VALID
+    assert _result(outcome, "revenue", "baseline").currency == "USD"
+    assert _record(outcome, "revenue", "baseline").eligible_input_row_count == 0
+    assert _record(outcome, "revenue", "baseline").resolved_currency == "USD"
+    assert _result(outcome, "orders", "baseline").value == 0
+    assert _result(outcome, "orders", "baseline").metric_state is MetricState.VALID
+    assert _result(outcome, "aov", "baseline").value is None
+    assert _result(outcome, "aov", "baseline").metric_state is MetricState.UNDEFINED
+    assert _result(outcome, "aov", "baseline").undefined_reason == "orders_equals_zero"
+    assert _result(outcome, "aov", "baseline").currency == "USD"
+
+
+def test_cancelled_physical_row_with_zero_eligible_rows_remains_valid_empty_population(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("aov",),
+        [
+            _row(order_id="o1", order_line_id="l1", eligibility_status="cancelled", currency="USD"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="12.00", currency="USD"),
+        ],
+        filename="cancelled_zero_eligible.csv",
+    )
+
+    outcome = execute_plan(plan, canonical, store)
+
+    assert _result(outcome, "revenue", "baseline").value == Decimal("0")
+    assert _result(outcome, "revenue", "baseline").metric_state is MetricState.VALID
+    assert _result(outcome, "revenue", "baseline").currency == "USD"
+    assert _result(outcome, "orders", "baseline").value == 0
+    assert _result(outcome, "orders", "baseline").metric_state is MetricState.VALID
+    assert _result(outcome, "aov", "baseline").value is None
+    assert _result(outcome, "aov", "baseline").metric_state is MetricState.UNDEFINED
+    assert _result(outcome, "aov", "baseline").undefined_reason == "orders_equals_zero"
+    assert _result(outcome, "aov", "baseline").currency == "USD"
+    assert _record(outcome, "revenue", "baseline").eligible_input_row_count == 0
 
 
 def test_aov_exact_decimal_division_does_not_use_float(tmp_path) -> None:
@@ -421,7 +525,8 @@ def test_executable_metric_requires_registry_approved_implementation_ref(
     assert failed.status.value == "failed"
     assert expected_reason in failed.failure_details[0].reason
     assert failed.started_at <= failed.ended_at
-    assert not outcome.executed_results
+    assert not any(result.metric_ref == "revenue" and result.period_ref == "baseline" for result in outcome.executed_results)
+    assert _result(outcome, "revenue", "comparison").value == Decimal("0")
 
 
 def test_supported_dependencies_execute_but_unsupported_revenue_change_root_produces_no_result(tmp_path) -> None:
@@ -514,6 +619,70 @@ def test_mixed_runtime_currency_fails_closed_for_monetary_metrics(tmp_path) -> N
 
     assert failed.status.value == "failed"
     assert "single-governed-currency" in failed.failure_details[0].reason
+    assert not any(result.metric_ref == "revenue" and result.period_ref == "baseline" for result in outcome.executed_results)
+
+
+def test_explicit_currency_with_contradictory_participating_currency_fails_closed(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("revenue",),
+        [_row(order_id="o1", line_revenue="10.00", currency="EUR")],
+        filename="explicit_currency_contradiction.csv",
+    )
+    usd_plan = _plan_with_population_currency_basis(plan, "baseline", "currency:USD")
+
+    outcome = execute_plan(usd_plan, canonical, store)
+    failed = _record(outcome, "revenue", "baseline")
+
+    assert failed.status.value == "failed"
+    assert "does not match governed currency scope filter" in failed.failure_details[0].reason
+    assert not any(result.metric_ref == "revenue" and result.period_ref == "baseline" for result in outcome.executed_results)
+
+
+def test_phase2_single_currency_with_mixed_dataset_authority_fails_closed_for_empty_period(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("revenue",),
+        [
+            _row(order_id="o1", order_date="2026-01-03", line_revenue="10.00", currency="USD"),
+            _row(order_id="o2", order_date="2026-01-04", line_revenue="20.00", currency="USD"),
+        ],
+        filename="phase2_mixed_dataset_authority.csv",
+    )
+    tampered = _replace_canonical_parquet_rows(
+        canonical,
+        store,
+        "SELECT * REPLACE (CASE WHEN order_id = 'o2' THEN 'EUR' ELSE currency END AS currency) FROM read_parquet(?)",
+    )
+
+    outcome = execute_plan(plan, tampered, store)
+    failed = _record(outcome, "revenue", "baseline")
+
+    assert failed.status.value == "failed"
+    assert "single-governed-currency" in failed.failure_details[0].reason
+    assert not any(result.metric_ref == "revenue" and result.period_ref == "baseline" for result in outcome.executed_results)
+
+
+def test_phase2_single_currency_with_no_currency_evidence_fails_closed(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("revenue",),
+        [_row(order_id="o1", line_revenue="10.00", currency="USD")],
+        filename="empty_currency_unresolvable.csv",
+    )
+    empty_canonical = _replace_canonical_parquet_rows(
+        canonical,
+        store,
+        "SELECT * FROM read_parquet(?) WHERE false",
+    ).model_copy(update={"row_count": 0})
+
+    outcome = execute_plan(plan, empty_canonical, store)
+    failed = _record(outcome, "revenue", "baseline")
+
+    assert failed.status.value == "failed"
+    assert "no canonical rows from which to establish phase2 single-governed currency authority" in (
+        failed.failure_details[0].reason
+    )
     assert not any(result.metric_ref == "revenue" and result.period_ref == "baseline" for result in outcome.executed_results)
 
 
@@ -824,6 +993,45 @@ def _replace_canonical_parquet_rows(canonical, store: ArtifactStore, select_sql:
             "content_fingerprint": fingerprint,
             "artifact": canonical.artifact.model_copy(
                 update={"fingerprint": fingerprint, "size_bytes": path.stat().st_size}
+            ),
+        }
+    )
+
+
+def _plan_with_population_currency_basis(plan, period_ref: str, currency_basis_ref: str):
+    old_population = next(
+        population
+        for population in plan.population_definitions
+        if population.period.period_id == period_ref and population.grouping is GroupingDimension.NONE
+    )
+    draft_population = old_population.model_copy(update={"currency_basis_ref": currency_basis_ref})
+    fingerprint = population_fingerprint(draft_population)
+    new_population = draft_population.model_copy(
+        update={
+            "population_fingerprint": fingerprint,
+            "population_id": population_id_for_fingerprint(fingerprint),
+        }
+    )
+    return plan.model_copy(
+        update={
+            "ordered_metrics": tuple(
+                node.model_copy(
+                    update={
+                        "population_refs": tuple(
+                            new_population.population_id if ref == old_population.population_id else ref
+                            for ref in node.population_refs
+                        )
+                    }
+                )
+                for node in plan.ordered_metrics
+            ),
+            "population_definitions": tuple(
+                new_population if population.population_id == old_population.population_id else population
+                for population in plan.population_definitions
+            ),
+            "population_refs": tuple(
+                new_population.population_id if ref == old_population.population_id else ref
+                for ref in plan.population_refs
             ),
         }
     )

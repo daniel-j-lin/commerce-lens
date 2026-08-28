@@ -39,6 +39,8 @@ AOV_DECIMAL_PRECISION = 38
 AOV_DECIMAL_ROUNDING = ROUND_HALF_EVEN
 _CANONICAL_TABLE = "canonical_lines"
 _SUPPORTED_FILTER_OPERATORS = frozenset({"equals"})
+_EXPLICIT_CURRENCY_BASIS_PREFIX = "currency:"
+_PHASE2_SINGLE_GOVERNED_CURRENCY_BASIS = "currency_basis:phase2_single_governed_currency"
 
 
 class MetricExecutionError(ValueError):
@@ -439,6 +441,23 @@ def _population_scope_period_sql(
     return sql, (str(canonical_path), *params)
 
 
+def _population_scope_sql(
+    select_clause: str,
+    population: PopulationDefinition,
+    canonical_path: Path,
+) -> tuple[str, tuple[Any, ...]]:
+    where_clauses: list[str] = []
+    params: list[Any] = []
+    for scope_filter in population.scope.filters:
+        if scope_filter.field not in population.supported_filter_fields:
+            raise MetricExecutionError("scope filter is not supported by the governed population")
+        where_clauses.append(_scope_filter_sql(scope_filter))
+        params.append(scope_filter.value)
+    where_sql = f" WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+    sql = f"{select_clause} FROM read_parquet(?) AS {_CANONICAL_TABLE}{where_sql}"
+    return sql, (str(canonical_path), *params)
+
+
 def _scope_filter_sql(scope_filter: ScopeFilter) -> str:
     if scope_filter.operator not in _SUPPORTED_FILTER_OPERATORS:
         raise MetricExecutionError("unsupported governed scope filter operator")
@@ -484,6 +503,22 @@ def _population_runtime_metadata(
 
 
 def _resolve_governed_currency(population: PopulationDefinition, canonical_path: Path) -> str:
+    if population.currency_basis_ref.startswith(_EXPLICIT_CURRENCY_BASIS_PREFIX):
+        expected = population.currency_basis_ref.removeprefix(_EXPLICIT_CURRENCY_BASIS_PREFIX)
+        if not expected:
+            raise MetricExecutionError("explicit governed currency basis is empty")
+        _validate_explicit_currency_period_evidence(population, canonical_path, expected)
+        return expected
+    if population.currency_basis_ref != _PHASE2_SINGLE_GOVERNED_CURRENCY_BASIS:
+        raise MetricExecutionError("unsupported governed currency basis for P4-001 monetary execution")
+    return _resolve_phase2_single_governed_currency(population, canonical_path)
+
+
+def _validate_explicit_currency_period_evidence(
+    population: PopulationDefinition,
+    canonical_path: Path,
+    expected_currency: str,
+) -> None:
     sql, params = _population_scope_period_sql(
         """
         SELECT
@@ -496,15 +531,31 @@ def _resolve_governed_currency(population: PopulationDefinition, canonical_path:
     )
     row_count, currency_count, currency = _fetch_one(sql, params)
     if row_count == 0:
-        raise MetricExecutionError("monetary Metric population has no rows from which to resolve governed currency")
+        return
+    if currency_count != 1 or not currency:
+        raise MetricExecutionError("canonical population contradicts explicit governed currency authority")
+    if currency != expected_currency:
+        raise MetricExecutionError("resolved currency does not match governed currency scope filter")
+
+
+def _resolve_phase2_single_governed_currency(population: PopulationDefinition, canonical_path: Path) -> str:
+    sql, params = _population_scope_sql(
+        """
+        SELECT
+            COUNT(*) AS row_count,
+            COUNT(DISTINCT currency) AS currency_count,
+            MIN(currency) AS currency
+        """,
+        population,
+        canonical_path,
+    )
+    row_count, currency_count, currency = _fetch_one(sql, params)
+    if row_count == 0:
+        raise MetricExecutionError(
+            "monetary Metric population has no canonical rows from which to establish phase2 single-governed currency authority"
+        )
     if currency_count != 1 or not currency:
         raise MetricExecutionError("canonical population contradicts single-governed-currency authority")
-    if population.currency_basis_ref.startswith("currency:"):
-        expected = population.currency_basis_ref.removeprefix("currency:")
-        if currency != expected:
-            raise MetricExecutionError("resolved currency does not match governed currency scope filter")
-    elif population.currency_basis_ref != "currency_basis:phase2_single_governed_currency":
-        raise MetricExecutionError("unsupported governed currency basis for P4-001 monetary execution")
     return str(currency)
 
 
