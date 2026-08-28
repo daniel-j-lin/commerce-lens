@@ -40,6 +40,7 @@ AOV_DECIMAL_ROUNDING = ROUND_HALF_EVEN
 REVENUE_CHANGE_DECIMAL_CALCULATION_POLICY_ID = "p7_revenue_change_decimal_calculation_policy_v1"
 REVENUE_CHANGE_DECIMAL_PRECISION = 38
 REVENUE_CHANGE_DECIMAL_ROUNDING = ROUND_HALF_EVEN
+REVENUE_CHANGE_DEPENDENCY_LINEAGE_MISMATCH = "revenue_change_dependency_lineage_mismatch"
 _CANONICAL_TABLE = "canonical_lines"
 _SUPPORTED_FILTER_OPERATORS = frozenset({"equals"})
 _EXPLICIT_CURRENCY_BASIS_PREFIX = "currency:"
@@ -423,6 +424,7 @@ def _execute_revenue_change(
     dependencies = _revenue_change_dependency_results(
         plan,
         node,
+        canonical_dataset,
         result_by_node_id,
         population_by_id,
         metadata_store,
@@ -507,6 +509,7 @@ def _comparison_runtime_metadata(
 def _revenue_change_dependency_results(
     plan: ExecutionPlan,
     node: PlanMetricNode,
+    canonical_dataset: CanonicalDatasetReference,
     result_by_node_id: dict[str, ExecutedResult],
     population_by_id: dict[str, PopulationDefinition],
     metadata_store: MetadataStore,
@@ -515,7 +518,11 @@ def _revenue_change_dependency_results(
     if len(node.dependency_node_ids) != 2:
         raise MetricExecutionError("Revenue Change requires executed Baseline and Comparison Revenue dependency results")
     dependencies: dict[str, ExecutedResult] = {}
+    node_by_id = {candidate.node_id: candidate for candidate in plan.ordered_metrics}
     for dependency_node_id in node.dependency_node_ids:
+        dependency_node = node_by_id.get(dependency_node_id)
+        if dependency_node is None:
+            raise MetricExecutionError("Revenue Change dependency node is missing from governed plan")
         result = result_by_node_id.get(dependency_node_id)
         if result is None:
             raise MetricExecutionError("Revenue Change dependency result is missing or not executable")
@@ -526,17 +533,25 @@ def _revenue_change_dependency_results(
         if result.result_fingerprint is None:
             raise MetricExecutionError("Revenue Change dependency result lacks semantic fingerprint")
         record = _verify_dependency_execution_record(result, metadata_store, artifact_store)
-        population = population_by_id.get(result.scope_ref)
+        if dependency_node.population_refs and len(dependency_node.population_refs) == 1:
+            population = population_by_id.get(dependency_node.population_refs[0])
+        else:
+            population = None
         if population is None:
-            raise MetricExecutionError("Revenue Change dependency result references unknown governed population")
+            raise MetricExecutionError("Revenue Change dependency node references unknown governed population")
         if record.request_id != plan.request_id:
             raise MetricExecutionError("Revenue Change dependency ExecutionRecord request authority mismatches plan")
         if record.plan_id != plan.plan_id or record.plan_fingerprint != plan.plan_fingerprint:
             raise MetricExecutionError("Revenue Change dependency ExecutionRecord plan authority mismatches plan")
         if record.plan_node_id != dependency_node_id:
             raise MetricExecutionError("Revenue Change dependency result does not match governed dependency node")
-        if result.period_ref != population.period.period_id:
-            raise MetricExecutionError("Revenue Change dependency result period mismatches governed population")
+        _validate_revenue_change_dependency_lineage(
+            dependency_node=dependency_node,
+            result=result,
+            record=record,
+            population=population,
+            canonical_dataset=canonical_dataset,
+        )
         role = population.period_role.value
         if role in dependencies:
             raise MetricExecutionError("Revenue Change requires one Baseline and one Comparison Revenue dependency")
@@ -548,6 +563,77 @@ def _revenue_change_dependency_results(
     if baseline.currency != comparison.currency:
         raise MetricExecutionError("Revenue Change Revenue dependency currencies must match")
     return dependencies
+
+
+def _validate_revenue_change_dependency_lineage(
+    *,
+    dependency_node: PlanMetricNode,
+    result: ExecutedResult,
+    record: ExecutionRecord,
+    population: PopulationDefinition,
+    canonical_dataset: CanonicalDatasetReference,
+) -> None:
+    expected_scope_filters = tuple(
+        scope_filter.model_dump(mode="json")
+        for scope_filter in population.scope.filters
+    )
+    expected_result_fingerprint = _result_fingerprint(
+        dependency_node,
+        population,
+        canonical_dataset,
+        result.value,
+        result.metric_state,
+        result.undefined_reason,
+        result.precision or "",
+        result.unit or "",
+        result.currency,
+    )
+    if result.execution_id != record.execution_id:
+        _revenue_change_dependency_lineage_mismatch("ExecutedResult execution_id mismatches ExecutionRecord")
+    if result.execution_status is not ExecutionStatus.COMPLETED:
+        _revenue_change_dependency_lineage_mismatch("ExecutedResult execution_status is not completed")
+    if record.metric_refs != (dependency_node.metric_ref,) or record.metric_refs != (result.metric_ref,):
+        _revenue_change_dependency_lineage_mismatch("ExecutionRecord Metric lineage mismatches governed dependency")
+    if record.metric_definition_version != dependency_node.metric_version:
+        _revenue_change_dependency_lineage_mismatch("ExecutionRecord Metric definition version mismatches governed dependency")
+    if record.metric_implementation_ref != dependency_node.execution_implementation_ref:
+        _revenue_change_dependency_lineage_mismatch("ExecutionRecord implementation ref mismatches governed dependency")
+    if result.scope_ref != population.population_id or record.population_refs != (population.population_id,):
+        _revenue_change_dependency_lineage_mismatch("ExecutionRecord population_refs mismatches governed dependency population")
+    if record.population_fingerprints != (population.population_fingerprint,):
+        _revenue_change_dependency_lineage_mismatch(
+            "ExecutionRecord population_fingerprints mismatches governed dependency population"
+        )
+    if result.period_ref != population.period.period_id or record.period_refs != (population.period.period_id,):
+        _revenue_change_dependency_lineage_mismatch("ExecutionRecord period lineage mismatches governed dependency population")
+    if record.period_role != population.period_role.value:
+        _revenue_change_dependency_lineage_mismatch("ExecutionRecord period role mismatches governed dependency population")
+    if record.periods != (population.period.model_dump(mode="json"),):
+        _revenue_change_dependency_lineage_mismatch("ExecutionRecord period payload mismatches governed dependency population")
+    if record.grouping != population.grouping.value or population.grouping is not GroupingDimension.NONE:
+        _revenue_change_dependency_lineage_mismatch("ExecutionRecord grouping mismatches governed dependency population")
+    if record.scope_filters != expected_scope_filters:
+        _revenue_change_dependency_lineage_mismatch("ExecutionRecord scope filters mismatch governed dependency population")
+    if record.dataset_ref_ids != (population.dataset_ref_id,):
+        _revenue_change_dependency_lineage_mismatch("ExecutionRecord dataset_ref_ids mismatches governed dependency dataset")
+    if population.dataset_ref_id != canonical_dataset.source_dataset_id:
+        _revenue_change_dependency_lineage_mismatch("governed dependency population dataset mismatches canonical dataset source")
+    if record.canonical_dataset_ref_ids != (canonical_dataset.canonical_dataset_id,):
+        _revenue_change_dependency_lineage_mismatch("ExecutionRecord canonical_dataset_ref_ids mismatches governed authority")
+    if record.canonical_dataset_fingerprints != (canonical_dataset.content_fingerprint,):
+        _revenue_change_dependency_lineage_mismatch(
+            "ExecutionRecord canonical_dataset_fingerprints mismatches governed authority"
+        )
+    if population.canonical_dataset_ref_id != canonical_dataset.canonical_dataset_id:
+        _revenue_change_dependency_lineage_mismatch("governed dependency population canonical dataset mismatches authority")
+    if record.resolved_currency != result.currency:
+        _revenue_change_dependency_lineage_mismatch("ExecutionRecord resolved currency mismatches ExecutedResult")
+    if result.result_fingerprint != expected_result_fingerprint:
+        _revenue_change_dependency_lineage_mismatch("ExecutedResult fingerprint mismatches governed dependency lineage")
+
+
+def _revenue_change_dependency_lineage_mismatch(reason: str) -> None:
+    raise MetricExecutionError(f"{REVENUE_CHANGE_DEPENDENCY_LINEAGE_MISMATCH}: {reason}")
 
 
 def _verify_dependency_execution_record(

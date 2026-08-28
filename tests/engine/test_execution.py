@@ -31,7 +31,10 @@ from commerce_lens.contracts.plans import PlanMetricNode
 from commerce_lens.contracts.requests import AnalysisRequest
 from commerce_lens.contracts.sufficiency import DataSufficiencyResult, MetricEligibility, SufficiencyState
 from commerce_lens.engine import MetricExecutionError, execute_plan
-from commerce_lens.engine.execution import _revenue_change_dependency_results
+from commerce_lens.engine.execution import (
+    REVENUE_CHANGE_DEPENDENCY_LINEAGE_MISMATCH,
+    _revenue_change_dependency_results,
+)
 from commerce_lens.engine.plan_builder import build_execution_plan
 from commerce_lens.engine.populations import population_fingerprint, population_id_for_fingerprint
 from commerce_lens.intake.registry import DatasetRegistry
@@ -568,11 +571,159 @@ def test_revenue_change_execution_dependency_authority_fails_closed(tmp_path, ta
         _revenue_change_dependency_results(
             plan,
             change_node,
+            canonical,
             result_by_node_id,
             population_by_id,
             metadata_store,
             store,
         )
+
+
+@pytest.mark.parametrize(
+    ("period_ref", "record_update"),
+    (
+        ("baseline", {"dataset_ref_ids": ("ds_substituted",)}),
+        ("comparison", {"dataset_ref_ids": ("ds_substituted",)}),
+        ("baseline", {"canonical_dataset_ref_ids": ("cds_substituted",)}),
+        ("comparison", {"canonical_dataset_ref_ids": ("cds_substituted",)}),
+        ("baseline", {"canonical_dataset_fingerprints": ("f" * 64,)}),
+        ("comparison", {"canonical_dataset_fingerprints": ("f" * 64,)}),
+        ("baseline", {"population_refs": ("pop_substituted",)}),
+        ("comparison", {"population_refs": ("pop_substituted",)}),
+        ("baseline", {"population_fingerprints": ("f" * 64,)}),
+        ("comparison", {"population_fingerprints": ("f" * 64,)}),
+    ),
+)
+def test_revenue_change_dependency_execution_record_lineage_tampering_fails_closed(
+    tmp_path,
+    period_ref: str,
+    record_update: dict[str, tuple[str, ...]],
+) -> None:
+    context = _revenue_change_dependency_context(tmp_path)
+    result = _result(context["outcome"], "revenue", period_ref)
+    record = context["metadata_store"].get_execution_record(result.execution_id)
+    assert record is not None
+
+    _replace_execution_record(context["metadata_store"], record.model_copy(update=record_update))
+
+    with pytest.raises(MetricExecutionError, match=REVENUE_CHANGE_DEPENDENCY_LINEAGE_MISMATCH):
+        _call_revenue_change_dependency_results(context)
+
+
+@pytest.mark.parametrize("period_ref", ("baseline", "comparison"))
+def test_revenue_change_dependency_wrong_population_id_with_plausible_fingerprint_fails_closed(
+    tmp_path,
+    period_ref: str,
+) -> None:
+    context = _revenue_change_dependency_context(tmp_path)
+    other_period_ref = "comparison" if period_ref == "baseline" else "baseline"
+    result = _result(context["outcome"], "revenue", period_ref)
+    record = context["metadata_store"].get_execution_record(result.execution_id)
+    other_population = next(
+        population
+        for population in context["plan"].population_definitions
+        if population.period.period_id == other_period_ref and population.grouping is GroupingDimension.NONE
+    )
+    assert record is not None
+
+    _replace_execution_record(
+        context["metadata_store"],
+        record.model_copy(
+            update={
+                "population_refs": (other_population.population_id,),
+                "population_fingerprints": (other_population.population_fingerprint,),
+            }
+        ),
+    )
+
+    with pytest.raises(MetricExecutionError, match=REVENUE_CHANGE_DEPENDENCY_LINEAGE_MISMATCH):
+        _call_revenue_change_dependency_results(context)
+
+
+def test_revenue_change_dependency_record_lineage_disagrees_with_authentic_result_fails_closed(tmp_path) -> None:
+    context = _revenue_change_dependency_context(tmp_path)
+    baseline_result = _result(context["outcome"], "revenue", "baseline")
+    baseline_record = context["metadata_store"].get_execution_record(baseline_result.execution_id)
+    assert baseline_record is not None
+
+    _replace_execution_record(
+        context["metadata_store"],
+        baseline_record.model_copy(update={"dataset_ref_ids": ("ds_substituted",)}),
+    )
+
+    with pytest.raises(MetricExecutionError, match=REVENUE_CHANGE_DEPENDENCY_LINEAGE_MISMATCH):
+        _call_revenue_change_dependency_results(context)
+
+
+def test_revenue_change_dependency_result_lineage_disagrees_with_authentic_record_fails_closed(tmp_path) -> None:
+    context = _revenue_change_dependency_context(tmp_path)
+    baseline_node = next(
+        node for node in context["plan"].ordered_metrics if node.metric_ref == "revenue" and node.period_refs == ("baseline",)
+    )
+    comparison_population = next(
+        population
+        for population in context["plan"].population_definitions
+        if population.period.period_id == "comparison" and population.grouping is GroupingDimension.NONE
+    )
+    baseline_result = context["result_by_node_id"][baseline_node.node_id]
+    context["result_by_node_id"][baseline_node.node_id] = baseline_result.model_copy(
+        update={"scope_ref": comparison_population.population_id}
+    )
+
+    with pytest.raises(MetricExecutionError, match="persisted artifact authority"):
+        _call_revenue_change_dependency_results(context)
+
+
+def test_revenue_change_numerically_equal_dependency_from_other_request_plan_fails_closed(tmp_path) -> None:
+    context = _revenue_change_dependency_context(tmp_path, filename="original.csv")
+    foreign = _revenue_change_dependency_context(
+        tmp_path,
+        filename="foreign.csv",
+        rows=[
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
+            _row(order_id="o3", order_date="2026-01-04", line_revenue="999.00", eligibility_status="cancelled"),
+        ],
+    )
+    baseline_node = next(
+        node for node in context["plan"].ordered_metrics if node.metric_ref == "revenue" and node.period_refs == ("baseline",)
+    )
+    original_baseline = context["result_by_node_id"][baseline_node.node_id]
+    foreign_baseline = _result(foreign["outcome"], "revenue", "baseline")
+    original_record = context["metadata_store"].get_execution_record(original_baseline.execution_id)
+    foreign_record = foreign["metadata_store"].get_execution_record(foreign_baseline.execution_id)
+    assert original_record is not None
+    assert foreign_record is not None
+    assert foreign_baseline.value == original_baseline.value
+    assert foreign["plan"].request_id != context["plan"].request_id
+
+    _replace_execution_record(
+        context["metadata_store"],
+        original_record.model_copy(
+            update={
+                "request_id": foreign_record.request_id,
+                "plan_id": foreign_record.plan_id,
+                "plan_fingerprint": foreign_record.plan_fingerprint,
+                "dataset_ref_ids": foreign_record.dataset_ref_ids,
+                "canonical_dataset_ref_ids": foreign_record.canonical_dataset_ref_ids,
+                "canonical_dataset_fingerprints": foreign_record.canonical_dataset_fingerprints,
+                "population_refs": foreign_record.population_refs,
+                "population_fingerprints": foreign_record.population_fingerprints,
+            }
+        ),
+    )
+
+    with pytest.raises(MetricExecutionError, match="request authority mismatches plan"):
+        _call_revenue_change_dependency_results(context)
+
+
+def test_revenue_change_genuine_dependency_lineage_positive_control_passes(tmp_path) -> None:
+    context = _revenue_change_dependency_context(tmp_path)
+
+    dependencies = _call_revenue_change_dependency_results(context)
+
+    assert dependencies["baseline"].value == Decimal("100.00")
+    assert dependencies["comparison"].value == Decimal("120.00")
 
 
 @pytest.mark.parametrize(
@@ -931,6 +1082,53 @@ def test_csv_xlsx_sqlite_converge_through_canonical_artifact_execution(tmp_path)
         for outcome in outcomes
     ]
     assert observed == [(Decimal("10.25"), 1, Decimal("20.50"))] * 3
+
+
+def _revenue_change_dependency_context(
+    tmp_path: Path,
+    *,
+    filename: str = "revenue_change_dependency_lineage.csv",
+    rows: list[dict[str, str]] | None = None,
+):
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("revenue_change",),
+        rows
+        or [
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
+        ],
+        filename=filename,
+    )
+    metadata_store = MetadataStore(tmp_path / f"{Path(filename).stem}_execution_registry.sqlite")
+    outcome = execute_plan(plan, canonical, store, metadata_store)
+    change_node = next(node for node in plan.ordered_metrics if node.metric_ref == "revenue_change")
+    return {
+        "plan": plan,
+        "canonical": canonical,
+        "store": store,
+        "metadata_store": metadata_store,
+        "outcome": outcome,
+        "change_node": change_node,
+        "population_by_id": {population.population_id: population for population in plan.population_definitions},
+        "result_by_node_id": {
+            node.node_id: _result(outcome, "revenue", node.period_refs[0])
+            for node in plan.ordered_metrics
+            if node.metric_ref == "revenue"
+        },
+    }
+
+
+def _call_revenue_change_dependency_results(context):
+    return _revenue_change_dependency_results(
+        context["plan"],
+        context["change_node"],
+        context["canonical"],
+        context["result_by_node_id"],
+        context["population_by_id"],
+        context["metadata_store"],
+        context["store"],
+    )
 
 
 def _execution_inputs(
