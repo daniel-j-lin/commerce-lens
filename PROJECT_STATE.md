@@ -42,7 +42,7 @@ Evidence-first Agent
 +
 controlled deterministic executor boundary
 
-This direction does not adopt an external executor adapter or MCP execution architecture. DuckDB remains the immediate MVP executor, and future commodity analytical capabilities should be reused rather than rebuilt only when evidence supports doing so.
+This direction does not adopt an external executor adapter or MCP execution architecture. DuckDB remains the current approved MVP executor, and future executor reuse must be justified by evidence.
 
 ---
 
@@ -67,11 +67,7 @@ The following remain Approved / Frozen and must not be modified without Main Pro
 
 Status:
 
-APPROVED
-
-State:
-
-FROZEN
+APPROVED / FROZEN
 
 Implemented foundation includes:
 
@@ -95,11 +91,7 @@ Phase 1 must not be reopened without a specific implementation defect or governi
 
 Status:
 
-APPROVED
-
-State:
-
-FROZEN
+APPROVED / FROZEN
 
 Implemented foundation includes:
 
@@ -155,11 +147,39 @@ ExecutionPlan
 ↓
 chain-level execution authorization
 
-Actual Metric execution:
-
-NOT YET IMPLEMENTED
+P3-001 remains the approved pre-execution foundation.
 
 P3-001 must not be reopened without a specific implementation defect or governing conflict.
+
+---
+
+### P4-001 — Revenue, Orders, and AOV Deterministic Reference Execution
+
+Status:
+
+APPROVED / FROZEN
+
+Final approved commit:
+
+f3bc5b20c77b88828c8df1248bb18152068ce02e
+
+Final verification:
+
+PASSED
+
+Final verified full suite:
+
+198 passed
+
+Implemented Metrics:
+
+- Revenue
+- Orders
+- AOV
+
+P4-001 implemented the approved DuckDB direct reference execution path for Revenue, Orders, and AOV.
+
+P4-001 must not be reopened without a specific implementation defect or governing conflict.
 
 ---
 
@@ -173,9 +193,67 @@ as the primary tabular execution engine and common canonical analytical executio
 
 This remains the authoritative production architecture unless a formally approved Architecture Amendment changes it.
 
-Current approved execution foundation:
+Current deterministic execution foundation:
 
-DuckDB
+Metric Registry
+↓
+Governed Population Definitions
+↓
+Data Sufficiency gating
+↓
+ExecutionPlan
+↓
+chain-level execution authorization
+↓
+direct DuckDB reference execution
+↓
+ExecutionRecord
+↓
+ExecutedResult
+↓
+durable persistence
+
+Current implemented Metrics:
+
+- Revenue
+- Orders
+- AOV
+
+Current implemented execution semantics include:
+
+- exact Decimal Revenue;
+- exact integer Orders;
+- governed Decimal AOV;
+- Orders = 0 → AOV Undefined;
+- explicit execution implementation bindings;
+- deterministic result fingerprints;
+- unique execution/result event IDs;
+- execution timestamps;
+- population fingerprint verification;
+- governed currency resolution;
+- durable ExecutionRecord persistence;
+- immutable ExecutedResult artifacts;
+- MetadataStore schema version 3.
+
+Actual deterministic result validation:
+
+NOT YET IMPLEMENTED
+
+ValidatedResult:
+
+NOT YET IMPLEMENTED
+
+Admissible Evidence:
+
+NOT YET IMPLEMENTED
+
+Revenue Change:
+
+NOT YET IMPLEMENTED
+
+Current approved executor:
+
+DuckDB direct reference path
 
 No external executor adapter, MCP execution architecture, or Wren production path is currently adopted.
 
@@ -256,13 +334,19 @@ Research must remain isolated from production implementation.
 
 ## Current Main-Branch Production State
 
-The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, and P3-001 deterministic pre-execution foundations.
+The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, and P4-001 deterministic reference execution for Revenue, Orders, and AOV.
 
 R-001 must not silently modify production execution architecture.
 
 Any Wren experiment should be isolated in a research boundary or separate worktree/task.
 
-Actual Metric execution is not yet implemented.
+Actual deterministic result validation is not yet implemented.
+
+ValidatedResult is not yet implemented.
+
+Admissible Evidence is not yet implemented.
+
+Revenue Change is not yet implemented.
 
 ---
 
@@ -280,17 +364,21 @@ Wren may be reconsidered later if material capabilities or project requirements 
 
 ## Next Authorized Work
 
-P3-001 is Approved / Frozen.
+P4-001 is Approved / Frozen.
 
-Actual Metric execution requires separate authorization.
+Any next implementation slice requires separate authorization.
 
 Do not begin:
 
-- Revenue production execution;
-- Orders production execution;
-- AOV production execution;
+- deterministic result validation;
+- ValidatedResult implementation;
+- Revenue Change implementation;
+- Product or Category Metric execution;
 - Contribution production execution;
-- Metric validation implementation;
+- Evidence admissibility;
+- Claim policy;
+- MCP or external executor adapters;
+- Wren production implementation;
 
 until a separate implementation task authorizes that work.
 
@@ -308,7 +396,9 @@ Codex must stop and request Main Project review before:
 - replacing DuckDB production responsibilities;
 - adopting Wren into production;
 - adding a major runtime framework or dependency;
-- beginning actual Metric execution after P3-001;
+- beginning deterministic result validation;
+- beginning Revenue Change or Contribution execution;
+- adopting MCP or external executor adapters;
 - merging a research result into the production execution path.
 
 ---
@@ -325,7 +415,7 @@ Production execution architecture:
 DuckDB per Frozen Architecture v1.0
 
 Current approved execution foundation:
-DuckDB
+DuckDB direct reference path
 
 R-001:
 COMPLETED / CLOSED
@@ -345,7 +435,34 @@ PASSED
 P3-001 final verified suite:
 161 passed
 
-Actual Metric execution:
+P4-001:
+APPROVED / FROZEN
+
+P4-001 final approved commit:
+f3bc5b20c77b88828c8df1248bb18152068ce02e
+
+P4-001 final verification:
+PASSED
+
+P4-001 final verified full suite:
+198 passed
+
+Current implemented Metrics:
+
+- Revenue
+- Orders
+- AOV
+
+Actual deterministic result validation:
+NOT YET IMPLEMENTED
+
+ValidatedResult:
+NOT YET IMPLEMENTED
+
+Admissible Evidence:
+NOT YET IMPLEMENTED
+
+Revenue Change:
 NOT YET IMPLEMENTED
 
 External executor / MCP / Wren production implementation:
