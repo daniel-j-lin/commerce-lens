@@ -183,6 +183,30 @@ P4-001 must not be reopened without a specific implementation defect or governin
 
 ---
 
+### P5-001 — Revenue, Orders, and AOV Deterministic Result Validation
+
+Status:
+
+APPROVED / FROZEN
+
+Final approved commit:
+
+136289a8455d0a2f5bd2b42ae5242012183e7c9a
+
+Final verification:
+
+PASSED
+
+Final verified full suite:
+
+227 passed
+
+P5-001 implemented deterministic result validation for Revenue, Orders, and AOV on top of the approved DuckDB direct reference execution path.
+
+P5-001 must not be reopened without a specific implementation defect or governing conflict.
+
+---
+
 ## Current Production Execution Foundation
 
 The currently Frozen Architecture specifies:
@@ -193,7 +217,7 @@ as the primary tabular execution engine and common canonical analytical executio
 
 This remains the authoritative production architecture unless a formally approved Architecture Amendment changes it.
 
-Current deterministic execution foundation:
+Current deterministic reliability foundation:
 
 Metric Registry
 ↓
@@ -210,6 +234,14 @@ direct DuckDB reference execution
 ExecutionRecord
 ↓
 ExecutedResult
+↓
+Required Validation Rules
+↓
+deterministic ValidationRecords
+↓
+complete validation bundle
+↓
+ValidatedResult
 ↓
 durable persistence
 
@@ -233,15 +265,40 @@ Current implemented execution semantics include:
 - governed currency resolution;
 - durable ExecutionRecord persistence;
 - immutable ExecutedResult artifacts;
-- MetadataStore schema version 3.
+- MetadataStore schema version 4.
 
-Actual deterministic result validation:
+Current validation authority includes:
 
-NOT YET IMPLEMENTED
+- exact Metric Registry required_validation_rule_refs;
+- narrow static validation-rule registry/equivalent;
+- one ValidationRecord per required rule;
+- required-rule completeness enforcement;
+- rule-level semantic validation fingerprints;
+- complete validation-bundle fingerprint;
+- independent Revenue recomputation;
+- independent Orders recomputation;
+- AOV validation from authentic validated Revenue and Orders dependencies;
+- exact dependency plan/node lineage enforcement;
+- persisted dependency ValidationRecord authority;
+- persisted dependency ValidatedResult artifact authority;
+- dependency validation-fingerprint verification;
+- artifact tamper detection;
+- canonical dataset integrity;
+- population fingerprint integrity;
+- failed validation persistence;
+- no ValidatedResult on failed validation;
+- MetadataStore schema version 4.
+
+Current lifecycle authority:
+
+ExecutedResult
+≠
+ValidatedResult
 
 ValidatedResult:
 
-NOT YET IMPLEMENTED
+≠
+Admissible Evidence
 
 Admissible Evidence:
 
@@ -251,11 +308,25 @@ Revenue Change:
 
 NOT YET IMPLEMENTED
 
+Evidence admissibility:
+
+NOT YET IMPLEMENTED
+
+Claim admissibility:
+
+NOT YET IMPLEMENTED
+
 Current approved executor:
 
 DuckDB direct reference path
 
-No external executor adapter, MCP execution architecture, or Wren production path is currently adopted.
+External executor / MCP feasibility:
+
+NOT YET APPROVED FOR IMPLEMENTATION
+
+Wren:
+
+NOT ADOPTED
 
 ---
 
@@ -334,17 +405,19 @@ Research must remain isolated from production implementation.
 
 ## Current Main-Branch Production State
 
-The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, and P4-001 deterministic reference execution for Revenue, Orders, and AOV.
+The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, and P5-001 deterministic result validation for Revenue, Orders, and AOV.
 
 R-001 must not silently modify production execution architecture.
 
 Any Wren experiment should be isolated in a research boundary or separate worktree/task.
 
-Actual deterministic result validation is not yet implemented.
-
-ValidatedResult is not yet implemented.
+Deterministic result validation and ValidatedResult persistence are implemented for Revenue, Orders, and AOV.
 
 Admissible Evidence is not yet implemented.
+
+Evidence admissibility is not yet implemented.
+
+Claim admissibility is not yet implemented.
 
 Revenue Change is not yet implemented.
 
@@ -364,14 +437,12 @@ Wren may be reconsidered later if material capabilities or project requirements 
 
 ## Next Authorized Work
 
-P4-001 is Approved / Frozen.
+P5-001 is Approved / Frozen.
 
 Any next implementation slice requires separate authorization.
 
 Do not begin:
 
-- deterministic result validation;
-- ValidatedResult implementation;
 - Revenue Change implementation;
 - Product or Category Metric execution;
 - Contribution production execution;
@@ -396,7 +467,8 @@ Codex must stop and request Main Project review before:
 - replacing DuckDB production responsibilities;
 - adopting Wren into production;
 - adding a major runtime framework or dependency;
-- beginning deterministic result validation;
+- beginning Evidence admissibility;
+- beginning Claim admissibility;
 - beginning Revenue Change or Contribution execution;
 - adopting MCP or external executor adapters;
 - merging a research result into the production execution path.
@@ -447,23 +519,101 @@ PASSED
 P4-001 final verified full suite:
 198 passed
 
+P5-001:
+APPROVED / FROZEN
+
+P5-001 final approved commit:
+136289a8455d0a2f5bd2b42ae5242012183e7c9a
+
+P5-001 final verification:
+PASSED
+
+P5-001 final verified full suite:
+227 passed
+
+Current deterministic reliability foundation:
+
+Metric Registry
+↓
+Governed Population Definitions
+↓
+Data Sufficiency gating
+↓
+ExecutionPlan
+↓
+chain-level execution authorization
+↓
+direct DuckDB reference execution
+↓
+ExecutionRecord
+↓
+ExecutedResult
+↓
+Required Validation Rules
+↓
+deterministic ValidationRecords
+↓
+complete validation bundle
+↓
+ValidatedResult
+↓
+durable persistence
+
 Current implemented Metrics:
 
 - Revenue
 - Orders
 - AOV
 
-Actual deterministic result validation:
-NOT YET IMPLEMENTED
+Current validation authority includes:
 
-ValidatedResult:
-NOT YET IMPLEMENTED
+- exact Metric Registry required_validation_rule_refs;
+- narrow static validation-rule registry/equivalent;
+- one ValidationRecord per required rule;
+- required-rule completeness enforcement;
+- rule-level semantic validation fingerprints;
+- complete validation-bundle fingerprint;
+- independent Revenue recomputation;
+- independent Orders recomputation;
+- AOV validation from authentic validated Revenue and Orders dependencies;
+- exact dependency plan/node lineage enforcement;
+- persisted dependency ValidationRecord authority;
+- persisted dependency ValidatedResult artifact authority;
+- dependency validation-fingerprint verification;
+- artifact tamper detection;
+- canonical dataset integrity;
+- population fingerprint integrity;
+- failed validation persistence;
+- no ValidatedResult on failed validation;
+- MetadataStore schema version 4.
+
+Current lifecycle authority:
+
+ExecutedResult
+≠
+ValidatedResult
+
+ValidatedResult
+≠
+Admissible Evidence
 
 Admissible Evidence:
+NOT YET IMPLEMENTED
+
+Evidence admissibility:
+NOT YET IMPLEMENTED
+
+Claim admissibility:
 NOT YET IMPLEMENTED
 
 Revenue Change:
 NOT YET IMPLEMENTED
 
-External executor / MCP / Wren production implementation:
-NOT IMPLEMENTED
+Current approved executor:
+DuckDB direct reference path
+
+External executor / MCP feasibility:
+NOT YET APPROVED FOR IMPLEMENTATION
+
+Wren:
+NOT ADOPTED
