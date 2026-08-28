@@ -27,6 +27,7 @@ from commerce_lens.evidence.identifiers import canonical_json_fingerprint, gener
 from commerce_lens.metrics.registry import get_metric_registry
 from commerce_lens.persistence.artifact_store import ArtifactStore
 from commerce_lens.persistence.metadata_store import MetadataStore
+from commerce_lens.validation.rules import ValidationRuleDefinition, require_p5_rule
 
 
 VALIDATOR_ID = "commerce_lens_p5_deterministic_validator"
@@ -50,6 +51,8 @@ class MetricValidationError(ValueError):
         operation: dict[str, Any] | None = None,
         expected_value: Decimal | int | float | bool | str | None = None,
         expected_state: MetricState | None = None,
+        validation_rule_id: str | None = None,
+        validation_version: str | None = None,
     ) -> None:
         super().__init__(reason)
         self.failure_code = failure_code
@@ -58,16 +61,30 @@ class MetricValidationError(ValueError):
         self.operation = operation or {"method": "fail_closed", "reason": failure_code}
         self.expected_value = expected_value
         self.expected_state = expected_state
+        self.validation_rule_id = validation_rule_id
+        self.validation_version = validation_version
 
 
 @dataclass(frozen=True)
 class ValidationOutcome:
     validation_record: ValidationRecord
+    validation_records: tuple[ValidationRecord, ...]
     validated_result: ValidatedResult | None
 
 
 @dataclass(frozen=True)
+class _RuleEvaluation:
+    rule: ValidationRuleDefinition
+    operation: dict[str, Any]
+    checks_performed: tuple[str, ...]
+    expected_value: Decimal | int | float | bool | str | None = None
+    expected_state: MetricState | None = None
+    expected_constraint: str = "P5-001 required validation rule passed"
+
+
+@dataclass(frozen=True)
 class _ValidationContext:
+    plan: ExecutionPlan
     execution_record: ExecutionRecord
     executed_result: ExecutedResult
     result_artifact: ArtifactReference
@@ -75,6 +92,8 @@ class _ValidationContext:
     population: PopulationDefinition
     canonical_dataset: CanonicalDatasetReference
     canonical_path: Path
+    artifact_store: ArtifactStore
+    metadata_store: MetadataStore
     duckdb_version: str
     checks_performed: tuple[str, ...]
 
@@ -112,69 +131,81 @@ def validate_executed_result(
         actual_state = context.executed_result.metric_state
         metric_ref = context.executed_result.metric_ref
         lineage = _lineage_payload(context)
-        expected_value, expected_state, operation, checks = _validate_metric_value(
+        evaluations = _evaluate_required_rules(
             context,
             dependency_validated_results,
         )
-        validation_fingerprint = _validation_fingerprint(
+        validation_ids = tuple(generate_id("val") for _ in evaluations)
+        rule_fingerprints = tuple(
+            _rule_validation_fingerprint(
+                context=context,
+                rule=evaluation.rule,
+                operation=evaluation.operation,
+                checks=evaluation.checks_performed,
+                expected_value=evaluation.expected_value,
+                expected_state=evaluation.expected_state,
+                status=ValidationStatus.PASSED,
+                failure_code=None,
+            )
+            for evaluation in evaluations
+        )
+        bundle_fingerprint = _bundle_validation_fingerprint(
             context,
-            expected_value=expected_value,
-            expected_state=expected_state,
-            status=ValidationStatus.PASSED,
-            failure_code=None,
+            required_rule_ids=tuple(evaluation.rule.rule_id for evaluation in evaluations),
+            rule_validation_fingerprints=rule_fingerprints,
+            intended_use="deterministic_metric_result_validation",
         )
         validated_result = _validated_result(
             context,
-            validation_id="",
-            validation_fingerprint=validation_fingerprint,
-        )
-        validation_id = generate_id("val")
-        validated_result = validated_result.model_copy(
-            update={
-                "validation_record_id": validation_id,
-                "required_validation_record_ids": (validation_id,),
-            }
+            validation_record_ids=validation_ids,
+            validation_fingerprint=bundle_fingerprint,
         )
         artifact = _persist_validated_result(validated_result, artifact_store, metadata_store)
         ended_at = utc_now()
-        record = ValidationRecord(
-            validation_id=validation_id,
-            execution_id=context.execution_record.execution_id,
-            target_result_ref=context.executed_result.result_id,
-            validation_rule_id=_validation_rule_id(context.executed_result.metric_ref),
-            validation_version=VALIDATOR_VERSION,
-            result_fingerprint=context.executed_result.result_fingerprint,
-            validator_id=VALIDATOR_ID,
-            validator_version=VALIDATOR_VERSION,
-            validation_operation=operation,
-            checks_performed=checks,
-            expected_value=expected_value,
-            expected_state=expected_state,
-            actual_value=context.executed_result.value,
-            actual_state=context.executed_result.metric_state,
-            status=ValidationStatus.PASSED,
-            observed=context.executed_result.model_dump(mode="json"),
-            expected_constraint="all P5-001 deterministic validation checks pass",
-            authoritative_precision=context.executed_result.precision,
-            metric_ref=context.executed_result.metric_ref,
-            started_at=started_at,
-            ended_at=ended_at,
-            validated_at=ended_at,
-            validated_result_ref=validated_result.validated_result_id,
-            validated_result_artifact_ref=artifact,
-            validation_fingerprint=validation_fingerprint,
-            **lineage,
+        records = tuple(
+            ValidationRecord(
+                validation_id=validation_id,
+                execution_id=context.execution_record.execution_id,
+                target_result_ref=context.executed_result.result_id,
+                validation_rule_id=evaluation.rule.rule_id,
+                validation_version=evaluation.rule.rule_version,
+                result_fingerprint=context.executed_result.result_fingerprint,
+                validator_id=VALIDATOR_ID,
+                validator_version=VALIDATOR_VERSION,
+                validation_operation=evaluation.operation,
+                checks_performed=evaluation.checks_performed,
+                expected_value=evaluation.expected_value,
+                expected_state=evaluation.expected_state,
+                actual_value=context.executed_result.value,
+                actual_state=context.executed_result.metric_state,
+                status=ValidationStatus.PASSED,
+                observed=context.executed_result.model_dump(mode="json"),
+                expected_constraint=evaluation.expected_constraint,
+                authoritative_precision=context.executed_result.precision,
+                metric_ref=context.executed_result.metric_ref,
+                started_at=started_at,
+                ended_at=ended_at,
+                validated_at=ended_at,
+                validated_result_ref=validated_result.validated_result_id,
+                validated_result_artifact_ref=artifact,
+                validation_fingerprint=rule_fingerprint,
+                **lineage,
+            )
+            for validation_id, evaluation, rule_fingerprint in zip(validation_ids, evaluations, rule_fingerprints)
         )
-        metadata_store.insert_validation_record(record)
-        return ValidationOutcome(validation_record=record, validated_result=validated_result)
+        for record in records:
+            metadata_store.insert_validation_record(record)
+        return ValidationOutcome(validation_record=records[0], validation_records=records, validated_result=validated_result)
     except MetricValidationError as exc:
         ended_at = utc_now()
+        rule_id = exc.validation_rule_id or _validation_rule_id(metric_ref)
+        validation_version = exc.validation_version or VALIDATOR_VERSION
         record = ValidationRecord(
             validation_id=generate_id("val"),
             execution_id=execution_id,
             target_result_ref=result_id,
-            validation_rule_id=_validation_rule_id(metric_ref),
-            validation_version=VALIDATOR_VERSION,
+            validation_rule_id=rule_id,
+            validation_version=validation_version,
             validator_id=VALIDATOR_ID,
             validator_version=VALIDATOR_VERSION,
             validation_operation=exc.operation,
@@ -205,7 +236,7 @@ def validate_executed_result(
             **lineage,
         )
         metadata_store.insert_validation_record(record)
-        return ValidationOutcome(validation_record=record, validated_result=None)
+        return ValidationOutcome(validation_record=record, validation_records=(record,), validated_result=None)
 
 
 def _load_and_validate_context(
@@ -254,6 +285,7 @@ def _load_and_validate_context(
     _validate_result_fingerprint(node, population, canonical_dataset, execution_record, executed_result)
     checks.append("result_fingerprint_matches")
     return _ValidationContext(
+        plan=plan,
         execution_record=execution_record,
         executed_result=executed_result,
         result_artifact=result_artifact,
@@ -261,6 +293,8 @@ def _load_and_validate_context(
         population=population,
         canonical_dataset=canonical_dataset,
         canonical_path=canonical_path,
+        artifact_store=artifact_store,
+        metadata_store=metadata_store,
         duckdb_version=str(duckdb.__version__),
         checks_performed=tuple(checks),
     )
@@ -318,6 +352,16 @@ def _validate_registry_authority(
     expected_dependencies = tuple(dependency.metric_id for dependency in definition.dependencies)
     if tuple(node.dependency_metric_refs) != expected_dependencies:
         raise MetricValidationError("metric_dependency_mismatch", "plan node dependency Metric refs do not match Registry")
+    if tuple(node.required_validation_rule_refs) != tuple(definition.required_validation_rule_refs):
+        raise MetricValidationError(
+            "required_validation_rule_refs_mismatch",
+            "PlanMetricNode required validation rule refs do not match Metric Registry authority",
+        )
+    for rule_id in definition.required_validation_rule_refs:
+        try:
+            require_p5_rule(rule_id, executed_result.metric_ref)
+        except KeyError as exc:
+            raise MetricValidationError("unknown_required_validation_rule", str(exc)) from exc
     if executed_result.metric_ref in {"revenue", "orders"} and node.dependency_node_ids:
         raise MetricValidationError("metric_dependency_mismatch", "base Metric validation expected no dependency nodes")
     if executed_result.metric_ref == "aov" and set(expected_dependencies) != {"revenue", "orders"}:
@@ -419,33 +463,46 @@ def _validate_result_fingerprint(
         raise MetricValidationError("result_fingerprint_mismatch", "ExecutedResult result fingerprint does not match authoritative P4 fingerprint")
 
 
-def _validate_metric_value(
+def _evaluate_required_rules(
     context: _ValidationContext,
     dependency_validated_results: tuple[ValidatedResult, ...],
-) -> tuple[Decimal | int | None, MetricState, dict[str, Any], tuple[str, ...]]:
-    metric_ref = context.executed_result.metric_ref
-    if metric_ref == "revenue":
-        return _validate_revenue(context)
-    if metric_ref == "orders":
-        return _validate_orders(context)
-    if metric_ref == "aov":
-        return _validate_aov(context, dependency_validated_results)
-    raise MetricValidationError("unsupported_metric", f"unsupported P5-001 Metric validation: {metric_ref}")
+) -> tuple[_RuleEvaluation, ...]:
+    definition = get_metric_registry().require(context.executed_result.metric_ref)
+    evaluations: list[_RuleEvaluation] = []
+    for rule_id in definition.required_validation_rule_refs:
+        rule = require_p5_rule(rule_id, context.executed_result.metric_ref)
+        try:
+            if rule.evaluator == "_evaluate_revenue_sum":
+                evaluations.append(_evaluate_revenue_sum(context, rule))
+            elif rule.evaluator == "_evaluate_revenue_currency_consistency":
+                evaluations.append(_evaluate_revenue_currency_consistency(context, rule))
+            elif rule.evaluator == "_evaluate_population_consistency":
+                evaluations.append(_evaluate_population_consistency(context, rule))
+            elif rule.evaluator == "_evaluate_distinct_order_count":
+                evaluations.append(_evaluate_distinct_order_count(context, rule))
+            elif rule.evaluator == "_evaluate_aov_from_revenue_orders":
+                evaluations.append(_evaluate_aov_from_revenue_orders(context, rule, dependency_validated_results))
+            else:
+                raise MetricValidationError("unknown_required_validation_rule", f"unsupported P5-001 evaluator: {rule.evaluator}")
+        except MetricValidationError as exc:
+            if exc.validation_rule_id is None:
+                exc.validation_rule_id = rule.rule_id
+            if exc.validation_version is None:
+                exc.validation_version = rule.rule_version
+            raise
+    return tuple(evaluations)
 
 
-def _validate_revenue(context: _ValidationContext) -> tuple[Decimal, MetricState, dict[str, Any], tuple[str, ...]]:
+def _evaluate_revenue_sum(context: _ValidationContext, rule: ValidationRuleDefinition) -> _RuleEvaluation:
     result = context.executed_result
     operation = _operation("revenue_sum", context, "SUM(line_revenue)")
-    checks = (*context.checks_performed, "revenue_type_decimal", "revenue_currency_matches", "revenue_independent_sum_matches")
+    checks = (*context.checks_performed, "revenue_type_decimal", "revenue_state_valid", "revenue_precision_policy_matches", "revenue_independent_sum_matches")
     if not isinstance(result.value, Decimal) or isinstance(result.value, bool):
         raise MetricValidationError("invalid_revenue_type", "Revenue value must be Decimal", checks_performed=checks, operation=operation, expected_state=MetricState.VALID)
     if not result.value.is_finite():
         raise MetricValidationError("invalid_revenue_value", "Revenue value must be finite Decimal", checks_performed=checks, operation=operation, expected_state=MetricState.VALID)
-    expected_currency = _resolve_governed_currency(context.population, context.canonical_path)
     if result.metric_state is not MetricState.VALID:
         raise MetricValidationError("invalid_metric_state", "Revenue must use MetricState.VALID", checks_performed=checks, operation=operation, expected_state=MetricState.VALID)
-    if result.currency != expected_currency or context.execution_record.resolved_currency != expected_currency:
-        raise MetricValidationError("currency_mismatch", "Revenue currency does not match governed currency", checks_performed=checks, operation=operation, expected_state=MetricState.VALID)
     if result.precision != "exact_decimal" or result.precision_metadata != {"precision_policy": "exact_decimal"} or result.unit != "money":
         raise MetricValidationError("precision_policy_mismatch", "Revenue precision metadata does not match governed exact Decimal policy", checks_performed=checks, operation=operation, expected_state=MetricState.VALID)
     sql, params = _aggregate_sql("SELECT SUM(line_revenue) AS expected_value", context.population, context.canonical_path)
@@ -457,10 +514,57 @@ def _validate_revenue(context: _ValidationContext) -> tuple[Decimal, MetricState
     operation = _operation("revenue_sum", context, sql, params)
     if result.value != expected:
         raise MetricValidationError("value_mismatch", "Revenue value does not match independent validation sum", checks_performed=checks, operation=operation, expected_value=expected, expected_state=MetricState.VALID)
-    return expected, MetricState.VALID, operation, checks
+    return _RuleEvaluation(rule=rule, operation=operation, checks_performed=checks, expected_value=expected, expected_state=MetricState.VALID)
 
 
-def _validate_orders(context: _ValidationContext) -> tuple[int, MetricState, dict[str, Any], tuple[str, ...]]:
+def _evaluate_revenue_currency_consistency(context: _ValidationContext, rule: ValidationRuleDefinition) -> _RuleEvaluation:
+    operation = _operation("currency_consistency", context, "governed currency basis matches result currency")
+    checks = (*context.checks_performed, "governed_currency_resolved", "revenue_currency_matches")
+    expected_currency = _resolve_governed_currency(context.population, context.canonical_path)
+    if context.executed_result.currency != expected_currency or context.execution_record.resolved_currency != expected_currency:
+        raise MetricValidationError(
+            "currency_mismatch",
+            "Revenue currency does not match governed currency",
+            checks_performed=checks,
+            operation=operation,
+            expected_value=expected_currency,
+            expected_state=MetricState.VALID,
+        )
+    operation = {**operation, "expected_currency": expected_currency}
+    return _RuleEvaluation(
+        rule=rule,
+        operation=operation,
+        checks_performed=checks,
+        expected_value=expected_currency,
+        expected_state=MetricState.VALID,
+        expected_constraint="Revenue currency matches governed currency authority",
+    )
+
+
+def _evaluate_population_consistency(context: _ValidationContext, rule: ValidationRuleDefinition) -> _RuleEvaluation:
+    operation = _operation("population_consistency", context, "P3/P5 population, period, dataset, and result fingerprint integrity")
+    checks = tuple(
+        check
+        for check in context.checks_performed
+        if check
+        in {
+            "metric_registry_authority_matches",
+            "plan_node_linkage_matches",
+            "population_identity_matches",
+            "canonical_dataset_identity_matches",
+            "result_fingerprint_matches",
+        }
+    )
+    return _RuleEvaluation(
+        rule=rule,
+        operation=operation,
+        checks_performed=checks,
+        expected_state=context.executed_result.metric_state,
+        expected_constraint="governed population and canonical dataset lineage match the ExecutedResult",
+    )
+
+
+def _evaluate_distinct_order_count(context: _ValidationContext, rule: ValidationRuleDefinition) -> _RuleEvaluation:
     result = context.executed_result
     operation = _operation("orders_distinct_count", context, "COUNT(DISTINCT order_id)")
     checks = (*context.checks_performed, "orders_type_int_not_bool", "orders_non_negative", "orders_independent_distinct_count_matches")
@@ -479,15 +583,16 @@ def _validate_orders(context: _ValidationContext) -> tuple[int, MetricState, dic
     operation = _operation("orders_distinct_count", context, sql, params)
     if result.value != expected:
         raise MetricValidationError("value_mismatch", "Orders value does not match independent validation distinct count", checks_performed=checks, operation=operation, expected_value=expected, expected_state=MetricState.VALID)
-    return expected, MetricState.VALID, operation, checks
+    return _RuleEvaluation(rule=rule, operation=operation, checks_performed=checks, expected_value=expected, expected_state=MetricState.VALID)
 
 
-def _validate_aov(
+def _evaluate_aov_from_revenue_orders(
     context: _ValidationContext,
+    rule: ValidationRuleDefinition,
     dependency_validated_results: tuple[ValidatedResult, ...],
-) -> tuple[Decimal | None, MetricState, dict[str, Any], tuple[str, ...]]:
+) -> _RuleEvaluation:
     result = context.executed_result
-    operation = _operation("aov_from_validated_dependencies", context, "validated_revenue / validated_orders")
+    operation = _operation("aov_from_revenue_orders", context, "validated_revenue / validated_orders")
     checks = (
         *context.checks_performed,
         "aov_dependencies_validated",
@@ -510,10 +615,16 @@ def _validate_aov(
         raise MetricValidationError("precision_policy_mismatch", "AOV calculation-policy metadata does not match governed policy", checks_performed=checks, operation=operation)
     if not isinstance(revenue.value, Decimal) or not isinstance(orders.value, int) or isinstance(orders.value, bool):
         raise MetricValidationError("dependency_type_mismatch", "AOV dependencies must be validated Decimal Revenue and integer Orders", checks_performed=checks, operation=operation)
+    operation = {
+        **operation,
+        "revenue_validated_result_ref": revenue.validated_result_id,
+        "orders_validated_result_ref": orders.validated_result_id,
+        "calculation_policy": _aov_calculation_policy_metadata(),
+    }
     if orders.value == 0:
         if result.value is not None or result.metric_state is not MetricState.UNDEFINED or result.undefined_reason != "orders_equals_zero":
             raise MetricValidationError("aov_undefined_mismatch", "Orders=0 requires AOV Undefined with value None and orders_equals_zero", checks_performed=checks, operation=operation, expected_value=None, expected_state=MetricState.UNDEFINED)
-        return None, MetricState.UNDEFINED, operation, checks
+        return _RuleEvaluation(rule=rule, operation=operation, checks_performed=checks, expected_value=None, expected_state=MetricState.UNDEFINED)
     if result.metric_state is not MetricState.VALID or result.undefined_reason is not None:
         raise MetricValidationError("invalid_metric_state", "Orders>0 requires Valid AOV with no undefined_reason", checks_performed=checks, operation=operation, expected_state=MetricState.VALID)
     if not isinstance(result.value, Decimal) or isinstance(result.value, bool):
@@ -524,15 +635,9 @@ def _validate_aov(
         decimal_context.prec = AOV_DECIMAL_PRECISION
         decimal_context.rounding = AOV_DECIMAL_ROUNDING
         expected = revenue.value / Decimal(orders.value)
-    operation = {
-        **operation,
-        "revenue_validated_result_ref": revenue.validated_result_id,
-        "orders_validated_result_ref": orders.validated_result_id,
-        "calculation_policy": _aov_calculation_policy_metadata(),
-    }
     if result.value != expected:
         raise MetricValidationError("value_mismatch", "AOV value does not match validated Revenue / Orders", checks_performed=checks, operation=operation, expected_value=expected, expected_state=MetricState.VALID)
-    return expected, MetricState.VALID, operation, checks
+    return _RuleEvaluation(rule=rule, operation=operation, checks_performed=checks, expected_value=expected, expected_state=MetricState.VALID)
 
 
 def _aov_dependencies(
@@ -541,11 +646,17 @@ def _aov_dependencies(
     checks: tuple[str, ...],
     operation: dict[str, Any],
 ) -> dict[str, ValidatedResult]:
+    dependency_nodes = _aov_dependency_nodes(context)
     dependencies = {result.metric_ref: result for result in dependency_validated_results}
     if set(dependencies) != {"revenue", "orders"}:
         raise MetricValidationError("missing_validated_dependency", "AOV validation requires successful validated Revenue and Orders dependencies", checks_performed=checks, operation=operation)
     for metric_ref in ("revenue", "orders"):
         dependency = dependencies[metric_ref]
+        governed_node = dependency_nodes[metric_ref]
+        if dependency.plan_id != context.plan.plan_id:
+            raise MetricValidationError("dependency_plan_mismatch", "AOV dependency plan_id does not match governed ExecutionPlan", checks_performed=checks, operation=operation)
+        if dependency.plan_node_id != governed_node.node_id:
+            raise MetricValidationError("dependency_plan_node_mismatch", "AOV dependency plan_node_id does not match the governed dependency node", checks_performed=checks, operation=operation)
         if dependency.metric_definition_version != get_metric_registry().require(metric_ref).definition_version:
             raise MetricValidationError("dependency_metric_version_mismatch", "AOV dependency Metric version does not match Registry", checks_performed=checks, operation=operation)
         if dependency.canonical_dataset_ref_id != context.canonical_dataset.canonical_dataset_id:
@@ -562,7 +673,131 @@ def _aov_dependencies(
             raise MetricValidationError("dependency_currency_mismatch", "AOV Revenue dependency currency does not match AOV currency", checks_performed=checks, operation=operation)
         if metric_ref == "orders" and dependency.currency is not None:
             raise MetricValidationError("dependency_currency_mismatch", "AOV Orders dependency must not carry currency", checks_performed=checks, operation=operation)
+        _verify_dependency_validation_bundle(context, dependency, checks, operation)
     return dependencies
+
+
+def _aov_dependency_nodes(context: _ValidationContext) -> dict[str, PlanMetricNode]:
+    if len(context.node.dependency_node_ids) != 2:
+        raise MetricValidationError("metric_dependency_mismatch", "AOV requires exactly two governed dependency nodes")
+    node_by_id = {node.node_id: node for node in context.plan.ordered_metrics}
+    dependencies: dict[str, PlanMetricNode] = {}
+    for dependency_node_id in context.node.dependency_node_ids:
+        node = node_by_id.get(dependency_node_id)
+        if node is None:
+            raise MetricValidationError("metric_dependency_mismatch", "AOV dependency node does not exist in supplied ExecutionPlan")
+        if node.metric_ref in dependencies:
+            raise MetricValidationError("metric_dependency_mismatch", "AOV dependency nodes must contain one Revenue node and one Orders node")
+        dependencies[node.metric_ref] = node
+    if set(dependencies) != {"revenue", "orders"}:
+        raise MetricValidationError("metric_dependency_mismatch", "AOV dependency nodes must contain one Revenue node and one Orders node")
+    return dependencies
+
+
+def _verify_dependency_validation_bundle(
+    context: _ValidationContext,
+    dependency: ValidatedResult,
+    checks: tuple[str, ...],
+    operation: dict[str, Any],
+) -> None:
+    definition = get_metric_registry().require(dependency.metric_ref)
+    required_rule_ids = definition.required_validation_rule_refs
+    if len(dependency.required_validation_record_ids) != len(required_rule_ids):
+        raise MetricValidationError("dependency_required_validation_incomplete", "dependency does not reference every required ValidationRecord", checks_performed=checks, operation=operation)
+    records: list[ValidationRecord] = []
+    artifact: ArtifactReference | None = None
+    for record_id, rule_id in zip(dependency.required_validation_record_ids, required_rule_ids):
+        record = context.metadata_store.get_validation_record(record_id)
+        if record is None:
+            raise MetricValidationError("dependency_validation_record_missing", "dependency required ValidationRecord does not exist", checks_performed=checks, operation=operation)
+        records.append(record)
+        _verify_dependency_validation_record(dependency, record, rule_id, checks, operation)
+        if artifact is None:
+            artifact = record.validated_result_artifact_ref
+        elif artifact != record.validated_result_artifact_ref:
+            raise MetricValidationError("dependency_validated_result_artifact_mismatch", "dependency ValidationRecords do not reference one persisted ValidatedResult artifact", checks_performed=checks, operation=operation)
+    if tuple(record.validation_rule_id for record in records) != required_rule_ids:
+        raise MetricValidationError("dependency_required_validation_wrong_rules", "dependency ValidationRecords do not match required Metric Registry rule IDs", checks_performed=checks, operation=operation)
+    if dependency.validation_record_id != dependency.required_validation_record_ids[0]:
+        raise MetricValidationError("dependency_validation_bundle_mismatch", "dependency primary ValidationRecord is not the deterministic governing record", checks_performed=checks, operation=operation)
+    if artifact is None:
+        raise MetricValidationError("dependency_validated_result_artifact_missing", "dependency has no persisted ValidatedResult artifact authority", checks_performed=checks, operation=operation)
+    restored = _load_persisted_dependency_validated_result(artifact, context.artifact_store, context.metadata_store, checks, operation)
+    if restored != dependency:
+        if (
+            restored.validation_fingerprint != dependency.validation_fingerprint
+            and restored.model_copy(update={"validation_fingerprint": dependency.validation_fingerprint}) == dependency
+        ):
+            raise MetricValidationError("dependency_validation_fingerprint_mismatch", "supplied dependency validation fingerprint does not match persisted artifact authority", checks_performed=checks, operation=operation)
+        raise MetricValidationError("dependency_validated_result_artifact_mismatch", "supplied dependency ValidatedResult does not equal persisted artifact content", checks_performed=checks, operation=operation)
+    expected_bundle = _bundle_validation_fingerprint_from_validated_result(
+        dependency,
+        required_rule_ids=required_rule_ids,
+        rule_validation_fingerprints=tuple(record.validation_fingerprint or "" for record in records),
+    )
+    if dependency.validation_fingerprint != expected_bundle:
+        raise MetricValidationError("dependency_validation_fingerprint_mismatch", "dependency ValidatedResult validation fingerprint is not authentic", checks_performed=checks, operation=operation)
+
+
+def _verify_dependency_validation_record(
+    dependency: ValidatedResult,
+    record: ValidationRecord,
+    expected_rule_id: str,
+    checks: tuple[str, ...],
+    operation: dict[str, Any],
+) -> None:
+    rule = require_p5_rule(expected_rule_id, dependency.metric_ref)
+    if record.status is not ValidationStatus.PASSED:
+        raise MetricValidationError("dependency_validation_record_failed", "dependency required ValidationRecord did not pass", checks_performed=checks, operation=operation)
+    if record.validation_rule_id != expected_rule_id:
+        raise MetricValidationError("dependency_required_validation_wrong_rules", "dependency ValidationRecord rule ID does not match required rule", checks_performed=checks, operation=operation)
+    if record.validation_version != rule.rule_version:
+        raise MetricValidationError("dependency_validation_record_version_mismatch", "dependency ValidationRecord version does not match rule authority", checks_performed=checks, operation=operation)
+    expected_fields = {
+        "execution_id": dependency.execution_id,
+        "target_result_ref": dependency.executed_result_id,
+        "metric_ref": dependency.metric_ref,
+        "metric_definition_version": dependency.metric_definition_version,
+        "plan_id": dependency.plan_id,
+        "plan_node_id": dependency.plan_node_id,
+        "canonical_dataset_ref_id": dependency.canonical_dataset_ref_id,
+        "canonical_dataset_fingerprint": dependency.canonical_dataset_fingerprint,
+        "population_ref": dependency.population_ref,
+        "population_fingerprint": dependency.population_fingerprint,
+        "period_ref": dependency.period_ref,
+        "period_role": dependency.period_role,
+        "result_fingerprint": dependency.result_fingerprint,
+        "validated_result_ref": dependency.validated_result_id,
+    }
+    for field_name, expected in expected_fields.items():
+        if getattr(record, field_name) != expected:
+            raise MetricValidationError("dependency_validation_record_lineage_mismatch", "dependency ValidationRecord lineage does not match ValidatedResult", checks_performed=checks, operation=operation)
+    if record.validated_result_artifact_ref is None:
+        raise MetricValidationError("dependency_validated_result_artifact_missing", "dependency ValidationRecord does not reference a ValidatedResult artifact", checks_performed=checks, operation=operation)
+    expected_fingerprint = _rule_validation_fingerprint_from_record(record)
+    if record.validation_fingerprint != expected_fingerprint:
+        raise MetricValidationError("dependency_validation_record_fingerprint_mismatch", "dependency ValidationRecord rule fingerprint is not authentic", checks_performed=checks, operation=operation)
+
+
+def _load_persisted_dependency_validated_result(
+    artifact: ArtifactReference,
+    artifact_store: ArtifactStore,
+    metadata_store: MetadataStore,
+    checks: tuple[str, ...],
+    operation: dict[str, Any],
+) -> ValidatedResult:
+    persisted_artifact = metadata_store.get_artifact_reference(artifact.artifact_id)
+    if persisted_artifact != artifact:
+        raise MetricValidationError("dependency_validated_result_artifact_missing", "dependency ValidatedResult artifact reference is missing or mismatched", checks_performed=checks, operation=operation)
+    path = artifact_store.safe_path(artifact.path)
+    if not path.is_file():
+        raise MetricValidationError("dependency_validated_result_artifact_missing", "dependency ValidatedResult artifact is missing", checks_performed=checks, operation=operation)
+    if artifact.fingerprint is None or sha256_file(path) != artifact.fingerprint:
+        raise MetricValidationError("dependency_validated_result_artifact_hash_mismatch", "dependency ValidatedResult artifact hash does not match metadata", checks_performed=checks, operation=operation)
+    try:
+        return ValidatedResult.model_validate_json(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise MetricValidationError("dependency_validated_result_artifact_schema_invalid", f"dependency ValidatedResult artifact is schema-invalid: {exc}", checks_performed=checks, operation=operation) from exc
 
 
 def _aggregate_sql(
@@ -693,15 +928,15 @@ def _operation(
 def _validated_result(
     context: _ValidationContext,
     *,
-    validation_id: str,
+    validation_record_ids: tuple[str, ...],
     validation_fingerprint: str,
 ) -> ValidatedResult:
     return ValidatedResult(
         validated_result_id=generate_id("valres"),
-        validation_record_id=validation_id or "pending_validation_record_id",
+        validation_record_id=validation_record_ids[0],
         execution_id=context.execution_record.execution_id,
         executed_result_id=context.executed_result.result_id,
-        required_validation_record_ids=(validation_id or "pending_validation_record_id",),
+        required_validation_record_ids=validation_record_ids,
         intended_use="deterministic_metric_result_validation",
         metric_ref=context.executed_result.metric_ref,
         metric_definition_version=context.node.metric_version,
@@ -742,11 +977,14 @@ def _persist_validated_result(
     return artifact
 
 
-def _validation_fingerprint(
+def _rule_validation_fingerprint(
     context: _ValidationContext,
     *,
+    rule: ValidationRuleDefinition,
+    operation: dict[str, Any],
+    checks: tuple[str, ...],
     expected_value: Decimal | int | None,
-    expected_state: MetricState,
+    expected_state: MetricState | None,
     status: ValidationStatus,
     failure_code: str | None,
 ) -> str:
@@ -754,7 +992,8 @@ def _validation_fingerprint(
         {
             "validator_id": VALIDATOR_ID,
             "validator_version": VALIDATOR_VERSION,
-            "validation_rule_id": _validation_rule_id(context.executed_result.metric_ref),
+            "validation_rule_id": rule.rule_id,
+            "validation_rule_version": rule.rule_version,
             "status": status.value,
             "failure_code": failure_code,
             "metric_ref": context.executed_result.metric_ref,
@@ -764,9 +1003,11 @@ def _validation_fingerprint(
             "canonical_dataset_fingerprint": context.canonical_dataset.content_fingerprint,
             "population_ref": context.population.population_id,
             "population_fingerprint": context.population.population_fingerprint,
-            "expected_value": str(expected_value) if isinstance(expected_value, Decimal) else expected_value,
-            "expected_state": expected_state.value,
-            "actual_value": str(context.executed_result.value) if isinstance(context.executed_result.value, Decimal) else context.executed_result.value,
+            "checks_performed": checks,
+            "operation": operation,
+            "expected_value": _json_scalar(expected_value),
+            "expected_state": expected_state.value if expected_state else None,
+            "actual_value": _json_scalar(context.executed_result.value),
             "actual_state": context.executed_result.metric_state.value,
             "precision": context.executed_result.precision,
             "precision_metadata": context.executed_result.precision_metadata,
@@ -774,6 +1015,105 @@ def _validation_fingerprint(
             "currency": context.executed_result.currency,
         }
     )
+
+
+def _rule_validation_fingerprint_from_record(record: ValidationRecord) -> str:
+    return canonical_json_fingerprint(
+        {
+            "validator_id": record.validator_id,
+            "validator_version": record.validator_version,
+            "validation_rule_id": record.validation_rule_id,
+            "validation_rule_version": record.validation_version,
+            "status": record.status.value,
+            "failure_code": record.failure_code,
+            "metric_ref": record.metric_ref,
+            "metric_definition_version": record.metric_definition_version,
+            "result_fingerprint": record.result_fingerprint,
+            "canonical_dataset_ref": record.canonical_dataset_ref_id,
+            "canonical_dataset_fingerprint": record.canonical_dataset_fingerprint,
+            "population_ref": record.population_ref,
+            "population_fingerprint": record.population_fingerprint,
+            "checks_performed": record.checks_performed,
+            "operation": record.validation_operation,
+            "expected_value": _json_scalar(record.expected_value),
+            "expected_state": record.expected_state.value if record.expected_state else None,
+            "actual_value": _json_scalar(record.actual_value),
+            "actual_state": record.actual_state.value if record.actual_state else None,
+            "precision": record.authoritative_precision,
+            "precision_metadata": (record.observed or {}).get("precision_metadata") if isinstance(record.observed, dict) else None,
+            "unit": (record.observed or {}).get("unit") if isinstance(record.observed, dict) else None,
+            "currency": (record.observed or {}).get("currency") if isinstance(record.observed, dict) else None,
+        }
+    )
+
+
+def _bundle_validation_fingerprint(
+    context: _ValidationContext,
+    *,
+    required_rule_ids: tuple[str, ...],
+    rule_validation_fingerprints: tuple[str, ...],
+    intended_use: str,
+) -> str:
+    return canonical_json_fingerprint(
+        {
+            "validator_id": VALIDATOR_ID,
+            "validator_version": VALIDATOR_VERSION,
+            "intended_use": intended_use,
+            "metric_ref": context.executed_result.metric_ref,
+            "metric_definition_version": context.node.metric_version,
+            "result_fingerprint": context.executed_result.result_fingerprint,
+            "canonical_dataset_ref": context.canonical_dataset.canonical_dataset_id,
+            "canonical_dataset_fingerprint": context.canonical_dataset.content_fingerprint,
+            "population_ref": context.population.population_id,
+            "population_fingerprint": context.population.population_fingerprint,
+            "required_validation_rule_ids": required_rule_ids,
+            "rule_validation_fingerprints": rule_validation_fingerprints,
+            "metric_state": context.executed_result.metric_state.value,
+            "value": _json_scalar(context.executed_result.value),
+            "undefined_reason": context.executed_result.undefined_reason,
+            "precision": context.executed_result.precision,
+            "precision_metadata": context.executed_result.precision_metadata,
+            "unit": context.executed_result.unit,
+            "currency": context.executed_result.currency,
+        }
+    )
+
+
+def _bundle_validation_fingerprint_from_validated_result(
+    result: ValidatedResult,
+    *,
+    required_rule_ids: tuple[str, ...],
+    rule_validation_fingerprints: tuple[str, ...],
+) -> str:
+    return canonical_json_fingerprint(
+        {
+            "validator_id": VALIDATOR_ID,
+            "validator_version": VALIDATOR_VERSION,
+            "intended_use": result.intended_use,
+            "metric_ref": result.metric_ref,
+            "metric_definition_version": result.metric_definition_version,
+            "result_fingerprint": result.result_fingerprint,
+            "canonical_dataset_ref": result.canonical_dataset_ref_id,
+            "canonical_dataset_fingerprint": result.canonical_dataset_fingerprint,
+            "population_ref": result.population_ref,
+            "population_fingerprint": result.population_fingerprint,
+            "required_validation_rule_ids": required_rule_ids,
+            "rule_validation_fingerprints": rule_validation_fingerprints,
+            "metric_state": result.metric_state.value,
+            "value": _json_scalar(result.value),
+            "undefined_reason": result.undefined_reason,
+            "precision": result.precision,
+            "precision_metadata": result.precision_metadata,
+            "unit": result.unit,
+            "currency": result.currency,
+        }
+    )
+
+
+def _json_scalar(value: Decimal | int | float | bool | str | None) -> int | float | bool | str | None:
+    if isinstance(value, Decimal):
+        return str(value)
+    return value
 
 
 def _lineage_payload(context: _ValidationContext) -> dict[str, Any]:
@@ -793,11 +1133,11 @@ def _lineage_payload(context: _ValidationContext) -> dict[str, Any]:
 
 def _validation_rule_id(metric_ref: str | None) -> str:
     if metric_ref == "revenue":
-        return "validation:revenue_sum:p5_001"
+        return "validation:revenue_sum"
     if metric_ref == "orders":
-        return "validation:distinct_order_count:p5_001"
+        return "validation:distinct_order_count"
     if metric_ref == "aov":
-        return "validation:aov_from_validated_revenue_orders:p5_001"
+        return "validation:aov_from_revenue_orders"
     return "validation:p5_001_fail_closed"
 
 

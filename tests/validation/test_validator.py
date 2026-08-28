@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from decimal import Decimal, ROUND_DOWN, ROUND_UP, getcontext, localcontext
 from pathlib import Path
@@ -11,9 +12,11 @@ from commerce_lens.contracts.validation import ValidatedResult, ValidationStatus
 from commerce_lens.engine import execute_plan
 from commerce_lens.engine.execution import _result_fingerprint
 from commerce_lens.evidence.identifiers import generate_id
+from commerce_lens.metrics.registry import get_metric_registry
 from commerce_lens.persistence.artifact_store import ArtifactStore
 from commerce_lens.persistence.metadata_store import SCHEMA_VERSION, MetadataStore
 from commerce_lens.validation import validate_executed_result
+from commerce_lens.validation.rules import P5_VALIDATION_RULES, P5_VALIDATION_RULE_VERSION
 from tests.engine.test_execution import _execution_inputs, _record, _result, _row
 from tests.persistence.test_metadata_store import _create_supported_v2_tables
 
@@ -37,10 +40,19 @@ def test_correct_revenue_passes_and_persists_validation(tmp_path) -> None:
     )
 
     assert validation.validation_record.status is ValidationStatus.PASSED
+    assert tuple(record.validation_rule_id for record in validation.validation_records) == (
+        "validation:revenue_sum",
+        "validation:currency_consistency",
+        "validation:population_consistency",
+    )
+    assert all(record.status is ValidationStatus.PASSED for record in validation.validation_records)
     assert validation.validation_record.expected_value == Decimal("15.25")
     assert validation.validated_result is not None
     assert validation.validated_result.value == Decimal("15.25")
     assert validation.validated_result.metric_state is MetricState.VALID
+    assert validation.validated_result.required_validation_record_ids == tuple(
+        record.validation_id for record in validation.validation_records
+    )
     stored_record = metadata_store.get_validation_record(validation.validation_record.validation_id)
     assert stored_record.validation_id == validation.validation_record.validation_id
     assert stored_record.status is ValidationStatus.PASSED
@@ -396,12 +408,181 @@ def test_repeated_validation_attempts_have_unique_events_and_equivalent_fingerpr
     )
 
     assert first.validation_record.validation_id != second.validation_record.validation_id
+    assert tuple(record.validation_id for record in first.validation_records) != tuple(
+        record.validation_id for record in second.validation_records
+    )
     assert first.validation_record.started_at <= first.validation_record.ended_at
     assert second.validation_record.started_at <= second.validation_record.ended_at
-    assert first.validation_record.validation_fingerprint == second.validation_record.validation_fingerprint
-    assert first.validation_record.validation_fingerprint == equivalent_execution.validation_record.validation_fingerprint
+    assert tuple(record.validation_fingerprint for record in first.validation_records) == tuple(
+        record.validation_fingerprint for record in second.validation_records
+    )
+    assert tuple(record.validation_fingerprint for record in first.validation_records) == tuple(
+        record.validation_fingerprint for record in equivalent_execution.validation_records
+    )
     assert first.validated_result.validation_fingerprint == second.validated_result.validation_fingerprint
-    assert len(metadata_store.list_validation_records()) == 3
+    assert first.validated_result.validated_result_id != second.validated_result.validated_result_id
+    assert len(metadata_store.list_validation_records()) == 9
+
+
+def test_required_rule_registry_and_successful_record_sets(tmp_path) -> None:
+    registry = get_metric_registry()
+    assert registry.require("revenue").required_validation_rule_refs == (
+        "validation:revenue_sum",
+        "validation:currency_consistency",
+        "validation:population_consistency",
+    )
+    assert registry.require("orders").required_validation_rule_refs == (
+        "validation:distinct_order_count",
+        "validation:population_consistency",
+    )
+    assert registry.require("aov").required_validation_rule_refs == (
+        "validation:aov_from_revenue_orders",
+        "validation:population_consistency",
+    )
+    assert tuple(P5_VALIDATION_RULES) == (
+        "validation:revenue_sum",
+        "validation:currency_consistency",
+        "validation:population_consistency",
+        "validation:distinct_order_count",
+        "validation:aov_from_revenue_orders",
+    )
+    assert {rule.rule_version for rule in P5_VALIDATION_RULES.values()} == {P5_VALIDATION_RULE_VERSION}
+
+    outcome, plan, canonical, store, metadata_store = _executed(tmp_path, ("aov",), [_row(line_revenue="10.00")])
+    revenue = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "baseline")
+    orders = _validate_metric(outcome, plan, canonical, store, metadata_store, "orders", "baseline")
+    aov = _validate_metric(
+        outcome,
+        plan,
+        canonical,
+        store,
+        metadata_store,
+        "aov",
+        "baseline",
+        dependencies=(revenue.validated_result, orders.validated_result),
+    )
+
+    assert _record_rule_ids(revenue) == registry.require("revenue").required_validation_rule_refs
+    assert _record_rule_ids(orders) == registry.require("orders").required_validation_rule_refs
+    assert _record_rule_ids(aov) == registry.require("aov").required_validation_rule_refs
+    assert len(revenue.validated_result.required_validation_record_ids) == 3
+    assert len(orders.validated_result.required_validation_record_ids) == 2
+    assert len(aov.validated_result.required_validation_record_ids) == 2
+    for validation in (revenue, orders, aov):
+        records = [metadata_store.get_validation_record(record_id) for record_id in validation.validated_result.required_validation_record_ids]
+        assert [record.status for record in records] == [ValidationStatus.PASSED] * len(records)
+
+
+@pytest.mark.parametrize(
+    ("refs", "expected_code"),
+    [
+        ((), "required_validation_rule_refs_mismatch"),
+        (("validation:forged_rule",), "required_validation_rule_refs_mismatch"),
+        (("validation:revenue_sum", "validation:currency_consistency"), "required_validation_rule_refs_mismatch"),
+        (
+            (
+                "validation:revenue_sum",
+                "validation:currency_consistency",
+                "validation:population_consistency",
+                "validation:forged_rule",
+            ),
+            "required_validation_rule_refs_mismatch",
+        ),
+    ],
+)
+def test_plan_required_validation_rule_refs_are_enforced(tmp_path, refs, expected_code) -> None:
+    outcome, plan, canonical, store, metadata_store = _executed(tmp_path, ("revenue",), [_row()])
+    bad_plan = _plan_with_node_rule_refs(plan, "revenue", "baseline", refs)
+
+    validation = _validate_metric(outcome, bad_plan, canonical, store, metadata_store, "revenue", "baseline")
+
+    assert validation.validation_record.status is ValidationStatus.FAILED
+    assert validation.validation_record.failure_code == expected_code
+    assert validation.validated_result is None
+
+
+def test_exact_valid_plan_required_validation_rule_refs_pass(tmp_path) -> None:
+    outcome, plan, canonical, store, metadata_store = _executed(tmp_path, ("revenue",), [_row()])
+
+    validation = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "baseline")
+
+    assert validation.validation_record.status is ValidationStatus.PASSED
+
+
+@pytest.mark.parametrize(
+    ("tamper", "expected_code"),
+    [
+        ("wrong_plan_id", "dependency_plan_mismatch"),
+        ("wrong_plan_node_id", "dependency_plan_node_mismatch"),
+        ("wrong_dependency_node", "dependency_plan_node_mismatch"),
+        ("nonexistent_validation_record_id", "dependency_validation_record_missing"),
+        ("missing_validation_record", "dependency_validation_record_missing"),
+        ("failed_validation_record", "dependency_validation_record_failed"),
+        ("missing_validated_result_artifact", "dependency_validated_result_artifact_missing"),
+        ("artifact_content_differs", "dependency_validated_result_artifact_hash_mismatch"),
+        ("forged_validation_fingerprint", "dependency_validation_fingerprint_mismatch"),
+        ("incomplete_required_rules", "dependency_required_validation_incomplete"),
+        ("wrong_rule_ids", "dependency_required_validation_wrong_rules"),
+        ("equivalent_wrong_plan", "dependency_plan_mismatch"),
+    ],
+)
+def test_aov_dependency_persisted_authority_failures(tmp_path, tamper, expected_code) -> None:
+    outcome, plan, canonical, store, metadata_store = _executed(
+        tmp_path,
+        ("aov",),
+        [
+            _row(order_id="o1", order_line_id="l1", line_revenue="7.00"),
+            _row(order_id="o2", order_line_id="l1", line_revenue="3.00"),
+        ],
+    )
+    revenue = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "baseline").validated_result
+    orders = _validate_metric(outcome, plan, canonical, store, metadata_store, "orders", "baseline").validated_result
+
+    if tamper == "wrong_plan_id":
+        revenue = revenue.model_copy(update={"plan_id": "plan_unrelated_wrong_authority"})
+    elif tamper == "wrong_plan_node_id":
+        revenue = revenue.model_copy(update={"plan_node_id": "node_unrelated_wrong_authority"})
+    elif tamper == "wrong_dependency_node":
+        comparison_revenue = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "comparison").validated_result
+        revenue = comparison_revenue
+    elif tamper == "nonexistent_validation_record_id":
+        revenue = revenue.model_copy(update={"required_validation_record_ids": ("val_missing", *revenue.required_validation_record_ids[1:])})
+    elif tamper == "missing_validation_record":
+        _delete_validation_record(metadata_store, revenue.required_validation_record_ids[0])
+    elif tamper == "failed_validation_record":
+        _set_validation_record_status(metadata_store, revenue.required_validation_record_ids[0], "failed")
+    elif tamper == "missing_validated_result_artifact":
+        artifact = metadata_store.get_validation_record(revenue.required_validation_record_ids[0]).validated_result_artifact_ref
+        store.safe_path(artifact.path).unlink()
+    elif tamper == "artifact_content_differs":
+        artifact = metadata_store.get_validation_record(revenue.required_validation_record_ids[0]).validated_result_artifact_ref
+        path = store.safe_path(artifact.path)
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["value"] = "999.00"
+        path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    elif tamper == "forged_validation_fingerprint":
+        revenue = revenue.model_copy(update={"validation_fingerprint": "f" * 64})
+    elif tamper == "incomplete_required_rules":
+        revenue = revenue.model_copy(update={"required_validation_record_ids": revenue.required_validation_record_ids[:1]})
+    elif tamper == "wrong_rule_ids":
+        _set_validation_record_rule_id(metadata_store, revenue.required_validation_record_ids[0], "validation:forged_rule")
+    elif tamper == "equivalent_wrong_plan":
+        revenue = revenue.model_copy(update={"plan_id": "plan_otherwise_equivalent_wrong_authority"})
+
+    validation = _validate_metric(
+        outcome,
+        plan,
+        canonical,
+        store,
+        metadata_store,
+        "aov",
+        "baseline",
+        dependencies=(revenue, orders),
+    )
+
+    assert validation.validation_record.status is ValidationStatus.FAILED
+    assert validation.validation_record.failure_code == expected_code
+    assert validation.validated_result is None
 
 
 def test_v3_metadata_migrates_to_v4_and_malformed_v3_fails_closed(tmp_path) -> None:
@@ -559,3 +740,47 @@ def _persist_replacement_result(
     )
     metadata_store.insert_execution_record(record)
     return record, result
+
+
+def _record_rule_ids(validation) -> tuple[str, ...]:
+    return tuple(record.validation_rule_id for record in validation.validation_records)
+
+
+def _plan_with_node_rule_refs(plan, metric_ref: str, period_ref: str, refs: tuple[str, ...]):
+    return plan.model_copy(
+        update={
+            "ordered_metrics": tuple(
+                node.model_copy(update={"required_validation_rule_refs": refs})
+                if node.metric_ref == metric_ref and period_ref in node.period_refs
+                else node
+                for node in plan.ordered_metrics
+            )
+        }
+    )
+
+
+def _delete_validation_record(metadata_store: MetadataStore, validation_id: str) -> None:
+    with sqlite3.connect(metadata_store.db_path) as conn:
+        conn.execute("DELETE FROM validation_records WHERE validation_id = ?", (validation_id,))
+
+
+def _set_validation_record_status(metadata_store: MetadataStore, validation_id: str, status: str) -> None:
+    record = metadata_store.get_validation_record(validation_id)
+    payload = record.model_dump(mode="json")
+    payload["status"] = status
+    with sqlite3.connect(metadata_store.db_path) as conn:
+        conn.execute(
+            "UPDATE validation_records SET status = ?, record_json = ? WHERE validation_id = ?",
+            (status, json.dumps(payload, sort_keys=True), validation_id),
+        )
+
+
+def _set_validation_record_rule_id(metadata_store: MetadataStore, validation_id: str, rule_id: str) -> None:
+    record = metadata_store.get_validation_record(validation_id)
+    payload = record.model_dump(mode="json")
+    payload["validation_rule_id"] = rule_id
+    with sqlite3.connect(metadata_store.db_path) as conn:
+        conn.execute(
+            "UPDATE validation_records SET record_json = ? WHERE validation_id = ?",
+            (json.dumps(payload, sort_keys=True), validation_id),
+        )
