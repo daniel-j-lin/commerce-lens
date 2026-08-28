@@ -9,10 +9,12 @@ from pathlib import Path
 from commerce_lens.contracts.common import ArtifactReference
 from commerce_lens.contracts.evidence import CanonicalDatasetReference, CanonicalizationRecord, DatasetReference
 from commerce_lens.contracts.execution import ExecutionRecord
+from commerce_lens.contracts.validation import ValidationRecord
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 PHASE2_SCHEMA_VERSION = 2
+PHASE3_SCHEMA_VERSION = 3
 
 _PHASE1_TABLE_COLUMNS = {
     "dataset_registrations": {
@@ -81,6 +83,22 @@ _PHASE3_TABLE_COLUMNS = {
     },
 }
 
+_PHASE4_TABLE_COLUMNS = {
+    "validation_records": {
+        "validation_id",
+        "execution_id",
+        "result_ref",
+        "metric_ref",
+        "status",
+        "failure_code",
+        "validated_result_ref",
+        "validated_result_artifact_id",
+        "started_at",
+        "ended_at",
+        "record_json",
+    },
+}
+
 
 class MetadataStore:
     """Small SQLite registry for Phase 1 and Phase 2 metadata."""
@@ -105,7 +123,8 @@ class MetadataStore:
                 self._create_phase1_tables(conn)
                 self._create_phase2_tables(conn)
                 self._create_phase3_tables(conn)
-                self._verify_phase3_schema(conn)
+                self._create_phase4_tables(conn)
+                self._verify_phase4_schema(conn)
                 conn.execute("INSERT INTO schema_version (id, version) VALUES (1, ?)", (SCHEMA_VERSION,))
                 return
 
@@ -113,12 +132,17 @@ class MetadataStore:
             if stored_version == 1:
                 self._migrate_v1_to_v2(conn)
                 self._migrate_v2_to_v3(conn)
+                self._migrate_v3_to_v4(conn)
                 return
             if stored_version == PHASE2_SCHEMA_VERSION:
                 self._migrate_v2_to_v3(conn)
+                self._migrate_v3_to_v4(conn)
+                return
+            if stored_version == PHASE3_SCHEMA_VERSION:
+                self._migrate_v3_to_v4(conn)
                 return
             if stored_version == SCHEMA_VERSION:
-                self._verify_phase3_schema(conn)
+                self._verify_phase4_schema(conn)
                 return
             raise RuntimeError(
                 f"metadata schema version mismatch: stored={stored_version} expected={SCHEMA_VERSION}"
@@ -347,6 +371,54 @@ class MetadataStore:
             rows = conn.execute("SELECT record_json FROM execution_records ORDER BY started_at, execution_id").fetchall()
         return [ExecutionRecord.model_validate(json.loads(row["record_json"])) for row in rows]
 
+    def insert_validation_record(self, validation_record: ValidationRecord) -> ValidationRecord:
+        payload = validation_record.model_dump_json()
+        artifact_id = (
+            validation_record.validated_result_artifact_ref.artifact_id
+            if validation_record.validated_result_artifact_ref is not None
+            else None
+        )
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO validation_records (
+                    validation_id, execution_id, result_ref, metric_ref, status,
+                    failure_code, validated_result_ref, validated_result_artifact_id,
+                    started_at, ended_at, record_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    validation_record.validation_id,
+                    validation_record.execution_id,
+                    validation_record.target_result_ref,
+                    validation_record.metric_ref,
+                    validation_record.status.value,
+                    validation_record.failure_code,
+                    validation_record.validated_result_ref,
+                    artifact_id,
+                    validation_record.started_at.isoformat(),
+                    validation_record.ended_at.isoformat() if validation_record.ended_at is not None else None,
+                    payload,
+                ),
+            )
+        return self.get_validation_record(validation_record.validation_id) or validation_record
+
+    def get_validation_record(self, validation_id: str) -> ValidationRecord | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT record_json FROM validation_records WHERE validation_id = ?",
+                (validation_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return ValidationRecord.model_validate(json.loads(row["record_json"]))
+
+    def list_validation_records(self) -> list[ValidationRecord]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT record_json FROM validation_records ORDER BY started_at, validation_id").fetchall()
+        return [ValidationRecord.model_validate(json.loads(row["record_json"])) for row in rows]
+
     def _migrate_v1_to_v2(self, conn: sqlite3.Connection) -> None:
         self._verify_phase1_schema(conn)
         self._create_phase2_tables(conn)
@@ -357,6 +429,12 @@ class MetadataStore:
         self._verify_phase2_schema(conn)
         self._create_phase3_tables(conn)
         self._verify_phase3_schema(conn)
+        conn.execute("UPDATE schema_version SET version = ? WHERE id = 1", (PHASE3_SCHEMA_VERSION,))
+
+    def _migrate_v3_to_v4(self, conn: sqlite3.Connection) -> None:
+        self._verify_phase3_schema(conn)
+        self._create_phase4_tables(conn)
+        self._verify_phase4_schema(conn)
         conn.execute("UPDATE schema_version SET version = ? WHERE id = 1", (SCHEMA_VERSION,))
 
     def _create_phase1_tables(self, conn: sqlite3.Connection) -> None:
@@ -448,6 +526,25 @@ class MetadataStore:
             """
         )
 
+    def _create_phase4_tables(self, conn: sqlite3.Connection) -> None:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS validation_records (
+                validation_id TEXT PRIMARY KEY,
+                execution_id TEXT NOT NULL,
+                result_ref TEXT NOT NULL,
+                metric_ref TEXT,
+                status TEXT NOT NULL,
+                failure_code TEXT,
+                validated_result_ref TEXT,
+                validated_result_artifact_id TEXT,
+                started_at TEXT NOT NULL,
+                ended_at TEXT,
+                record_json TEXT NOT NULL
+            )
+            """
+        )
+
     def _verify_phase1_schema(self, conn: sqlite3.Connection) -> None:
         for table, expected_columns in _PHASE1_TABLE_COLUMNS.items():
             actual_columns = self._table_columns(conn, table)
@@ -467,6 +564,13 @@ class MetadataStore:
             actual_columns = self._table_columns(conn, table)
             if actual_columns != expected_columns:
                 raise RuntimeError(f"metadata schema version 3 is incompatible: {table}")
+
+    def _verify_phase4_schema(self, conn: sqlite3.Connection) -> None:
+        self._verify_phase3_schema(conn)
+        for table, expected_columns in _PHASE4_TABLE_COLUMNS.items():
+            actual_columns = self._table_columns(conn, table)
+            if actual_columns != expected_columns:
+                raise RuntimeError(f"metadata schema version 4 is incompatible: {table}")
 
     def _table_columns(self, conn: sqlite3.Connection, table: str) -> set[str]:
         rows = conn.execute(f"PRAGMA table_info({self._quote_literal(table)})").fetchall()
