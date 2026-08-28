@@ -82,6 +82,34 @@ def test_valid_revenue_change_becomes_descriptive_metric_value_evidence(tmp_path
     assert validated.value == Decimal("20.00")
 
 
+def test_scoped_revenue_change_preserves_single_material_scope_through_admissible_evidence(tmp_path) -> None:
+    scope = ScopeDefinition(
+        scope_id="currency_usd_scope",
+        filters=(ScopeFilter(field="currency", operator="equals", value="USD"),),
+    )
+    fixture, validated = _validated_revenue_change_fixture(tmp_path, scope=scope)
+    execution_record = _record(fixture.outcome, "revenue_change", "baseline_and_comparison")
+
+    outcome = _admit(fixture, validated)
+
+    assert validated.value == Decimal("20.00")
+    assert execution_record.scope_filters == ({"field": "currency", "operator": "equals", "value": "USD"},)
+    assert outcome.admissibility_record.status is EvidenceAdmissibilityStatus.PASSED
+    assert outcome.admissible_evidence is not None
+    assert outcome.admissible_evidence.metric_ref == "revenue_change"
+    assert outcome.admissible_evidence.evidence_role is EvidenceRole.METRIC_VALUE
+    assert outcome.admissible_evidence.supported_claim_type is ClaimType.DESCRIPTIVE
+    assert outcome.admissible_evidence.scope.filters == scope.filters
+    restored = verify_admissible_evidence_artifact(
+        outcome.admissibility_record.admissible_evidence_artifact_ref,
+        artifact_store=fixture.artifact_store,
+        metadata_store=fixture.metadata_store,
+        expected_evidence=outcome.admissible_evidence,
+        admissibility_record=outcome.admissibility_record,
+    )
+    assert restored == outcome.admissible_evidence
+
+
 @pytest.mark.parametrize(
     ("tamper", "expected_code"),
     (
@@ -754,7 +782,11 @@ def _fixture(
     return _Fixture(request, sufficiency, plan, canonicalization.canonical_dataset, artifact_store, metadata_store, outcome)
 
 
-def _validated_revenue_change_fixture(tmp_path: Path) -> tuple[_Fixture, ValidatedResult]:
+def _validated_revenue_change_fixture(
+    tmp_path: Path,
+    *,
+    scope: ScopeDefinition | None = None,
+) -> tuple[_Fixture, ValidatedResult]:
     fixture = _fixture(
         tmp_path,
         ("revenue_change",),
@@ -762,6 +794,7 @@ def _validated_revenue_change_fixture(tmp_path: Path) -> tuple[_Fixture, Validat
             _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
             _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
         ],
+        scope=scope,
     )
     baseline = _validate(fixture, "revenue", period_ref="baseline").validated_result
     comparison = _validate(fixture, "revenue", period_ref="comparison").validated_result

@@ -163,8 +163,12 @@ def material_scope_payload(scope) -> dict[str, object]:
     return {
         "scope_id": scope.scope_id,
         "population_ref": scope.population_ref,
-        "filters": [item.model_dump(mode="json") for item in _canonical_filters(scope.filters)],
+        "filters": list(canonical_scope_filter_payloads(scope.filters)),
     }
+
+
+def canonical_scope_filter_payloads(filters) -> tuple[dict[str, object], ...]:
+    return tuple(item.model_dump(mode="json") for item in _canonical_filters(filters))
 
 
 def _canonical_scope(scope: ScopeDefinition) -> ScopeDefinition:

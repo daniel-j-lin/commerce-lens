@@ -522,6 +522,181 @@ def test_revenue_change_executes_from_baseline_and_comparison_revenue_dependenci
 
 
 @pytest.mark.parametrize(
+    ("scope", "expected_filters"),
+    (
+        (ScopeDefinition(scope_id="all_eligible"), ()),
+        (
+            ScopeDefinition(
+                scope_id="filtered",
+                filters=(ScopeFilter(field="currency", operator="equals", value="USD"),),
+            ),
+            ({"field": "currency", "operator": "equals", "value": "USD"},),
+        ),
+        (
+            ScopeDefinition(
+                scope_id="filtered",
+                filters=(
+                    ScopeFilter(field="currency", operator="equals", value="USD"),
+                    ScopeFilter(field="product_id", operator="equals", value="p1"),
+                ),
+            ),
+            (
+                {"field": "currency", "operator": "equals", "value": "USD"},
+                {"field": "product_id", "operator": "equals", "value": "p1"},
+            ),
+        ),
+        (
+            ScopeDefinition(
+                scope_id="filtered",
+                filters=(
+                    ScopeFilter(field="product_id", operator="equals", value="p1"),
+                    ScopeFilter(field="currency", operator="equals", value="USD"),
+                ),
+            ),
+            (
+                {"field": "currency", "operator": "equals", "value": "USD"},
+                {"field": "product_id", "operator": "equals", "value": "p1"},
+            ),
+        ),
+        (
+            ScopeDefinition(
+                scope_id="filtered",
+                filters=(
+                    ScopeFilter(field="currency", operator="equals", value="USD"),
+                    ScopeFilter(field="currency", operator="equals", value="USD"),
+                ),
+            ),
+            ({"field": "currency", "operator": "equals", "value": "USD"},),
+        ),
+    ),
+)
+def test_revenue_change_execution_record_scope_filters_store_one_canonical_material_scope(
+    tmp_path,
+    scope: ScopeDefinition,
+    expected_filters: tuple[dict[str, object], ...],
+) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("revenue_change",),
+        [
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
+        ],
+        scope=scope,
+    )
+
+    outcome = execute_plan(plan, canonical, store)
+    record = _record(outcome, "revenue_change", "baseline_and_comparison")
+
+    assert record.status.value == "completed"
+    assert record.scope_filters == expected_filters
+    assert len(record.population_refs) == 2
+    assert len(record.population_fingerprints) == 2
+    assert record.period_refs == ("baseline", "comparison")
+
+
+def test_revenue_change_execution_allows_equivalent_period_population_filter_order(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("revenue_change",),
+        [
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
+        ],
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+                ScopeFilter(field="product_id", operator="equals", value="p1"),
+            ),
+        ),
+    )
+    equivalent_scope = ScopeDefinition(
+        scope_id="filtered",
+        filters=(
+            ScopeFilter(field="product_id", operator="equals", value="p1"),
+            ScopeFilter(field="currency", operator="equals", value="USD"),
+        ),
+    )
+    plan = _plan_with_population_scope(plan, "comparison", equivalent_scope)
+
+    outcome = execute_plan(plan, canonical, store)
+    record = _record(outcome, "revenue_change", "baseline_and_comparison")
+
+    assert _result(outcome, "revenue_change", "comparison").value == Decimal("20.00")
+    assert record.status.value == "completed"
+    assert record.scope_filters == (
+        {"field": "currency", "operator": "equals", "value": "USD"},
+        {"field": "product_id", "operator": "equals", "value": "p1"},
+    )
+
+
+@pytest.mark.parametrize(
+    ("baseline_scope", "comparison_scope"),
+    (
+        (
+            ScopeDefinition(
+                scope_id="filtered",
+                filters=(ScopeFilter(field="currency", operator="equals", value="USD"),),
+            ),
+            ScopeDefinition(
+                scope_id="filtered",
+                filters=(ScopeFilter(field="currency", operator="equals", value="EUR"),),
+            ),
+        ),
+        (
+            ScopeDefinition(scope_id="filtered"),
+            ScopeDefinition(
+                scope_id="filtered",
+                filters=(ScopeFilter(field="product_id", operator="equals", value="p1"),),
+            ),
+        ),
+        (
+            ScopeDefinition(
+                scope_id="filtered",
+                filters=(ScopeFilter(field="product_id", operator="equals", value="p1"),),
+            ),
+            ScopeDefinition(
+                scope_id="filtered",
+                filters=(ScopeFilter(field="product_id", operator="equals", value="p2"),),
+            ),
+        ),
+    ),
+)
+def test_revenue_change_incompatible_period_population_filters_fail_closed(
+    tmp_path,
+    baseline_scope: ScopeDefinition,
+    comparison_scope: ScopeDefinition,
+) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("revenue_change",),
+        [
+            _row(order_id="o1", order_date="2026-01-01", product_id="p1", line_revenue="100.00", currency="USD"),
+            _row(order_id="o2", order_date="2026-01-03", product_id="p2", line_revenue="120.00", currency="USD"),
+            _row(order_id="o3", order_date="2026-01-03", product_id="p1", line_revenue="120.00", currency="USD"),
+            _row(order_id="o4", order_date="2026-01-03", product_id="p3", line_revenue="120.00", currency="USD"),
+        ],
+    )
+    plan = _plan_with_population_scope(plan, "baseline", baseline_scope)
+    plan = _plan_with_population_scope(plan, "comparison", comparison_scope)
+    if any(item.field == "currency" and item.value == "EUR" for item in comparison_scope.filters):
+        canonical = _replace_canonical_parquet_rows(
+            canonical,
+            store,
+            "SELECT * REPLACE (CASE WHEN order_id = 'o4' THEN 'EUR' ELSE currency END AS currency) FROM read_parquet(?)",
+        )
+
+    outcome = execute_plan(plan, canonical, store)
+    record = _record(outcome, "revenue_change", "baseline_and_comparison")
+
+    assert record.status.value == "failed"
+    assert not any(result.metric_ref == "revenue_change" for result in outcome.executed_results)
+    assert record.scope_filters == ()
+    assert "Revenue Change" in record.failure_details[0].reason
+
+
+@pytest.mark.parametrize(
     ("tamper", "expected_reason"),
     (
         ("wrong_request", "request authority mismatches plan"),
@@ -1377,6 +1552,64 @@ def _plan_with_population_currency_basis(plan, period_ref: str, currency_basis_r
             ),
         }
     )
+
+
+def _plan_with_population_scope(plan, period_ref: str, scope: ScopeDefinition):
+    old_population = next(
+        population
+        for population in plan.population_definitions
+        if population.period.period_id == period_ref and population.grouping is GroupingDimension.NONE
+    )
+    draft_population = old_population.model_copy(
+        update={
+            "scope": scope,
+            "currency_basis_ref": _currency_basis_ref_for_scope(scope, old_population.currency_basis_ref),
+        }
+    )
+    fingerprint = population_fingerprint(draft_population)
+    new_population = draft_population.model_copy(
+        update={
+            "population_fingerprint": fingerprint,
+            "population_id": population_id_for_fingerprint(fingerprint),
+        }
+    )
+    return plan.model_copy(
+        update={
+            "ordered_metrics": tuple(
+                node.model_copy(
+                    update={
+                        "population_refs": tuple(
+                            new_population.population_id if ref == old_population.population_id else ref
+                            for ref in node.population_refs
+                        )
+                    }
+                )
+                for node in plan.ordered_metrics
+            ),
+            "population_definitions": tuple(
+                new_population if population.population_id == old_population.population_id else population
+                for population in plan.population_definitions
+            ),
+            "population_refs": tuple(
+                new_population.population_id if ref == old_population.population_id else ref
+                for ref in plan.population_refs
+            ),
+        }
+    )
+
+
+def _currency_basis_ref_for_scope(scope: ScopeDefinition, default: str) -> str:
+    currency_filters = {
+        (item.field, item.operator, item.value)
+        for item in scope.filters
+        if item.field == "currency" and item.operator == "equals"
+    }
+    values = sorted(str(value) for _, _, value in currency_filters)
+    if len(values) == 1:
+        return f"currency:{values[0]}"
+    if len(values) > 1:
+        return f"currency_filters:{','.join(values)}"
+    return default
 
 
 def _headers() -> tuple[str, ...]:

@@ -24,7 +24,11 @@ from commerce_lens.contracts.execution import ExecutedResult, ExecutionRecord, E
 from commerce_lens.contracts.plans import ExecutionPlan, PlanMetricNode
 from commerce_lens.contracts.populations import PopulationDefinition
 from commerce_lens.engine.plan_builder import validate_execution_plan_pre_execution
-from commerce_lens.engine.populations import population_fingerprint, population_id_for_fingerprint
+from commerce_lens.engine.populations import (
+    canonical_scope_filter_payloads,
+    population_fingerprint,
+    population_id_for_fingerprint,
+)
 from commerce_lens.evidence.identifiers import canonical_json_fingerprint, generate_id, sha256_file
 from commerce_lens.metrics.registry import get_metric_registry
 from commerce_lens.persistence.artifact_store import ArtifactStore
@@ -1002,6 +1006,7 @@ def _record(
     eligible_input_row_count: int | None = None,
     failure_details: tuple[FailureDetail, ...] = (),
 ) -> ExecutionRecord:
+    scope_filters = _execution_record_scope_filters(node, populations, status=status)
     return ExecutionRecord(
         execution_id=execution_id,
         request_id=plan.request_id,
@@ -1021,11 +1026,7 @@ def _record(
         periods=tuple(population.period.model_dump(mode="json") for population in populations),
         population_refs=tuple(population.population_id for population in populations),
         population_fingerprints=tuple(population.population_fingerprint for population in populations),
-        scope_filters=tuple(
-            scope_filter.model_dump(mode="json")
-            for population in populations
-            for scope_filter in population.scope.filters
-        ),
+        scope_filters=scope_filters,
         grouping=populations[0].grouping.value if len(populations) == 1 else node.grouping.value,
         resolved_currency=resolved_currency,
         eligible_input_row_count=eligible_input_row_count,
@@ -1039,6 +1040,33 @@ def _record(
         status=status,
         failure_details=failure_details,
     )
+
+
+def _execution_record_scope_filters(
+    node: PlanMetricNode,
+    populations: tuple[PopulationDefinition, ...],
+    *,
+    status: ExecutionStatus,
+) -> tuple[dict[str, object], ...]:
+    if node.metric_ref != "revenue_change":
+        return tuple(
+            scope_filter.model_dump(mode="json")
+            for population in populations
+            for scope_filter in population.scope.filters
+        )
+    if len(populations) != 2:
+        return tuple(
+            scope_filter.model_dump(mode="json")
+            for population in populations
+            for scope_filter in population.scope.filters
+        )
+    baseline_filters = canonical_scope_filter_payloads(populations[0].scope.filters)
+    comparison_filters = canonical_scope_filter_payloads(populations[1].scope.filters)
+    if baseline_filters != comparison_filters:
+        if status is not ExecutionStatus.COMPLETED:
+            return ()
+        raise MetricExecutionError("Revenue Change Baseline and Comparison material scope filters must match")
+    return baseline_filters
 
 
 def _result_fingerprint(
