@@ -33,10 +33,13 @@ from commerce_lens.persistence.metadata_store import MetadataStore
 
 REFERENCE_EXECUTOR_ID = "commerce_lens_duckdb_reference_executor"
 REFERENCE_EXECUTOR_VERSION = "p4_001_v1"
-APPROVED_EXECUTABLE_METRICS = frozenset({"revenue", "orders", "aov"})
+APPROVED_EXECUTABLE_METRICS = frozenset({"revenue", "orders", "aov", "revenue_change"})
 AOV_DECIMAL_CALCULATION_POLICY_ID = "p4_aov_decimal_calculation_policy_v1"
 AOV_DECIMAL_PRECISION = 38
 AOV_DECIMAL_ROUNDING = ROUND_HALF_EVEN
+REVENUE_CHANGE_DECIMAL_CALCULATION_POLICY_ID = "p7_revenue_change_decimal_calculation_policy_v1"
+REVENUE_CHANGE_DECIMAL_PRECISION = 38
+REVENUE_CHANGE_DECIMAL_ROUNDING = ROUND_HALF_EVEN
 _CANONICAL_TABLE = "canonical_lines"
 _SUPPORTED_FILTER_OPERATORS = frozenset({"equals"})
 _EXPLICIT_CURRENCY_BASIS_PREFIX = "currency:"
@@ -101,39 +104,53 @@ def execute_plan(
             continue
         try:
             _validate_metric_implementation_ref(node)
-            population = _single_total_population(node, population_by_id)
-            _validate_population_identity(population)
-            if node.metric_ref == "revenue":
-                record, result = _execute_revenue(
+            if node.metric_ref == "revenue_change":
+                record, result = _execute_revenue_change(
                     plan,
                     node,
-                    population,
-                    canonical_dataset,
-                    canonical_path,
-                    duckdb_version,
-                    started_at,
-                )
-            elif node.metric_ref == "orders":
-                record, result = _execute_orders(
-                    plan,
-                    node,
-                    population,
-                    canonical_dataset,
-                    canonical_path,
-                    duckdb_version,
-                    started_at,
-                )
-            else:
-                record, result = _execute_aov(
-                    plan,
-                    node,
-                    population,
+                    population_by_id,
                     canonical_dataset,
                     canonical_path,
                     duckdb_version,
                     result_by_node_id,
+                    active_metadata_store,
+                    artifact_store,
                     started_at,
                 )
+            else:
+                population = _single_total_population(node, population_by_id)
+                _validate_population_identity(population)
+                if node.metric_ref == "revenue":
+                    record, result = _execute_revenue(
+                        plan,
+                        node,
+                        population,
+                        canonical_dataset,
+                        canonical_path,
+                        duckdb_version,
+                        started_at,
+                    )
+                elif node.metric_ref == "orders":
+                    record, result = _execute_orders(
+                        plan,
+                        node,
+                        population,
+                        canonical_dataset,
+                        canonical_path,
+                        duckdb_version,
+                        started_at,
+                    )
+                else:
+                    record, result = _execute_aov(
+                        plan,
+                        node,
+                        population,
+                        canonical_dataset,
+                        canonical_path,
+                        duckdb_version,
+                        result_by_node_id,
+                        started_at,
+                    )
         except Exception as exc:
             failure = (
                 exc
@@ -389,6 +406,177 @@ def _aov_dependency_results(
     return dependencies
 
 
+def _execute_revenue_change(
+    plan: ExecutionPlan,
+    node: PlanMetricNode,
+    population_by_id: dict[str, PopulationDefinition],
+    canonical_dataset: CanonicalDatasetReference,
+    canonical_path: Path,
+    duckdb_version: str,
+    result_by_node_id: dict[str, ExecutedResult],
+    metadata_store: MetadataStore,
+    artifact_store: ArtifactStore,
+    started_at: datetime,
+) -> tuple[ExecutionRecord, ExecutedResult]:
+    baseline_population, comparison_population = _revenue_change_populations(node, population_by_id)
+    runtime_metadata = _comparison_runtime_metadata(baseline_population, comparison_population, canonical_path)
+    dependencies = _revenue_change_dependency_results(
+        plan,
+        node,
+        result_by_node_id,
+        population_by_id,
+        metadata_store,
+        artifact_store,
+    )
+    baseline = dependencies["baseline"]
+    comparison = dependencies["comparison"]
+    if not isinstance(baseline.value, Decimal) or isinstance(baseline.value, bool):
+        raise MetricExecutionError("Revenue Change Baseline Revenue dependency did not return Decimal")
+    if not isinstance(comparison.value, Decimal) or isinstance(comparison.value, bool):
+        raise MetricExecutionError("Revenue Change Comparison Revenue dependency did not return Decimal")
+    with localcontext() as context:
+        context.prec = REVENUE_CHANGE_DECIMAL_PRECISION
+        context.rounding = REVENUE_CHANGE_DECIMAL_ROUNDING
+        value = comparison.value - baseline.value
+    operation = {
+        "method": "python_decimal_dependency_arithmetic",
+        "formula": "comparison_revenue - baseline_revenue",
+        "calculation_policy": _revenue_change_calculation_policy_metadata(),
+        "operation_representation": "Decimal(comparison.value) - Decimal(baseline.value) under localcontext",
+        "baseline_revenue_result_ref": baseline.result_id,
+        "comparison_revenue_result_ref": comparison.result_id,
+        "baseline_revenue_result_fingerprint": baseline.result_fingerprint,
+        "comparison_revenue_result_fingerprint": comparison.result_fingerprint,
+        "baseline_period_ref": baseline_population.period.period_id,
+        "comparison_period_ref": comparison_population.period.period_id,
+    }
+    return _completed_comparison_record_and_result(
+        plan,
+        node,
+        (baseline_population, comparison_population),
+        canonical_dataset,
+        duckdb_version,
+        operation,
+        started_at=started_at,
+        resolved_currency=runtime_metadata.resolved_currency,
+        eligible_input_row_count=runtime_metadata.eligible_input_row_count,
+        value=value,
+        baseline_result=baseline,
+        comparison_result=comparison,
+    )
+
+
+def _revenue_change_populations(
+    node: PlanMetricNode,
+    population_by_id: dict[str, PopulationDefinition],
+) -> tuple[PopulationDefinition, PopulationDefinition]:
+    if node.grouping is not GroupingDimension.NONE:
+        raise MetricExecutionError("Revenue Change executes only total-population nodes")
+    if len(node.population_refs) != 2:
+        raise MetricExecutionError("Revenue Change requires exactly Baseline and Comparison governed populations")
+    populations = tuple(population_by_id.get(population_ref) for population_ref in node.population_refs)
+    if any(population is None for population in populations):
+        raise MetricExecutionError("Revenue Change plan node references unknown governed population")
+    for population in populations:
+        if population.grouping is not GroupingDimension.NONE:
+            raise MetricExecutionError("Revenue Change populations must be total-population definitions")
+        _validate_population_identity(population)
+    by_role = {population.period_role.value: population for population in populations}
+    if set(by_role) != {"baseline", "comparison"}:
+        raise MetricExecutionError("Revenue Change populations must represent one Baseline and one Comparison")
+    if node.period_refs != (by_role["baseline"].period.period_id, by_role["comparison"].period.period_id):
+        raise MetricExecutionError("Revenue Change period refs must preserve Baseline then Comparison order")
+    return by_role["baseline"], by_role["comparison"]
+
+
+def _comparison_runtime_metadata(
+    baseline_population: PopulationDefinition,
+    comparison_population: PopulationDefinition,
+    canonical_path: Path,
+) -> PopulationRuntimeMetadata:
+    baseline = _population_runtime_metadata(baseline_population, canonical_path, requires_currency=True)
+    comparison = _population_runtime_metadata(comparison_population, canonical_path, requires_currency=True)
+    if baseline.resolved_currency != comparison.resolved_currency:
+        raise MetricExecutionError("Revenue Change Baseline and Comparison currency authority must match")
+    return PopulationRuntimeMetadata(
+        resolved_currency=baseline.resolved_currency,
+        eligible_input_row_count=baseline.eligible_input_row_count + comparison.eligible_input_row_count,
+    )
+
+
+def _revenue_change_dependency_results(
+    plan: ExecutionPlan,
+    node: PlanMetricNode,
+    result_by_node_id: dict[str, ExecutedResult],
+    population_by_id: dict[str, PopulationDefinition],
+    metadata_store: MetadataStore,
+    artifact_store: ArtifactStore,
+) -> dict[str, ExecutedResult]:
+    if len(node.dependency_node_ids) != 2:
+        raise MetricExecutionError("Revenue Change requires executed Baseline and Comparison Revenue dependency results")
+    dependencies: dict[str, ExecutedResult] = {}
+    for dependency_node_id in node.dependency_node_ids:
+        result = result_by_node_id.get(dependency_node_id)
+        if result is None:
+            raise MetricExecutionError("Revenue Change dependency result is missing or not executable")
+        if result.metric_ref != "revenue":
+            raise MetricExecutionError("Revenue Change dependencies must be Revenue results")
+        if result.metric_state is not MetricState.VALID:
+            raise MetricExecutionError("Revenue Change requires valid Revenue dependency results")
+        if result.result_fingerprint is None:
+            raise MetricExecutionError("Revenue Change dependency result lacks semantic fingerprint")
+        record = _verify_dependency_execution_record(result, metadata_store, artifact_store)
+        population = population_by_id.get(result.scope_ref)
+        if population is None:
+            raise MetricExecutionError("Revenue Change dependency result references unknown governed population")
+        if record.request_id != plan.request_id:
+            raise MetricExecutionError("Revenue Change dependency ExecutionRecord request authority mismatches plan")
+        if record.plan_id != plan.plan_id or record.plan_fingerprint != plan.plan_fingerprint:
+            raise MetricExecutionError("Revenue Change dependency ExecutionRecord plan authority mismatches plan")
+        if record.plan_node_id != dependency_node_id:
+            raise MetricExecutionError("Revenue Change dependency result does not match governed dependency node")
+        if result.period_ref != population.period.period_id:
+            raise MetricExecutionError("Revenue Change dependency result period mismatches governed population")
+        role = population.period_role.value
+        if role in dependencies:
+            raise MetricExecutionError("Revenue Change requires one Baseline and one Comparison Revenue dependency")
+        dependencies[role] = result
+    if set(dependencies) != {"baseline", "comparison"}:
+        raise MetricExecutionError("Revenue Change requires one Baseline and one Comparison Revenue dependency")
+    baseline = dependencies["baseline"]
+    comparison = dependencies["comparison"]
+    if baseline.currency != comparison.currency:
+        raise MetricExecutionError("Revenue Change Revenue dependency currencies must match")
+    return dependencies
+
+
+def _verify_dependency_execution_record(
+    result: ExecutedResult,
+    metadata_store: MetadataStore,
+    artifact_store: ArtifactStore,
+) -> ExecutionRecord:
+    record = metadata_store.get_execution_record(result.execution_id)
+    if record is None:
+        raise MetricExecutionError("Revenue Change dependency ExecutionRecord is missing")
+    if record.status is not ExecutionStatus.COMPLETED:
+        raise MetricExecutionError("Revenue Change dependency ExecutionRecord is not completed")
+    if record.result_ref != result.result_id:
+        raise MetricExecutionError("Revenue Change dependency ExecutionRecord result_ref mismatches result")
+    if len(record.output_artifacts) != 1:
+        raise MetricExecutionError("Revenue Change dependency ExecutedResult artifact is missing")
+    artifact = record.output_artifacts[0]
+    persisted = metadata_store.get_artifact_reference(artifact.artifact_id)
+    if persisted != artifact:
+        raise MetricExecutionError("Revenue Change dependency artifact metadata is missing or mismatched")
+    artifact_path = artifact_store.safe_path(artifact.path)
+    if not artifact_path.is_file() or artifact.fingerprint is None or sha256_file(artifact_path) != artifact.fingerprint:
+        raise MetricExecutionError("Revenue Change dependency ExecutedResult artifact integrity check failed")
+    restored = ExecutedResult.model_validate_json(artifact_path.read_text(encoding="utf-8"))
+    if restored != result:
+        raise MetricExecutionError("Revenue Change dependency result does not match persisted artifact authority")
+    return record
+
+
 def _population_aggregate_sql(
     select_clause: str,
     population: PopulationDefinition,
@@ -622,6 +810,66 @@ def _completed_record_and_result(
     return record, result
 
 
+def _completed_comparison_record_and_result(
+    plan: ExecutionPlan,
+    node: PlanMetricNode,
+    populations: tuple[PopulationDefinition, PopulationDefinition],
+    canonical_dataset: CanonicalDatasetReference,
+    duckdb_version: str,
+    operation: dict[str, Any],
+    *,
+    started_at: datetime,
+    resolved_currency: str | None,
+    eligible_input_row_count: int,
+    value: Decimal,
+    baseline_result: ExecutedResult,
+    comparison_result: ExecutedResult,
+) -> tuple[ExecutionRecord, ExecutedResult]:
+    baseline_population, comparison_population = populations
+    execution_id = generate_id("exec")
+    result_id = generate_id("exres")
+    result_fingerprint = _revenue_change_result_fingerprint(
+        node=node,
+        baseline_population=baseline_population,
+        comparison_population=comparison_population,
+        canonical_dataset=canonical_dataset,
+        value=value,
+        currency=resolved_currency,
+        baseline_result=baseline_result,
+        comparison_result=comparison_result,
+    )
+    result = ExecutedResult(
+        result_id=result_id,
+        execution_id=execution_id,
+        metric_ref=node.metric_ref,
+        scope_ref=comparison_population.population_id,
+        period_ref=comparison_population.period.period_id,
+        value=value,
+        metric_state=MetricState.VALID,
+        result_fingerprint=result_fingerprint,
+        precision=REVENUE_CHANGE_DECIMAL_CALCULATION_POLICY_ID,
+        precision_metadata=_precision_metadata(node.metric_ref, REVENUE_CHANGE_DECIMAL_CALCULATION_POLICY_ID),
+        unit="money",
+        currency=resolved_currency,
+        execution_status=ExecutionStatus.COMPLETED,
+    )
+    record = _record(
+        plan,
+        node,
+        populations,
+        canonical_dataset,
+        duckdb_version,
+        operation,
+        status=ExecutionStatus.COMPLETED,
+        execution_id=execution_id,
+        started_at=started_at,
+        result_ref=result.result_id,
+        resolved_currency=resolved_currency,
+        eligible_input_row_count=eligible_input_row_count,
+    )
+    return record, result
+
+
 def _failed_record(
     plan: ExecutionPlan,
     node: PlanMetricNode,
@@ -683,7 +931,7 @@ def _record(
         metric_definition_version=node.metric_version,
         metric_implementation_ref=node.execution_implementation_ref,
         period_refs=tuple(dict.fromkeys(population.period.period_id for population in populations)),
-        period_role=populations[0].period_role.value if len(populations) == 1 else None,
+        period_role=populations[0].period_role.value if len(populations) == 1 else "baseline_and_comparison",
         periods=tuple(population.period.model_dump(mode="json") for population in populations),
         population_refs=tuple(population.population_id for population in populations),
         population_fingerprints=tuple(population.population_fingerprint for population in populations),
@@ -738,6 +986,44 @@ def _result_fingerprint(
     )
 
 
+def _revenue_change_result_fingerprint(
+    *,
+    node: PlanMetricNode,
+    baseline_population: PopulationDefinition,
+    comparison_population: PopulationDefinition,
+    canonical_dataset: CanonicalDatasetReference,
+    value: Decimal,
+    currency: str | None,
+    baseline_result: ExecutedResult,
+    comparison_result: ExecutedResult,
+) -> str:
+    return canonical_json_fingerprint(
+        {
+            "metric_ref": node.metric_ref,
+            "metric_version": node.metric_version,
+            "canonical_dataset_ref": canonical_dataset.canonical_dataset_id,
+            "canonical_dataset_fingerprint": canonical_dataset.content_fingerprint,
+            "baseline_population_ref": baseline_population.population_id,
+            "baseline_population_fingerprint": baseline_population.population_fingerprint,
+            "comparison_population_ref": comparison_population.population_id,
+            "comparison_population_fingerprint": comparison_population.population_fingerprint,
+            "baseline_period_ref": baseline_population.period.period_id,
+            "comparison_period_ref": comparison_population.period.period_id,
+            "baseline_revenue_result_fingerprint": baseline_result.result_fingerprint,
+            "comparison_revenue_result_fingerprint": comparison_result.result_fingerprint,
+            "value": str(value),
+            "metric_state": MetricState.VALID.value,
+            "undefined_reason": None,
+            "precision": REVENUE_CHANGE_DECIMAL_CALCULATION_POLICY_ID,
+            "precision_metadata": _revenue_change_calculation_policy_metadata(),
+            "unit": "money",
+            "currency": currency,
+            "executor_id": REFERENCE_EXECUTOR_ID,
+            "executor_version": REFERENCE_EXECUTOR_VERSION,
+        }
+    )
+
+
 def _unsupported_metric_failure(node: PlanMetricNode) -> FailureDetail:
     return FailureDetail(
         stage=FailureStage.EXECUTION,
@@ -764,7 +1050,18 @@ def _aov_calculation_policy_metadata() -> dict[str, str | int]:
 def _precision_metadata(metric_ref: str, precision: str) -> dict[str, str | int]:
     if metric_ref == "aov":
         return _aov_calculation_policy_metadata()
+    if metric_ref == "revenue_change":
+        return _revenue_change_calculation_policy_metadata()
     return {"precision_policy": precision}
+
+
+def _revenue_change_calculation_policy_metadata() -> dict[str, str | int]:
+    return {
+        "calculation_policy_id": REVENUE_CHANGE_DECIMAL_CALCULATION_POLICY_ID,
+        "precision": REVENUE_CHANGE_DECIMAL_PRECISION,
+        "rounding": str(REVENUE_CHANGE_DECIMAL_ROUNDING),
+        "operation": "subtraction",
+    }
 
 
 def _persist_executed_result(

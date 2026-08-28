@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 
 P5_VALIDATION_RULE_VERSION = "p5_001_rule_v1"
+P7_VALIDATION_RULE_VERSION = "p7_001_rule_v1"
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,24 @@ P5_VALIDATION_RULES: dict[str, ValidationRuleDefinition] = {
         rule_version=P5_VALIDATION_RULE_VERSION,
         applicable_metric_refs=("aov",),
         evaluator="_evaluate_aov_from_revenue_orders",
+    ),
+    "validation:revenue_change_from_validated_revenues": ValidationRuleDefinition(
+        rule_id="validation:revenue_change_from_validated_revenues",
+        rule_version=P7_VALIDATION_RULE_VERSION,
+        applicable_metric_refs=("revenue_change",),
+        evaluator="_evaluate_revenue_change_from_validated_revenues",
+    ),
+    "validation:revenue_change_dependency_context": ValidationRuleDefinition(
+        rule_id="validation:revenue_change_dependency_context",
+        rule_version=P7_VALIDATION_RULE_VERSION,
+        applicable_metric_refs=("revenue_change",),
+        evaluator="_evaluate_revenue_change_dependency_context",
+    ),
+    "validation:revenue_change_currency_consistency": ValidationRuleDefinition(
+        rule_id="validation:revenue_change_currency_consistency",
+        rule_version=P7_VALIDATION_RULE_VERSION,
+        applicable_metric_refs=("revenue_change",),
+        evaluator="_evaluate_revenue_change_currency_consistency",
     ),
 }
 

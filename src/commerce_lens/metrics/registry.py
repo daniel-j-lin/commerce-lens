@@ -9,13 +9,14 @@ from pydantic import Field, model_validator
 from commerce_lens.contracts.common import ContractBase, GroupingDimension
 
 
-METRIC_REGISTRY_VERSION = "metric_registry_mvp_v2"
+METRIC_REGISTRY_VERSION = "metric_registry_mvp_v3"
 METRIC_DEFINITION_VERSION = "metric_dictionary_v1"
 PRECISION_POLICY_REF = "canonical_dictionary:34:exact_decimal_presentation_rounding_only"
 EXECUTION_NOT_IMPLEMENTED_REF = "not_implemented:p3_001_metric_execution_not_authorized"
 REVENUE_EXECUTION_IMPLEMENTATION_REF = "p4_001:duckdb_reference:revenue_v1"
 ORDERS_EXECUTION_IMPLEMENTATION_REF = "p4_001:duckdb_reference:orders_v1"
 AOV_EXECUTION_IMPLEMENTATION_REF = "p4_001:python_decimal:aov_v1"
+REVENUE_CHANGE_EXECUTION_IMPLEMENTATION_REF = "p7_001:python_decimal_dependency_arithmetic:revenue_change_v1"
 
 
 class MetricCategory(str, Enum):
@@ -271,8 +272,13 @@ _DEFAULT_REGISTRY = MetricRegistry(
             GroupingDimension.NONE,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.ADDITIVE,
-            ("validation:revenue_change_direction", "validation:comparison_population_consistency"),
+            (
+                "validation:revenue_change_from_validated_revenues",
+                "validation:revenue_change_dependency_context",
+                "validation:revenue_change_currency_consistency",
+            ),
             "scalar_decimal",
+            implementation_ref=REVENUE_CHANGE_EXECUTION_IMPLEMENTATION_REF,
         ),
         _definition(
             "revenue_change_pct",

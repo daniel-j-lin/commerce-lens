@@ -31,6 +31,7 @@ from commerce_lens.contracts.plans import PlanMetricNode
 from commerce_lens.contracts.requests import AnalysisRequest
 from commerce_lens.contracts.sufficiency import DataSufficiencyResult, MetricEligibility, SufficiencyState
 from commerce_lens.engine import MetricExecutionError, execute_plan
+from commerce_lens.engine.execution import _revenue_change_dependency_results
 from commerce_lens.engine.plan_builder import build_execution_plan
 from commerce_lens.engine.populations import population_fingerprint, population_id_for_fingerprint
 from commerce_lens.intake.registry import DatasetRegistry
@@ -42,6 +43,7 @@ from commerce_lens.metrics import (
     METRIC_DEFINITION_VERSION,
     METRIC_REGISTRY_VERSION,
     ORDERS_EXECUTION_IMPLEMENTATION_REF,
+    REVENUE_CHANGE_EXECUTION_IMPLEMENTATION_REF,
     REVENUE_EXECUTION_IMPLEMENTATION_REF,
 )
 from commerce_lens.persistence.artifact_store import ArtifactStore
@@ -482,24 +484,95 @@ def test_aov_malformed_dependency_results_fail_closed(tmp_path) -> None:
     )
 
 
-def test_unsupported_p4_metric_node_fails_closed_without_executed_result(tmp_path) -> None:
+def test_revenue_change_executes_from_baseline_and_comparison_revenue_dependencies(tmp_path) -> None:
     plan, canonical, store = _execution_inputs(
         tmp_path,
         ("revenue_change",),
         [
-            _row(order_id="o1", order_date="2026-01-01", line_revenue="10.00"),
-            _row(order_id="o2", order_date="2026-01-03", line_revenue="11.00"),
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
         ],
     )
 
     outcome = execute_plan(plan, canonical, store)
-    failed = [record for record in outcome.execution_records if record.metric_refs == ("revenue_change",)]
+    result = _result(outcome, "revenue_change", "comparison")
+    record = _record(outcome, "revenue_change", "baseline_and_comparison")
 
-    assert failed
-    assert failed[0].status.value == "failed"
-    assert "unsupported P4-001 Metric execution" in failed[0].failure_details[0].reason
-    assert failed[0].operation == {"method": "fail_closed", "reason": "unsupported_metric"}
-    assert not any(result.metric_ref == "revenue_change" for result in outcome.executed_results)
+    assert result.value == Decimal("20.00")
+    assert result.metric_state is MetricState.VALID
+    assert result.undefined_reason is None
+    assert result.precision == "p7_revenue_change_decimal_calculation_policy_v1"
+    assert result.precision_metadata == {
+        "calculation_policy_id": "p7_revenue_change_decimal_calculation_policy_v1",
+        "precision": 38,
+        "rounding": "ROUND_HALF_EVEN",
+        "operation": "subtraction",
+    }
+    assert result.currency == "USD"
+    assert record.metric_implementation_ref == REVENUE_CHANGE_EXECUTION_IMPLEMENTATION_REF
+    assert record.period_refs == ("baseline", "comparison")
+    assert record.period_role == "baseline_and_comparison"
+    assert record.population_refs != ()
+    assert record.operation["formula"] == "comparison_revenue - baseline_revenue"
+    assert "baseline_revenue_result_ref" in record.operation
+    assert "comparison_revenue_result_ref" in record.operation
+
+
+@pytest.mark.parametrize(
+    ("tamper", "expected_reason"),
+    (
+        ("wrong_request", "request authority mismatches plan"),
+        ("wrong_plan", "plan authority mismatches plan"),
+        ("wrong_node", "does not match governed dependency node"),
+        ("fabricated_result", "result_ref mismatches result"),
+        ("missing_artifact", "artifact integrity check failed"),
+        ("tampered_artifact", "artifact integrity check failed"),
+    ),
+)
+def test_revenue_change_execution_dependency_authority_fails_closed(tmp_path, tamper: str, expected_reason: str) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("revenue_change",),
+        [
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
+        ],
+    )
+    metadata_store = MetadataStore(tmp_path / f"{tamper}_execution_registry.sqlite")
+    outcome = execute_plan(plan, canonical, store, metadata_store)
+    change_node = next(node for node in plan.ordered_metrics if node.metric_ref == "revenue_change")
+    population_by_id = {population.population_id: population for population in plan.population_definitions}
+    result_by_node_id = {
+        node.node_id: _result(outcome, "revenue", node.period_refs[0])
+        for node in plan.ordered_metrics
+        if node.metric_ref == "revenue"
+    }
+    baseline_result = _result(outcome, "revenue", "baseline")
+    baseline_record = metadata_store.get_execution_record(baseline_result.execution_id)
+    assert baseline_record is not None
+
+    if tamper == "wrong_request":
+        _replace_execution_record(metadata_store, baseline_record.model_copy(update={"request_id": "req_wrong"}))
+    elif tamper == "wrong_plan":
+        _replace_execution_record(metadata_store, baseline_record.model_copy(update={"plan_id": "plan_wrong"}))
+    elif tamper == "wrong_node":
+        _replace_execution_record(metadata_store, baseline_record.model_copy(update={"plan_node_id": "node_wrong"}))
+    elif tamper == "fabricated_result":
+        result_by_node_id[baseline_record.plan_node_id] = baseline_result.model_copy(update={"result_id": "exres_fabricated"})
+    elif tamper == "missing_artifact":
+        store.safe_path(baseline_record.output_artifacts[0].path).unlink()
+    elif tamper == "tampered_artifact":
+        store.safe_path(baseline_record.output_artifacts[0].path).write_text("tampered", encoding="utf-8")
+
+    with pytest.raises(MetricExecutionError, match=expected_reason):
+        _revenue_change_dependency_results(
+            plan,
+            change_node,
+            result_by_node_id,
+            population_by_id,
+            metadata_store,
+            store,
+        )
 
 
 @pytest.mark.parametrize(
@@ -529,7 +602,41 @@ def test_executable_metric_requires_registry_approved_implementation_ref(
     assert _result(outcome, "revenue", "comparison").value == Decimal("0")
 
 
-def test_supported_dependencies_execute_but_unsupported_revenue_change_root_produces_no_result(tmp_path) -> None:
+@pytest.mark.parametrize(
+    ("baseline", "comparison", "expected"),
+    [
+        ("100.00", "120.00", Decimal("20.00")),
+        ("120.00", "100.00", Decimal("-20.00")),
+        ("100.00", "100.00", Decimal("0.00")),
+        ("0.00", "100.00", Decimal("100.00")),
+        ("100.00", "0.00", Decimal("-100.00")),
+        ("0.00", "0.00", Decimal("0.00")),
+    ],
+)
+def test_revenue_change_positive_negative_zero_and_empty_period_cases_are_valid(
+    tmp_path,
+    baseline: str,
+    comparison: str,
+    expected: Decimal,
+) -> None:
+    rows = []
+    if Decimal(baseline) != 0:
+        rows.append(_row(order_id="o1", order_date="2026-01-01", line_revenue=baseline))
+    if Decimal(comparison) != 0:
+        rows.append(_row(order_id="o2", order_date="2026-01-03", line_revenue=comparison))
+    if not rows:
+        rows.append(_row(order_id="o3", order_date="2026-01-03", line_revenue="0.00", eligibility_status="cancelled"))
+    plan, canonical, store = _execution_inputs(tmp_path, ("revenue_change",), rows, filename=f"change_{baseline}_{comparison}.csv")
+
+    outcome = execute_plan(plan, canonical, store)
+    result = _result(outcome, "revenue_change", "comparison")
+
+    assert result.value == expected
+    assert result.metric_state is MetricState.VALID
+    assert result.undefined_reason is None
+
+
+def test_supported_dependencies_and_revenue_change_root_all_execute(tmp_path) -> None:
     plan, canonical, store = _execution_inputs(
         tmp_path,
         ("revenue_change",),
@@ -544,9 +651,8 @@ def test_supported_dependencies_execute_but_unsupported_revenue_change_root_prod
 
     assert _result(outcome, "revenue", "baseline").value == Decimal("10.00")
     assert _result(outcome, "revenue", "comparison").value == Decimal("11.00")
-    failed_root = next(record for record in outcome.execution_records if record.metric_refs == ("revenue_change",))
-    assert failed_root.operation == {"method": "fail_closed", "reason": "unsupported_metric"}
-    assert not any(result.metric_ref == "revenue_change" for result in outcome.executed_results)
+    assert _result(outcome, "revenue_change", "comparison").value == Decimal("1.00")
+    assert _record(outcome, "revenue_change", "baseline_and_comparison").status.value == "completed"
 
 
 def test_malformed_executable_authorization_fails_before_execution(tmp_path) -> None:
@@ -751,19 +857,23 @@ def test_undefined_aov_result_artifact_persists(tmp_path) -> None:
     assert restored == result
 
 
-def test_failed_unsupported_metric_execution_record_persists_without_result_artifact(tmp_path) -> None:
+def test_revenue_change_execution_record_and_artifact_persist(tmp_path) -> None:
     plan, canonical, store = _execution_inputs(tmp_path, ("revenue_change",), [_row()])
     metadata_store = MetadataStore(tmp_path / "failed_registry.sqlite")
 
     outcome = execute_plan(plan, canonical, store, metadata_store)
-    failed = next(record for record in outcome.execution_records if record.metric_refs == ("revenue_change",))
-    stored_failed = metadata_store.get_execution_record(failed.execution_id)
+    record = _record(outcome, "revenue_change", "baseline_and_comparison")
+    result = _result(outcome, "revenue_change", "comparison")
+    stored_record = metadata_store.get_execution_record(record.execution_id)
 
-    assert stored_failed == failed
-    assert stored_failed.status.value == "failed"
-    assert stored_failed.result_ref is None
-    assert stored_failed.output_artifacts == ()
-    assert not any(result.metric_ref == "revenue_change" for result in outcome.executed_results)
+    assert stored_record == record
+    assert stored_record.status.value == "completed"
+    assert stored_record.result_ref == result.result_id
+    assert stored_record.output_artifacts
+    restored = ExecutedResult.model_validate_json(
+        store.safe_path(stored_record.output_artifacts[0].path).read_text(encoding="utf-8")
+    )
+    assert restored == result
 
 
 def test_repeated_equivalent_execution_attempts_persist_separately(tmp_path) -> None:
@@ -998,6 +1108,40 @@ def _replace_canonical_parquet_rows(canonical, store: ArtifactStore, select_sql:
     )
 
 
+def _replace_execution_record(metadata_store: MetadataStore, record) -> None:
+    result_artifact_id = record.output_artifacts[0].artifact_id if record.output_artifacts else None
+    with sqlite3.connect(metadata_store.db_path) as conn:
+        conn.execute(
+            """
+            UPDATE execution_records
+            SET request_id = ?,
+                plan_id = ?,
+                plan_node_id = ?,
+                metric_ref = ?,
+                status = ?,
+                result_ref = ?,
+                result_artifact_id = ?,
+                started_at = ?,
+                ended_at = ?,
+                record_json = ?
+            WHERE execution_id = ?
+            """,
+            (
+                record.request_id,
+                record.plan_id,
+                record.plan_node_id,
+                record.metric_refs[0] if record.metric_refs else None,
+                record.status.value,
+                record.result_ref,
+                result_artifact_id,
+                record.started_at.isoformat(),
+                record.ended_at.isoformat() if record.ended_at is not None else None,
+                record.model_dump_json(),
+                record.execution_id,
+            ),
+        )
+
+
 def _plan_with_population_currency_basis(plan, period_ref: str, currency_basis_ref: str):
     old_population = next(
         population
@@ -1085,7 +1229,15 @@ def _record(outcome, metric_ref: str, period_ref: str):
     return next(
         record
         for record in outcome.execution_records
-        if record.metric_refs == (metric_ref,) and record.period_refs == (period_ref,)
+        if record.metric_refs == (metric_ref,)
+        and (
+            record.period_refs == (period_ref,)
+            or (
+                metric_ref == "revenue_change"
+                and period_ref in {"comparison", "baseline_and_comparison"}
+                and record.period_refs == ("baseline", "comparison")
+            )
+        )
     )
 
 

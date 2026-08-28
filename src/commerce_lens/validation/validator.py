@@ -20,9 +20,14 @@ from commerce_lens.engine.execution import (
     AOV_DECIMAL_CALCULATION_POLICY_ID,
     AOV_DECIMAL_PRECISION,
     AOV_DECIMAL_ROUNDING,
+    REVENUE_CHANGE_DECIMAL_CALCULATION_POLICY_ID,
+    REVENUE_CHANGE_DECIMAL_PRECISION,
+    REVENUE_CHANGE_DECIMAL_ROUNDING,
     _result_fingerprint,
+    _revenue_change_calculation_policy_metadata,
+    _revenue_change_result_fingerprint,
 )
-from commerce_lens.engine.populations import population_fingerprint, population_id_for_fingerprint
+from commerce_lens.engine.populations import material_scope_payload, population_fingerprint, population_id_for_fingerprint
 from commerce_lens.evidence.identifiers import canonical_json_fingerprint, generate_id, sha256_file
 from commerce_lens.metrics.registry import get_metric_registry
 from commerce_lens.persistence.artifact_store import ArtifactStore
@@ -32,7 +37,7 @@ from commerce_lens.validation.rules import ValidationRuleDefinition, require_p5_
 
 VALIDATOR_ID = "commerce_lens_p5_deterministic_validator"
 VALIDATOR_VERSION = "p5_001_v1"
-SUPPORTED_VALIDATION_METRICS = frozenset({"revenue", "orders", "aov"})
+SUPPORTED_VALIDATION_METRICS = frozenset({"revenue", "orders", "aov", "revenue_change"})
 _CANONICAL_TABLE = "validation_canonical_lines"
 _SUPPORTED_FILTER_OPERATORS = frozenset({"equals"})
 _EXPLICIT_CURRENCY_BASIS_PREFIX = "currency:"
@@ -282,7 +287,7 @@ def _load_and_validate_context(
     canonical_path = _verified_canonical_artifact_path(canonical_dataset, artifact_store)
     _validate_canonical_dataset_linkage(canonical_dataset, execution_record, population)
     checks.append("canonical_dataset_identity_matches")
-    _validate_result_fingerprint(node, population, canonical_dataset, execution_record, executed_result)
+    _validate_result_fingerprint(plan, node, population, canonical_dataset, execution_record, executed_result)
     checks.append("result_fingerprint_matches")
     return _ValidationContext(
         plan=plan,
@@ -350,7 +355,7 @@ def _validate_registry_authority(
     if node.execution_implementation_ref != definition.execution_implementation_ref:
         raise MetricValidationError("implementation_ref_mismatch", "plan node implementation ref does not match Registry")
     expected_dependencies = tuple(dependency.metric_id for dependency in definition.dependencies)
-    if tuple(node.dependency_metric_refs) != expected_dependencies:
+    if tuple(node.dependency_metric_refs) != tuple(dict.fromkeys(expected_dependencies)):
         raise MetricValidationError("metric_dependency_mismatch", "plan node dependency Metric refs do not match Registry")
     if tuple(node.required_validation_rule_refs) != tuple(definition.required_validation_rule_refs):
         raise MetricValidationError(
@@ -366,6 +371,8 @@ def _validate_registry_authority(
         raise MetricValidationError("metric_dependency_mismatch", "base Metric validation expected no dependency nodes")
     if executed_result.metric_ref == "aov" and set(expected_dependencies) != {"revenue", "orders"}:
         raise MetricValidationError("metric_dependency_mismatch", "AOV Registry dependencies do not match Revenue and Orders")
+    if executed_result.metric_ref == "revenue_change" and expected_dependencies != ("revenue", "revenue"):
+        raise MetricValidationError("metric_dependency_mismatch", "Revenue Change Registry dependencies do not match Baseline and Comparison Revenue")
 
 
 def _validate_plan_linkage(
@@ -380,6 +387,10 @@ def _validate_plan_linkage(
         raise MetricValidationError("plan_node_mismatch", "ExecutionRecord plan node identity does not match")
     if node.metric_ref != executed_result.metric_ref:
         raise MetricValidationError("metric_ref_mismatch", "PlanMetricNode Metric ref does not match ExecutedResult")
+    if node.metric_ref == "revenue_change":
+        if executed_result.scope_ref not in node.population_refs:
+            raise MetricValidationError("population_mismatch", "Revenue Change ExecutedResult scope_ref is outside governed plan populations")
+        return
     if node.population_refs != (executed_result.scope_ref,):
         raise MetricValidationError("population_mismatch", "PlanMetricNode population ref does not match ExecutedResult")
 
@@ -394,6 +405,22 @@ def _validate_population_identity(
         raise MetricValidationError("population_fingerprint_mismatch", "population fingerprint does not match population semantics")
     if population_id_for_fingerprint(recomputed) != population.population_id:
         raise MetricValidationError("population_id_mismatch", "population ID does not correspond to population fingerprint")
+    if executed_result.metric_ref == "revenue_change":
+        if population.population_id not in execution_record.population_refs:
+            raise MetricValidationError("population_mismatch", "Revenue Change ExecutionRecord does not include ExecutedResult population")
+        if population.population_fingerprint not in execution_record.population_fingerprints:
+            raise MetricValidationError("population_fingerprint_mismatch", "Revenue Change ExecutionRecord does not include ExecutedResult population fingerprint")
+        if executed_result.scope_ref != population.population_id:
+            raise MetricValidationError("population_mismatch", "ExecutedResult scope_ref does not match governed population")
+        if executed_result.period_ref != population.period.period_id:
+            raise MetricValidationError("period_mismatch", "ExecutedResult period_ref does not match governed population")
+        if population.period.period_id not in execution_record.period_refs:
+            raise MetricValidationError("period_mismatch", "Revenue Change ExecutionRecord does not include ExecutedResult period ref")
+        if execution_record.period_role != "baseline_and_comparison":
+            raise MetricValidationError("period_mismatch", "Revenue Change ExecutionRecord period role must retain two-period context")
+        if execution_record.grouping != population.grouping.value or population.grouping is not GroupingDimension.NONE:
+            raise MetricValidationError("population_grouping_mismatch", "P7-001 validates only governed total-population Revenue Change")
+        return
     if execution_record.population_refs != (population.population_id,):
         raise MetricValidationError("population_mismatch", "ExecutionRecord population ref does not match governed population")
     if execution_record.population_fingerprints != (population.population_fingerprint,):
@@ -442,23 +469,59 @@ def _validate_canonical_dataset_linkage(
 
 
 def _validate_result_fingerprint(
+    plan: ExecutionPlan,
     node: PlanMetricNode,
     population: PopulationDefinition,
     canonical_dataset: CanonicalDatasetReference,
     execution_record: ExecutionRecord,
     executed_result: ExecutedResult,
 ) -> None:
-    expected = _result_fingerprint(
-        node,
-        population,
-        canonical_dataset,
-        executed_result.value,
-        executed_result.metric_state,
-        executed_result.undefined_reason,
-        executed_result.precision or "",
-        executed_result.unit or "",
-        execution_record.resolved_currency if executed_result.unit != "orders" else None,
-    )
+    if executed_result.metric_ref == "revenue_change":
+        baseline_population, comparison_population = _revenue_change_plan_populations(plan, node)
+        baseline_result = ExecutedResult.model_construct(
+            result_id=execution_record.operation.get("baseline_revenue_result_ref"),
+            execution_id="validated_at_dependency_stage",
+            metric_ref="revenue",
+            scope_ref=baseline_population.population_id,
+            period_ref=baseline_population.period.period_id,
+            value=Decimal("0"),
+            metric_state=MetricState.VALID,
+            result_fingerprint=execution_record.operation.get("baseline_revenue_result_fingerprint"),
+            execution_status=ExecutionStatus.COMPLETED,
+        )
+        comparison_result = ExecutedResult.model_construct(
+            result_id=execution_record.operation.get("comparison_revenue_result_ref"),
+            execution_id="validated_at_dependency_stage",
+            metric_ref="revenue",
+            scope_ref=comparison_population.population_id,
+            period_ref=comparison_population.period.period_id,
+            value=Decimal("0"),
+            metric_state=MetricState.VALID,
+            result_fingerprint=execution_record.operation.get("comparison_revenue_result_fingerprint"),
+            execution_status=ExecutionStatus.COMPLETED,
+        )
+        expected = _revenue_change_result_fingerprint(
+            node=node,
+            baseline_population=baseline_population,
+            comparison_population=comparison_population,
+            canonical_dataset=canonical_dataset,
+            value=executed_result.value,
+            currency=execution_record.resolved_currency,
+            baseline_result=baseline_result,
+            comparison_result=comparison_result,
+        )
+    else:
+        expected = _result_fingerprint(
+            node,
+            population,
+            canonical_dataset,
+            executed_result.value,
+            executed_result.metric_state,
+            executed_result.undefined_reason,
+            executed_result.precision or "",
+            executed_result.unit or "",
+            execution_record.resolved_currency if executed_result.unit != "orders" else None,
+        )
     if executed_result.result_fingerprint != expected:
         raise MetricValidationError("result_fingerprint_mismatch", "ExecutedResult result fingerprint does not match authoritative P4 fingerprint")
 
@@ -482,6 +545,12 @@ def _evaluate_required_rules(
                 evaluations.append(_evaluate_distinct_order_count(context, rule))
             elif rule.evaluator == "_evaluate_aov_from_revenue_orders":
                 evaluations.append(_evaluate_aov_from_revenue_orders(context, rule, dependency_validated_results))
+            elif rule.evaluator == "_evaluate_revenue_change_from_validated_revenues":
+                evaluations.append(_evaluate_revenue_change_from_validated_revenues(context, rule, dependency_validated_results))
+            elif rule.evaluator == "_evaluate_revenue_change_dependency_context":
+                evaluations.append(_evaluate_revenue_change_dependency_context(context, rule, dependency_validated_results))
+            elif rule.evaluator == "_evaluate_revenue_change_currency_consistency":
+                evaluations.append(_evaluate_revenue_change_currency_consistency(context, rule, dependency_validated_results))
             else:
                 raise MetricValidationError("unknown_required_validation_rule", f"unsupported P5-001 evaluator: {rule.evaluator}")
         except MetricValidationError as exc:
@@ -692,6 +761,221 @@ def _aov_dependency_nodes(context: _ValidationContext) -> dict[str, PlanMetricNo
     if set(dependencies) != {"revenue", "orders"}:
         raise MetricValidationError("metric_dependency_mismatch", "AOV dependency nodes must contain one Revenue node and one Orders node")
     return dependencies
+
+
+def _evaluate_revenue_change_from_validated_revenues(
+    context: _ValidationContext,
+    rule: ValidationRuleDefinition,
+    dependency_validated_results: tuple[ValidatedResult, ...],
+) -> _RuleEvaluation:
+    result = context.executed_result
+    operation = _operation("revenue_change_from_validated_revenues", context, "comparison_revenue - baseline_revenue")
+    checks = (
+        *context.checks_performed,
+        "revenue_change_dependencies_validated",
+        "revenue_change_calculation_policy_matches",
+        "revenue_change_value_matches_validated_dependencies",
+    )
+    dependencies = _revenue_change_dependencies(context, dependency_validated_results, checks, operation)
+    baseline = dependencies["baseline"]
+    comparison = dependencies["comparison"]
+    if result.metric_state is not MetricState.VALID or result.undefined_reason is not None:
+        raise MetricValidationError("invalid_metric_state", "Revenue Change requires MetricState.VALID with no undefined_reason", checks_performed=checks, operation=operation, expected_state=MetricState.VALID)
+    if not isinstance(result.value, Decimal) or isinstance(result.value, bool):
+        raise MetricValidationError("invalid_revenue_change_type", "Revenue Change value must be Decimal", checks_performed=checks, operation=operation, expected_state=MetricState.VALID)
+    if not result.value.is_finite():
+        raise MetricValidationError("invalid_revenue_change_value", "Revenue Change value must be finite Decimal", checks_performed=checks, operation=operation, expected_state=MetricState.VALID)
+    if result.precision != REVENUE_CHANGE_DECIMAL_CALCULATION_POLICY_ID or result.unit != "money":
+        raise MetricValidationError("precision_policy_mismatch", "Revenue Change precision/unit metadata does not match governed calculation policy", checks_performed=checks, operation=operation, expected_state=MetricState.VALID)
+    if result.precision_metadata != _revenue_change_calculation_policy_metadata():
+        raise MetricValidationError("precision_policy_mismatch", "Revenue Change calculation-policy metadata does not match governed policy", checks_performed=checks, operation=operation, expected_state=MetricState.VALID)
+    if not isinstance(baseline.value, Decimal) or not isinstance(comparison.value, Decimal):
+        raise MetricValidationError("dependency_type_mismatch", "Revenue Change dependencies must be validated Decimal Revenue values", checks_performed=checks, operation=operation)
+    with localcontext() as decimal_context:
+        decimal_context.prec = REVENUE_CHANGE_DECIMAL_PRECISION
+        decimal_context.rounding = REVENUE_CHANGE_DECIMAL_ROUNDING
+        expected = comparison.value - baseline.value
+    operation = {
+        **operation,
+        "baseline_revenue_validated_result_ref": baseline.validated_result_id,
+        "comparison_revenue_validated_result_ref": comparison.validated_result_id,
+        "baseline_revenue_validation_fingerprint": baseline.validation_fingerprint,
+        "comparison_revenue_validation_fingerprint": comparison.validation_fingerprint,
+        "calculation_policy": _revenue_change_calculation_policy_metadata(),
+    }
+    if result.value != expected:
+        raise MetricValidationError("value_mismatch", "Revenue Change value does not match Comparison Revenue minus Baseline Revenue", checks_performed=checks, operation=operation, expected_value=expected, expected_state=MetricState.VALID)
+    return _RuleEvaluation(rule=rule, operation=operation, checks_performed=checks, expected_value=expected, expected_state=MetricState.VALID)
+
+
+def _evaluate_revenue_change_dependency_context(
+    context: _ValidationContext,
+    rule: ValidationRuleDefinition,
+    dependency_validated_results: tuple[ValidatedResult, ...],
+) -> _RuleEvaluation:
+    operation = _operation("revenue_change_dependency_context", context, "authenticated Baseline and Comparison Revenue ValidatedResults")
+    checks = (
+        *context.checks_performed,
+        "revenue_change_dependency_plan_nodes_match",
+        "revenue_change_dependency_period_roles_match",
+        "revenue_change_dependency_population_scope_matches",
+        "revenue_change_dependency_validation_bundles_authentic",
+    )
+    _revenue_change_dependencies(context, dependency_validated_results, checks, operation)
+    return _RuleEvaluation(
+        rule=rule,
+        operation=operation,
+        checks_performed=checks,
+        expected_state=MetricState.VALID,
+        expected_constraint="Revenue Change dependencies are authentic Baseline and Comparison Revenue ValidatedResults",
+    )
+
+
+def _evaluate_revenue_change_currency_consistency(
+    context: _ValidationContext,
+    rule: ValidationRuleDefinition,
+    dependency_validated_results: tuple[ValidatedResult, ...],
+) -> _RuleEvaluation:
+    operation = _operation("revenue_change_currency_consistency", context, "one governed currency across dependency and result context")
+    checks = (
+        *context.checks_performed,
+        "revenue_change_dependency_currency_matches",
+        "revenue_change_record_currency_matches",
+        "revenue_change_no_fx_conversion",
+    )
+    dependencies = _revenue_change_dependencies(context, dependency_validated_results, checks, operation)
+    baseline = dependencies["baseline"]
+    comparison = dependencies["comparison"]
+    if baseline.currency != comparison.currency:
+        raise MetricValidationError("dependency_currency_mismatch", "Revenue Change dependency currencies do not match", checks_performed=checks, operation=operation)
+    if context.executed_result.currency != baseline.currency:
+        raise MetricValidationError("currency_mismatch", "Revenue Change currency does not match dependency currency", checks_performed=checks, operation=operation)
+    if context.execution_record.resolved_currency != baseline.currency:
+        raise MetricValidationError("currency_mismatch", "Revenue Change ExecutionRecord resolved currency does not match dependency currency", checks_performed=checks, operation=operation)
+    if context.execution_record.operation.get("method") != "python_decimal_dependency_arithmetic":
+        raise MetricValidationError("currency_mismatch", "Revenue Change must not perform FX conversion or alternate execution", checks_performed=checks, operation=operation)
+    operation = {**operation, "expected_currency": baseline.currency}
+    return _RuleEvaluation(
+        rule=rule,
+        operation=operation,
+        checks_performed=checks,
+        expected_value=baseline.currency,
+        expected_state=MetricState.VALID,
+        expected_constraint="Revenue Change currency matches Baseline and Comparison Revenue currency authority",
+    )
+
+
+def _revenue_change_dependencies(
+    context: _ValidationContext,
+    dependency_validated_results: tuple[ValidatedResult, ...],
+    checks: tuple[str, ...],
+    operation: dict[str, Any],
+) -> dict[str, ValidatedResult]:
+    dependency_nodes = _revenue_change_dependency_nodes(context)
+    dependencies: dict[str, ValidatedResult] = {}
+    for dependency in dependency_validated_results:
+        if dependency.metric_ref != "revenue":
+            raise MetricValidationError("dependency_metric_mismatch", "Revenue Change dependencies must be Revenue ValidatedResults", checks_performed=checks, operation=operation)
+        role = dependency.period_role
+        if role not in {"baseline", "comparison"}:
+            raise MetricValidationError("dependency_period_mismatch", "Revenue Change dependency has invalid period role", checks_performed=checks, operation=operation)
+        if role in dependencies:
+            raise MetricValidationError("duplicate_validated_dependency", "Revenue Change requires exactly one Baseline and one Comparison Revenue dependency", checks_performed=checks, operation=operation)
+        dependencies[role] = dependency
+    if set(dependencies) != {"baseline", "comparison"}:
+        raise MetricValidationError("missing_validated_dependency", "Revenue Change validation requires Baseline and Comparison Revenue ValidatedResults", checks_performed=checks, operation=operation)
+    for role in ("baseline", "comparison"):
+        dependency = dependencies[role]
+        governed_node = dependency_nodes[role]
+        governed_population = _population(context.plan, governed_node.population_refs[0])
+        if dependency.plan_id != context.plan.plan_id:
+            raise MetricValidationError("dependency_plan_mismatch", "Revenue Change dependency plan_id does not match governed ExecutionPlan", checks_performed=checks, operation=operation)
+        if dependency.plan_node_id != governed_node.node_id:
+            raise MetricValidationError("dependency_plan_node_mismatch", "Revenue Change dependency plan_node_id does not match governed dependency node", checks_performed=checks, operation=operation)
+        if dependency.metric_definition_version != get_metric_registry().require("revenue").definition_version:
+            raise MetricValidationError("dependency_metric_version_mismatch", "Revenue Change dependency Metric version does not match Registry", checks_performed=checks, operation=operation)
+        if dependency.metric_state is not MetricState.VALID:
+            raise MetricValidationError("dependency_metric_state_mismatch", "Revenue Change dependency must be Valid Revenue", checks_performed=checks, operation=operation)
+        if dependency.canonical_dataset_ref_id != context.canonical_dataset.canonical_dataset_id:
+            raise MetricValidationError("dependency_dataset_mismatch", "Revenue Change dependency canonical dataset does not match target result", checks_performed=checks, operation=operation)
+        if dependency.canonical_dataset_fingerprint != context.canonical_dataset.content_fingerprint:
+            raise MetricValidationError("dependency_dataset_mismatch", "Revenue Change dependency canonical fingerprint does not match target result", checks_performed=checks, operation=operation)
+        if dependency.population_ref != governed_population.population_id:
+            raise MetricValidationError("dependency_population_mismatch", "Revenue Change dependency population does not match governed role population", checks_performed=checks, operation=operation)
+        if dependency.population_fingerprint != governed_population.population_fingerprint:
+            raise MetricValidationError("dependency_population_mismatch", "Revenue Change dependency population fingerprint does not match governed role population", checks_performed=checks, operation=operation)
+        if material_scope_payload(governed_population.scope) != material_scope_payload(context.population.scope):
+            raise MetricValidationError("dependency_population_mismatch", "Revenue Change dependency scope does not match Revenue Change scope", checks_performed=checks, operation=operation)
+        if dependency.period_ref != governed_population.period.period_id or dependency.period_role != role:
+            raise MetricValidationError("dependency_period_mismatch", "Revenue Change dependency period role does not match governed dependency node", checks_performed=checks, operation=operation)
+        _verify_dependency_validation_bundle(context, dependency, checks, operation)
+        _verify_dependency_executed_artifact(context, dependency, checks, operation)
+    return dependencies
+
+
+def _revenue_change_dependency_nodes(context: _ValidationContext) -> dict[str, PlanMetricNode]:
+    if len(context.node.dependency_node_ids) != 2:
+        raise MetricValidationError("metric_dependency_mismatch", "Revenue Change requires exactly two governed dependency nodes")
+    node_by_id = {node.node_id: node for node in context.plan.ordered_metrics}
+    dependencies: dict[str, PlanMetricNode] = {}
+    for dependency_node_id in context.node.dependency_node_ids:
+        node = node_by_id.get(dependency_node_id)
+        if node is None:
+            raise MetricValidationError("metric_dependency_mismatch", "Revenue Change dependency node does not exist in supplied ExecutionPlan")
+        if node.metric_ref != "revenue":
+            raise MetricValidationError("metric_dependency_mismatch", "Revenue Change dependency nodes must be Revenue nodes")
+        if len(node.period_refs) != 1 or len(node.population_refs) != 1:
+            raise MetricValidationError("metric_dependency_mismatch", "Revenue Change dependency Revenue nodes must be single-period nodes")
+        population = _population(context.plan, node.population_refs[0])
+        role = population.period_role.value
+        if role in dependencies:
+            raise MetricValidationError("metric_dependency_mismatch", "Revenue Change dependency nodes must contain one Baseline and one Comparison Revenue")
+        dependencies[role] = node
+    if set(dependencies) != {"baseline", "comparison"}:
+        raise MetricValidationError("metric_dependency_mismatch", "Revenue Change dependency nodes must contain one Baseline and one Comparison Revenue")
+    return dependencies
+
+
+def _revenue_change_plan_populations(
+    plan: ExecutionPlan,
+    node: PlanMetricNode,
+) -> tuple[PopulationDefinition, PopulationDefinition]:
+    if len(node.population_refs) != 2:
+        raise MetricValidationError("population_mismatch", "Revenue Change node must reference Baseline and Comparison populations")
+    populations = tuple(_population(plan, population_ref) for population_ref in node.population_refs)
+    by_role = {population.period_role.value: population for population in populations}
+    if set(by_role) != {"baseline", "comparison"}:
+        raise MetricValidationError("period_mismatch", "Revenue Change populations must represent Baseline and Comparison")
+    return by_role["baseline"], by_role["comparison"]
+
+
+def _verify_dependency_executed_artifact(
+    context: _ValidationContext,
+    dependency: ValidatedResult,
+    checks: tuple[str, ...],
+    operation: dict[str, Any],
+) -> None:
+    execution_record = context.metadata_store.get_execution_record(dependency.execution_id)
+    if execution_record is None:
+        raise MetricValidationError("dependency_execution_record_missing", "Revenue dependency ExecutionRecord is missing", checks_performed=checks, operation=operation)
+    if execution_record.request_id != context.execution_record.request_id:
+        raise MetricValidationError("dependency_request_mismatch", "Revenue dependency ExecutionRecord request does not match Revenue Change", checks_performed=checks, operation=operation)
+    if execution_record.plan_id != context.plan.plan_id or execution_record.plan_fingerprint != context.plan.plan_fingerprint:
+        raise MetricValidationError("dependency_plan_mismatch", "Revenue dependency ExecutionRecord plan does not match Revenue Change", checks_performed=checks, operation=operation)
+    if execution_record.status is not ExecutionStatus.COMPLETED:
+        raise MetricValidationError("dependency_execution_record_missing", "Revenue dependency ExecutionRecord is not completed", checks_performed=checks, operation=operation)
+    if not execution_record.output_artifacts or execution_record.output_artifacts[0] != dependency.source_result_artifact_ref:
+        raise MetricValidationError("dependency_executed_result_artifact_missing", "Revenue dependency ExecutedResult artifact authority is missing", checks_performed=checks, operation=operation)
+    artifact = dependency.source_result_artifact_ref
+    persisted = context.metadata_store.get_artifact_reference(artifact.artifact_id)
+    if persisted != artifact:
+        raise MetricValidationError("dependency_executed_result_artifact_missing", "Revenue dependency ExecutedResult artifact metadata is missing", checks_performed=checks, operation=operation)
+    path = context.artifact_store.safe_path(artifact.path)
+    if not path.is_file() or artifact.fingerprint is None or sha256_file(path) != artifact.fingerprint:
+        raise MetricValidationError("dependency_executed_result_artifact_hash_mismatch", "Revenue dependency ExecutedResult artifact hash does not match metadata", checks_performed=checks, operation=operation)
+    restored = ExecutedResult.model_validate_json(path.read_text(encoding="utf-8"))
+    if restored.result_id != dependency.executed_result_id or restored.result_fingerprint != dependency.result_fingerprint:
+        raise MetricValidationError("dependency_executed_result_artifact_mismatch", "Revenue dependency ExecutedResult artifact content mismatches ValidatedResult", checks_performed=checks, operation=operation)
 
 
 def _verify_dependency_validation_bundle(
@@ -947,7 +1231,9 @@ def _validated_result(
         population_ref=context.population.population_id,
         population_fingerprint=context.population.population_fingerprint,
         period_ref=context.population.period.period_id,
-        period_role=context.population.period_role.value,
+        period_role="baseline_and_comparison"
+        if context.executed_result.metric_ref == "revenue_change"
+        else context.population.period_role.value,
         result_fingerprint=context.executed_result.result_fingerprint or "",
         validation_fingerprint=validation_fingerprint,
         value=context.executed_result.value,
@@ -1117,6 +1403,11 @@ def _json_scalar(value: Decimal | int | float | bool | str | None) -> int | floa
 
 
 def _lineage_payload(context: _ValidationContext) -> dict[str, Any]:
+    period_role = (
+        "baseline_and_comparison"
+        if context.executed_result.metric_ref == "revenue_change"
+        else context.population.period_role.value
+    )
     return {
         "metric_definition_version": context.node.metric_version,
         "plan_id": context.execution_record.plan_id,
@@ -1127,7 +1418,7 @@ def _lineage_payload(context: _ValidationContext) -> dict[str, Any]:
         "population_ref": context.population.population_id,
         "population_fingerprint": context.population.population_fingerprint,
         "period_ref": context.population.period.period_id,
-        "period_role": context.population.period_role.value,
+        "period_role": period_role,
     }
 
 
@@ -1138,6 +1429,8 @@ def _validation_rule_id(metric_ref: str | None) -> str:
         return "validation:distinct_order_count"
     if metric_ref == "aov":
         return "validation:aov_from_revenue_orders"
+    if metric_ref == "revenue_change":
+        return "validation:revenue_change_from_validated_revenues"
     return "validation:p5_001_fail_closed"
 
 

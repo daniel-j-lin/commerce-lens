@@ -67,6 +67,69 @@ def test_valid_revenue_orders_and_aov_become_metric_value_evidence(tmp_path) -> 
         assert _restored_evidence(fixture, outcome).evidence_fingerprint == outcome.admissible_evidence.evidence_fingerprint
 
 
+def test_valid_revenue_change_becomes_descriptive_metric_value_evidence(tmp_path) -> None:
+    fixture, validated = _validated_revenue_change_fixture(tmp_path)
+
+    outcome = _admit(fixture, validated)
+
+    assert outcome.admissibility_record.status is EvidenceAdmissibilityStatus.PASSED
+    assert outcome.admissible_evidence is not None
+    assert outcome.admissible_evidence.metric_ref == "revenue_change"
+    assert outcome.admissible_evidence.evidence_role is EvidenceRole.METRIC_VALUE
+    assert outcome.admissible_evidence.supported_claim_type is ClaimType.DESCRIPTIVE
+    assert outcome.admissible_evidence.period_ref == "comparison"
+    assert outcome.admissible_evidence.period_role == "baseline_and_comparison"
+    assert validated.value == Decimal("20.00")
+
+
+@pytest.mark.parametrize(
+    ("tamper", "expected_code"),
+    (
+        ("missing_request_metric", "required_evidence_metric_mismatch"),
+        ("missing_eligibility", "sufficiency_metric_eligibility_absent"),
+        ("ineligible", "sufficiency_not_eligible"),
+        ("missing_applicable_requirement", "required_evidence_context_missing"),
+        ("wrong_period_context", "period_mismatch"),
+        ("tampered_validated_artifact", "validated_result_artifact_hash_mismatch"),
+        ("incomplete_validation_bundle", "validation_bundle_incomplete"),
+        ("evidence_artifact_tamper", "admissible_evidence_artifact_integrity_failure"),
+    ),
+)
+def test_revenue_change_evidence_admissibility_fail_closed_cases(tmp_path, tamper: str, expected_code: str) -> None:
+    fixture, result = _validated_revenue_change_fixture(tmp_path)
+    supplied_validated_result = result
+    if tamper == "missing_request_metric":
+        _replace_request(
+            fixture,
+            metrics=tuple(metric.model_copy(update={"metric_id": "orders"}) for metric in fixture.request.metrics),
+        )
+    elif tamper == "missing_eligibility":
+        _replace_sufficiency(fixture, metric_eligibility=())
+    elif tamper == "ineligible":
+        _replace_sufficiency(
+            fixture,
+            metric_eligibility=(MetricEligibility(metric_ref="revenue_change", eligible=False, metric_state=MetricState.INADMISSIBLE),),
+        )
+    elif tamper == "missing_applicable_requirement":
+        _replace_request(fixture, required_evidence=())
+    elif tamper == "wrong_period_context":
+        _set_execution_record_period_refs(fixture, result.execution_id, ("baseline",))
+    elif tamper == "tampered_validated_artifact":
+        _tamper_validated_artifact(fixture, result, "value", "999.00")
+    elif tamper == "incomplete_validation_bundle":
+        _replace_validated_artifact_authority(fixture, result, {"required_validation_record_ids": result.required_validation_record_ids[:1]})
+        supplied_validated_result = None
+    elif tamper == "evidence_artifact_tamper":
+        first = _admit(fixture, result)
+        _tamper_evidence_artifact(fixture, first.admissibility_record.admissible_evidence_artifact_ref, {"dataset_ref_id": "ds_wrong"})
+
+    outcome = _admit(fixture, result, supplied_validated_result=supplied_validated_result)
+
+    assert outcome.admissible_evidence is None
+    assert outcome.admissibility_record.status is EvidenceAdmissibilityStatus.FAILED
+    assert outcome.admissibility_record.failure_code == expected_code
+
+
 def test_governed_aov_undefined_becomes_metric_state_evidence(tmp_path) -> None:
     fixture = _fixture(tmp_path, ("aov",), [_row(eligibility_status="cancelled")])
     revenue = _validate(fixture, "revenue").validated_result
@@ -691,9 +754,35 @@ def _fixture(
     return _Fixture(request, sufficiency, plan, canonicalization.canonical_dataset, artifact_store, metadata_store, outcome)
 
 
-def _validate(fixture: _Fixture, metric_ref: str, dependencies: tuple[ValidatedResult, ...] = ()):
-    record = _record(fixture.outcome, metric_ref, "baseline")
-    result = _result(fixture.outcome, metric_ref, "baseline")
+def _validated_revenue_change_fixture(tmp_path: Path) -> tuple[_Fixture, ValidatedResult]:
+    fixture = _fixture(
+        tmp_path,
+        ("revenue_change",),
+        [
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
+        ],
+    )
+    baseline = _validate(fixture, "revenue", period_ref="baseline").validated_result
+    comparison = _validate(fixture, "revenue", period_ref="comparison").validated_result
+    validation = _validate(
+        fixture,
+        "revenue_change",
+        period_ref="comparison",
+        dependencies=(baseline, comparison),
+    )
+    return fixture, validation.validated_result
+
+
+def _validate(
+    fixture: _Fixture,
+    metric_ref: str,
+    dependencies: tuple[ValidatedResult, ...] = (),
+    *,
+    period_ref: str = "baseline",
+):
+    record = _record(fixture.outcome, metric_ref, "baseline_and_comparison" if metric_ref == "revenue_change" else period_ref)
+    result = _result(fixture.outcome, metric_ref, period_ref)
     return validate_executed_result(
         execution_id=record.execution_id,
         result_id=result.result_id,

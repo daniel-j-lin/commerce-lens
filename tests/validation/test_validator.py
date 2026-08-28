@@ -11,12 +11,13 @@ from commerce_lens.contracts.common import MetricState
 from commerce_lens.contracts.validation import ValidatedResult, ValidationStatus
 from commerce_lens.engine import execute_plan
 from commerce_lens.engine.execution import _result_fingerprint
+from commerce_lens.engine.execution import _revenue_change_result_fingerprint
 from commerce_lens.evidence.identifiers import generate_id
 from commerce_lens.metrics.registry import get_metric_registry
 from commerce_lens.persistence.artifact_store import ArtifactStore
 from commerce_lens.persistence.metadata_store import SCHEMA_VERSION, MetadataStore
 from commerce_lens.validation import validate_executed_result
-from commerce_lens.validation.rules import P5_VALIDATION_RULES, P5_VALIDATION_RULE_VERSION
+from commerce_lens.validation.rules import P5_VALIDATION_RULES, P5_VALIDATION_RULE_VERSION, P7_VALIDATION_RULE_VERSION
 from tests.engine.test_execution import _execution_inputs, _record, _result, _row
 from tests.persistence.test_metadata_store import _create_supported_v2_tables
 
@@ -439,14 +440,25 @@ def test_required_rule_registry_and_successful_record_sets(tmp_path) -> None:
         "validation:aov_from_revenue_orders",
         "validation:population_consistency",
     )
+    assert registry.require("revenue_change").required_validation_rule_refs == (
+        "validation:revenue_change_from_validated_revenues",
+        "validation:revenue_change_dependency_context",
+        "validation:revenue_change_currency_consistency",
+    )
     assert tuple(P5_VALIDATION_RULES) == (
         "validation:revenue_sum",
         "validation:currency_consistency",
         "validation:population_consistency",
         "validation:distinct_order_count",
         "validation:aov_from_revenue_orders",
+        "validation:revenue_change_from_validated_revenues",
+        "validation:revenue_change_dependency_context",
+        "validation:revenue_change_currency_consistency",
     )
-    assert {rule.rule_version for rule in P5_VALIDATION_RULES.values()} == {P5_VALIDATION_RULE_VERSION}
+    assert {rule.rule_version for rule in P5_VALIDATION_RULES.values()} == {
+        P5_VALIDATION_RULE_VERSION,
+        P7_VALIDATION_RULE_VERSION,
+    }
 
     outcome, plan, canonical, store, metadata_store = _executed(tmp_path, ("aov",), [_row(line_revenue="10.00")])
     revenue = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "baseline")
@@ -471,6 +483,141 @@ def test_required_rule_registry_and_successful_record_sets(tmp_path) -> None:
     for validation in (revenue, orders, aov):
         records = [metadata_store.get_validation_record(record_id) for record_id in validation.validated_result.required_validation_record_ids]
         assert [record.status for record in records] == [ValidationStatus.PASSED] * len(records)
+
+
+def test_revenue_change_validates_from_authentic_baseline_and_comparison_revenues(tmp_path) -> None:
+    outcome, plan, canonical, store, metadata_store = _executed(
+        tmp_path,
+        ("revenue_change",),
+        [
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
+        ],
+    )
+    baseline = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "baseline").validated_result
+    comparison = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "comparison").validated_result
+
+    validation = _validate_metric(
+        outcome,
+        plan,
+        canonical,
+        store,
+        metadata_store,
+        "revenue_change",
+        "comparison",
+        dependencies=(baseline, comparison),
+    )
+
+    assert validation.validation_record.status is ValidationStatus.PASSED
+    assert _record_rule_ids(validation) == get_metric_registry().require("revenue_change").required_validation_rule_refs
+    assert validation.validated_result is not None
+    assert validation.validated_result.value == Decimal("20.00")
+    assert validation.validated_result.metric_state is MetricState.VALID
+    assert validation.validated_result.period_ref == "comparison"
+    assert validation.validated_result.period_role == "baseline_and_comparison"
+    assert len(validation.validated_result.required_validation_record_ids) == 3
+
+
+@pytest.mark.parametrize(
+    ("tamper", "expected_code"),
+    [
+        ("missing_comparison", "missing_validated_dependency"),
+        ("duplicate_baseline", "duplicate_validated_dependency"),
+        ("wrong_plan", "dependency_plan_mismatch"),
+        ("wrong_node", "dependency_plan_node_mismatch"),
+        ("wrong_metric", "dependency_metric_mismatch"),
+        ("wrong_period_role", "dependency_period_mismatch"),
+        ("wrong_population", "dependency_population_mismatch"),
+        ("wrong_currency", "dependency_validated_result_artifact_mismatch"),
+        ("forged_bundle", "dependency_validation_fingerprint_mismatch"),
+        ("failed_record", "dependency_validation_record_failed"),
+    ],
+)
+def test_revenue_change_dependency_authority_failures(tmp_path, tamper, expected_code) -> None:
+    outcome, plan, canonical, store, metadata_store = _executed(
+        tmp_path,
+        ("revenue_change",),
+        [
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
+        ],
+    )
+    baseline = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "baseline").validated_result
+    comparison = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "comparison").validated_result
+    dependencies = (baseline, comparison)
+    if tamper == "missing_comparison":
+        dependencies = (baseline,)
+    elif tamper == "duplicate_baseline":
+        dependencies = (baseline, baseline.model_copy(update={"validated_result_id": "valres_duplicate"}))
+    elif tamper == "wrong_plan":
+        dependencies = (baseline.model_copy(update={"plan_id": "plan_wrong"}), comparison)
+    elif tamper == "wrong_node":
+        dependencies = (baseline.model_copy(update={"plan_node_id": "node_wrong"}), comparison)
+    elif tamper == "wrong_metric":
+        dependencies = (baseline.model_copy(update={"metric_ref": "orders"}), comparison)
+    elif tamper == "wrong_period_role":
+        dependencies = (baseline.model_copy(update={"period_role": "forecast"}), comparison)
+    elif tamper == "wrong_population":
+        dependencies = (baseline.model_copy(update={"population_ref": "pop_wrong"}), comparison)
+    elif tamper == "wrong_currency":
+        dependencies = (baseline.model_copy(update={"currency": "EUR"}), comparison)
+    elif tamper == "forged_bundle":
+        dependencies = (baseline.model_copy(update={"validation_fingerprint": "f" * 64}), comparison)
+    elif tamper == "failed_record":
+        _set_validation_record_status(metadata_store, baseline.required_validation_record_ids[0], "failed")
+
+    validation = _validate_metric(
+        outcome,
+        plan,
+        canonical,
+        store,
+        metadata_store,
+        "revenue_change",
+        "comparison",
+        dependencies=dependencies,
+    )
+
+    assert validation.validation_record.status is ValidationStatus.FAILED
+    assert validation.validation_record.failure_code == expected_code
+    assert validation.validated_result is None
+
+
+def test_revenue_change_incorrect_arithmetic_fails_after_result_fingerprint_recomputed(tmp_path) -> None:
+    outcome, plan, canonical, store, metadata_store = _executed(
+        tmp_path,
+        ("revenue_change",),
+        [
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
+        ],
+    )
+    baseline = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "baseline").validated_result
+    comparison = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "comparison").validated_result
+    tampered_record, tampered_result = _persist_replacement_result(
+        outcome,
+        plan,
+        canonical,
+        store,
+        metadata_store,
+        "revenue_change",
+        "comparison",
+        value=Decimal("21.00"),
+        recompute_fingerprint=True,
+    )
+
+    validation = validate_executed_result(
+        execution_id=tampered_record.execution_id,
+        result_id=tampered_result.result_id,
+        plan=plan,
+        canonical_dataset=canonical,
+        artifact_store=store,
+        metadata_store=metadata_store,
+        dependency_validated_results=(baseline, comparison),
+    )
+
+    assert validation.validation_record.status is ValidationStatus.FAILED
+    assert validation.validation_record.failure_code == "value_mismatch"
+    assert validation.validated_result is None
 
 
 @pytest.mark.parametrize(
@@ -711,21 +858,34 @@ def _persist_replacement_result(
     if recompute_fingerprint:
         node = next(item for item in plan.ordered_metrics if item.node_id == original_record.plan_node_id)
         population = next(item for item in plan.population_definitions if item.population_id == result.scope_ref)
-        result = result.model_copy(
-            update={
-                "result_fingerprint": _result_fingerprint(
-                    node,
-                    population,
-                    canonical,
-                    result.value,
-                    result.metric_state,
-                    result.undefined_reason,
-                    result.precision or "",
-                    result.unit or "",
-                    original_record.resolved_currency if result.unit != "orders" else None,
-                )
-            }
-        )
+        if metric_ref == "revenue_change":
+            populations = {item.population_id: item for item in plan.population_definitions}
+            by_role = {populations[ref].period_role.value: populations[ref] for ref in node.population_refs}
+            baseline_result = _result(outcome, "revenue", "baseline")
+            comparison_result = _result(outcome, "revenue", "comparison")
+            fingerprint = _revenue_change_result_fingerprint(
+                node=node,
+                baseline_population=by_role["baseline"],
+                comparison_population=by_role["comparison"],
+                canonical_dataset=canonical,
+                value=result.value,
+                currency=original_record.resolved_currency,
+                baseline_result=baseline_result,
+                comparison_result=comparison_result,
+            )
+        else:
+            fingerprint = _result_fingerprint(
+                node,
+                population,
+                canonical,
+                result.value,
+                result.metric_state,
+                result.undefined_reason,
+                result.precision or "",
+                result.unit or "",
+                original_record.resolved_currency if result.unit != "orders" else None,
+            )
+        result = result.model_copy(update={"result_fingerprint": fingerprint})
     artifact = store.write_json_artifact(
         Path("runs") / execution_id / "results" / f"{result_id}.json",
         result.model_dump(mode="json"),

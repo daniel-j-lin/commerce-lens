@@ -8,6 +8,7 @@ from commerce_lens.metrics import (
     EXECUTION_NOT_IMPLEMENTED_REF,
     METRIC_DEFINITION_VERSION,
     ORDERS_EXECUTION_IMPLEMENTATION_REF,
+    REVENUE_CHANGE_EXECUTION_IMPLEMENTATION_REF,
     REVENUE_EXECUTION_IMPLEMENTATION_REF,
     Additivity,
     MetricDependency,
@@ -50,7 +51,7 @@ def test_unsupported_metric_id_is_rejected() -> None:
         get_metric_registry().require("gross_margin")
 
 
-def test_metric_definitions_are_versioned_and_only_p4_metrics_have_implementation_refs() -> None:
+def test_metric_definitions_are_versioned_and_only_authorized_metrics_have_implementation_refs() -> None:
     registry = get_metric_registry()
 
     assert {definition.definition_version for definition in registry.definitions} == {
@@ -59,10 +60,11 @@ def test_metric_definitions_are_versioned_and_only_p4_metrics_have_implementatio
     assert registry.require("revenue").execution_implementation_ref == REVENUE_EXECUTION_IMPLEMENTATION_REF
     assert registry.require("orders").execution_implementation_ref == ORDERS_EXECUTION_IMPLEMENTATION_REF
     assert registry.require("aov").execution_implementation_ref == AOV_EXECUTION_IMPLEMENTATION_REF
+    assert registry.require("revenue_change").execution_implementation_ref == REVENUE_CHANGE_EXECUTION_IMPLEMENTATION_REF
     assert {
         definition.execution_implementation_ref
         for definition in registry.definitions
-        if definition.metric_id not in {"revenue", "orders", "aov"}
+        if definition.metric_id not in {"revenue", "orders", "aov", "revenue_change"}
     } == {EXECUTION_NOT_IMPLEMENTED_REF}
 
 
@@ -72,6 +74,7 @@ def test_required_inputs_dependencies_and_additivity_are_governed() -> None:
     revenue = registry.require("revenue")
     orders = registry.require("orders")
     aov = registry.require("aov")
+    revenue_change = registry.require("revenue_change")
     share = registry.require("product_contribution_share")
 
     assert "line_revenue" in revenue.required_canonical_fields
@@ -83,6 +86,16 @@ def test_required_inputs_dependencies_and_additivity_are_governed() -> None:
     )
     assert aov.additivity is Additivity.DERIVED_NON_ADDITIVE
     assert "orders_equals_zero" in aov.undefined_conditions
+    assert revenue_change.prerequisite_metric_ids == ("revenue",)
+    assert tuple(dependency.period_role for dependency in revenue_change.dependencies) == (
+        DependencyPeriodRole.BASELINE,
+        DependencyPeriodRole.COMPARISON,
+    )
+    assert revenue_change.required_validation_rule_refs == (
+        "validation:revenue_change_from_validated_revenues",
+        "validation:revenue_change_dependency_context",
+        "validation:revenue_change_currency_consistency",
+    )
     assert "total_revenue_change_equals_zero" in share.undefined_conditions
     assert share.grouping_requirement is GroupingDimension.PRODUCT
 

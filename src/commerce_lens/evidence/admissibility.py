@@ -32,8 +32,8 @@ from commerce_lens.validation.validator import (
 
 
 EVIDENCE_ADMISSIBILITY_EVALUATOR_ID = "commerce_lens_p6_evidence_admissibility"
-EVIDENCE_ADMISSIBILITY_EVALUATOR_VERSION = "p6_001_v1"
-SUPPORTED_P6_METRICS = frozenset({"revenue", "orders", "aov"})
+EVIDENCE_ADMISSIBILITY_EVALUATOR_VERSION = "p6_001_p7_001_v1"
+SUPPORTED_P6_METRICS = frozenset({"revenue", "orders", "aov", "revenue_change"})
 
 
 class EvidenceAdmissibilityError(ValueError):

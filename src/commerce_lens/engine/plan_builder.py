@@ -265,6 +265,8 @@ def validate_execution_plan_pre_execution(
             }
             if len(dependency_populations) != 1 or len(dependency_periods) != 1:
                 raise PlanningError("AOV dependency nodes must use identical governed populations and periods")
+        if node.metric_ref == "revenue_change":
+            _validate_revenue_change_dependency_nodes(node, node_by_id, population_by_id)
     for metric_ref in plan.eligible_requested_metric_refs:
         if not any(
             node.metric_ref == metric_ref
@@ -355,6 +357,44 @@ def _validate_grouping_supported(definition: MetricDefinition, grouping: Groupin
         raise PlanningError(f"Metric {definition.metric_id} requires an explicit governed grouping")
     if grouping is not definition.grouping_requirement:
         raise PlanningError(f"Metric {definition.metric_id} requires grouping {definition.grouping_requirement.value}")
+
+
+def _validate_revenue_change_dependency_nodes(
+    node: PlanMetricNode,
+    node_by_id: dict[str, PlanMetricNode],
+    population_by_id: dict[str, PopulationDefinition],
+) -> None:
+    if len(node.dependency_node_ids) != 2:
+        raise PlanningError("Revenue Change requires exactly two governed Revenue dependency nodes")
+    if len(node.population_refs) != 2:
+        raise PlanningError("Revenue Change requires exactly Baseline and Comparison governed populations")
+    parent_populations = tuple(population_by_id[population_ref] for population_ref in node.population_refs)
+    parent_roles = {population.period_role.value for population in parent_populations}
+    if parent_roles != {"baseline", "comparison"}:
+        raise PlanningError("Revenue Change populations must represent exactly Baseline and Comparison")
+    dependency_roles: set[str] = set()
+    parent_population_by_role = {population.period_role.value: population for population in parent_populations}
+    for dependency_id in node.dependency_node_ids:
+        dependency_node = node_by_id[dependency_id]
+        if dependency_node.metric_ref != "revenue":
+            raise PlanningError("Revenue Change dependency nodes must be Revenue Metrics")
+        if dependency_node.grouping is not GroupingDimension.NONE:
+            raise PlanningError("Revenue Change dependency nodes must use grouping none")
+        if len(dependency_node.population_refs) != 1:
+            raise PlanningError("Revenue Change Revenue dependency must reference exactly one governed population")
+        dependency_population = population_by_id[dependency_node.population_refs[0]]
+        role = dependency_population.period_role.value
+        if role in dependency_roles:
+            raise PlanningError("Revenue Change dependency nodes must contain one Baseline and one Comparison Revenue")
+        dependency_roles.add(role)
+        if role not in {"baseline", "comparison"}:
+            raise PlanningError("Revenue Change dependency has invalid period role")
+        if dependency_node.period_refs != (dependency_population.period.period_id,):
+            raise PlanningError("Revenue Change dependency period refs must match governed dependency population")
+        if dependency_node.population_refs != (parent_population_by_role[role].population_id,):
+            raise PlanningError("Revenue Change dependency population must match the same-role parent population")
+    if dependency_roles != {"baseline", "comparison"}:
+        raise PlanningError("Revenue Change dependency nodes must contain one Baseline and one Comparison Revenue")
 
 
 def _apply_chain_authorization(

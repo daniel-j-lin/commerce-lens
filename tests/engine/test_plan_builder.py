@@ -89,6 +89,62 @@ def test_comparison_metric_depends_on_baseline_and_comparison_revenue_nodes() ->
     assert {tuple(node.period_refs) for node in dependencies} == {("baseline",), ("comparison",)}
 
 
+@pytest.mark.parametrize(
+    "tamper",
+    (
+        "missing_baseline",
+        "missing_comparison",
+        "duplicate_baseline",
+        "duplicate_comparison",
+        "wrong_dependency_metric",
+        "wrong_dependency_period",
+        "missing_dependency_node",
+        "unauthorized_extra_dependency",
+    ),
+)
+def test_revenue_change_pre_execution_validation_rejects_malformed_dependency_authority(tamper: str) -> None:
+    request = _request(metrics=("revenue_change",))
+    plan = build_execution_plan(request, _sufficiency(request))
+    nodes = {node.node_id: node for node in plan.ordered_metrics}
+    change = next(node for node in plan.ordered_metrics if node.metric_ref == "revenue_change")
+    dependencies = [nodes[node_id] for node_id in change.dependency_node_ids]
+    revenue_by_period = {node.period_refs[0]: node for node in dependencies}
+    baseline = revenue_by_period["baseline"]
+    comparison = revenue_by_period["comparison"]
+    replacement_nodes: dict[str, PlanMetricNode] = {}
+    extra_nodes: tuple[PlanMetricNode, ...] = ()
+    dependency_node_ids = change.dependency_node_ids
+
+    if tamper == "missing_baseline":
+        dependency_node_ids = (comparison.node_id,)
+    elif tamper == "missing_comparison":
+        dependency_node_ids = (baseline.node_id,)
+    elif tamper == "duplicate_baseline":
+        dependency_node_ids = (baseline.node_id, baseline.node_id)
+    elif tamper == "duplicate_comparison":
+        dependency_node_ids = (comparison.node_id, comparison.node_id)
+    elif tamper == "wrong_dependency_metric":
+        replacement_nodes[baseline.node_id] = baseline.model_copy(update={"metric_ref": "orders"})
+    elif tamper == "wrong_dependency_period":
+        replacement_nodes[baseline.node_id] = baseline.model_copy(update={"period_refs": ("comparison",)})
+    elif tamper == "missing_dependency_node":
+        dependency_node_ids = ("missing_node", comparison.node_id)
+    elif tamper == "unauthorized_extra_dependency":
+        extra = baseline.model_copy(update={"node_id": "node_extra_revenue"})
+        dependency_node_ids = (*change.dependency_node_ids, extra.node_id)
+        extra_nodes = (extra,)
+
+    bad_change = change.model_copy(update={"dependency_node_ids": dependency_node_ids})
+    bad_ordered_metrics = tuple(
+        bad_change if node.node_id == change.node_id else replacement_nodes.get(node.node_id, node)
+        for node in plan.ordered_metrics
+    )
+    bad_plan = plan.model_copy(update={"ordered_metrics": (*bad_ordered_metrics, *extra_nodes)})
+
+    with pytest.raises(PlanningError):
+        validate_execution_plan_pre_execution(bad_plan)
+
+
 def test_unsupported_metric_fails_closed_before_planning() -> None:
     request = _request(metrics=("gross_margin",))
 
