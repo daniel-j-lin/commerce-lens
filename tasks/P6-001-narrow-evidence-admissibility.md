@@ -2,13 +2,16 @@
 
 ## Status
 
-SPECIFICATION CREATED
+AUTHORIZED SPECIFICATION -- EVIDENCE AUTHORITY RESOLVED
 
 Implementation:
 NOT STARTED
 
 Main Project Review:
-REQUIRED BEFORE IMPLEMENTATION APPROVAL
+NOT REQUIRED FOR THE P6-001 AUTHORITY RESOLVED IN THIS TASK
+
+If a new material conflict with Frozen authority is discovered during later implementation:
+STOP and request Main Project review.
 
 Revenue / Orders / AOV deterministic validation:
 IMPLEMENTED BY P5-001
@@ -27,6 +30,22 @@ NOT PART OF P6-001
 
 Next implementation after P6-001:
 REQUIRES SEPARATE MAIN PROJECT AUTHORIZATION
+
+Main Project Evidence Authority Resolution:
+APPLIED TO THIS TASK SPECIFICATION
+
+These binding P6-001 task decisions do NOT amend the Frozen specifications.
+
+They narrow the implementation permitted by those specifications.
+
+No unresolved P6-001 authority ambiguity remains for:
+
+- admissibility grain;
+- Evidence fingerprint semantics;
+- multiple Required Evidence relationship;
+- Qualified behavior;
+- governed AOV Undefined behavior; and
+- request/sufficiency durable authority.
 
 ---
 
@@ -309,39 +328,82 @@ For P6, Required Evidence must be linked deterministically to:
 - ExecutionRecord; and
 - canonical dataset identity and fingerprint.
 
-## 9. Required Evidence Grain
+## 9. Admissibility Grain
 
 The Evidence Contract defines Required Evidence as claim-type, Metric, scope, and analytical-purpose dependent.
 
-For the P6-001 narrow slice, the intended implementation grain must be:
+For the P6-001 narrow slice, the authorized admissibility grain is:
 
-one admissibility evaluation event
-for one Required Evidence requirement
-against one authoritative persisted ValidatedResult
-within one governed analytical context.
+ONE persisted authentic ValidatedResult
+x
+ONE governed intended material-use context.
 
-If a future implementation determines from Frozen authority that the governed grain must instead be per result, per requirement group, per claim context, or another grain:
+The intended material-use context is bounded by:
 
-STOP and request Main Project review before implementation.
+- `AnalysisRequest`;
+- canonical Business Question;
+- supported claim type;
+- exact Metric and Metric version;
+- exact dataset and canonical dataset;
+- exact population/scope;
+- exact period;
+- applicable Required Evidence set; and
+- authoritative `DataSufficiencyResult`.
 
-Do not resolve the grain by implementation convenience.
+A successful P6 `AdmissibleEvidence` object must reference exactly ONE `ValidatedResult`.
 
-## 10. Multiple Requirement Satisfaction
+The existing structural field:
 
-P6-001 must not assume that one ValidatedResult can satisfy multiple Required Evidence requirements unless the Frozen Evidence Contract and existing governed context establish that deterministically.
+`validated_result_ids`
 
-If one ValidatedResult appears capable of satisfying multiple requirements:
+may remain a tuple for compatibility, but P6-001 requires:
 
-- either create separate admissibility evaluations per requirement; or
-- STOP if the resulting evidence semantics are ambiguous.
+`len(validated_result_ids) == 1`
 
-Do not silently treat a ValidatedResult as broadly reusable evidence for unrelated purposes, scopes, Metrics, periods, or claim types.
+Do NOT aggregate multiple ValidatedResults into one P6 evidence object.
+
+Multi-result Claim support belongs to later ClaimDecision / Finding stages.
+
+## 10. Required Evidence Relationship
+
+Do NOT model an arbitrary `ValidatedResult` as directly satisfying every Required Evidence prerequisite.
+
+Required Evidence may include:
+
+- fields;
+- coverage;
+- identifiers;
+- Metric inputs;
+- execution prerequisites;
+- validation prerequisites; and
+- other material conditions.
+
+P6 evaluates one `ValidatedResult` against the COMPLETE APPLICABLE Required Evidence context already governed by `AnalysisRequest` + `DataSufficiencyResult`.
+
+For each admissibility evaluation, determine the applicable requirement set from the persisted `AnalysisRequest`.
+
+A requirement is applicable to the P6 Metric/material use when its governed scope applies, including:
+
+- `metric_ref` is absent/global OR matches the target Metric; and
+- `claim_type` is absent/claim-type-agnostic OR matches the target supported claim type.
+
+The authoritative `DataSufficiencyResult` must establish that the affected Metric chain remained eligible.
+
+The `AdmissibleEvidence` / evaluation record must retain:
+
+`applicable_required_evidence_requirement_ids`
+
+or an equivalently explicit deterministic field.
+
+A single `ValidatedResult` may participate in more than one future material-use context only through separate deterministic admissibility evaluations.
+
+Prior admissibility in one context must NEVER authorize another context automatically.
 
 ## 11. Analytical Purpose and Claim-Type Context
 
 P6-001 is not ClaimDecision.
 
-However, Evidence admissibility is evaluated for an intended role in a material Claim evidence chain. Therefore the P6 context must carry the intended claim type whenever it is material to the Frozen Evidence Contract.
+However, Evidence admissibility is evaluated for an intended role in a material Claim evidence chain. Therefore the P6 context must carry the intended claim type.
 
 Preserve the project taxonomy:
 
@@ -353,17 +415,49 @@ Preserve the project taxonomy:
 
 For the P6-001 narrow Metrics:
 
-- Revenue, Orders, and AOV ValidatedResults may be evaluated as evidence for bounded descriptive numerical Claims when all Required Evidence and traceability checks pass.
-- They may serve as descriptive basis for a later bounded diagnostic chain only when the later task separately implements the additional diagnostic Evidence requirements.
-- They must not be admitted as causal, predictive, or prescriptive Evidence for stronger claims in P6.
+- `ClaimType.DESCRIPTIVE` is authorized for deterministic Evidence admissibility evaluation.
+- `ClaimType.DIAGNOSTIC` fails closed as unsupported by P6-001.
+- `ClaimType.PREDICTIVE` fails closed.
+- `ClaimType.CAUSAL` fails closed.
+- `ClaimType.PRESCRIPTIVE` fails closed.
 
-P6 must not upgrade descriptive Evidence into causal Evidence.
+Use a stable failure code such as:
+
+`unsupported_claim_type_for_p6_001`
+
+Do NOT downgrade a stronger requested claim type automatically.
+
+Do NOT reinterpret diagnostic, causal, or prescriptive intent as descriptive.
+
+Revenue, Orders, and AOV ValidatedResults may be evaluated only as evidence for bounded descriptive numerical Claims when all Required Evidence and traceability checks pass.
+
+A future separately authorized slice may add bounded Diagnostic Evidence when the required analytical methods / Metrics exist.
 
 Contribution, association, sequence, or numerical validation must never be treated as causation.
 
-If intended claim-type requirements cannot be resolved from current Required Evidence context:
+For P6-001, the governed intended material use is intentionally narrow:
 
-STOP and request Main Project review.
+descriptive Evidence
+for an explicitly requested Revenue / Orders / AOV result
+within the persisted `AnalysisRequest`'s canonical Business Question,
+scope,
+period,
+and Metric request.
+
+Require:
+
+- target Metric exists in `AnalysisRequest.metrics`;
+- Metric version agrees;
+- `ValidatedResult` traces to the same request / execution plan authority;
+- target period is one of the governed request periods;
+- population/scope agrees with that request; and
+- supported claim type = descriptive.
+
+Do NOT interpret `original_question_text`.
+
+Do NOT use conversational memory.
+
+Do NOT derive arbitrary analytical purpose from free-form prose.
 
 ---
 
@@ -386,6 +480,7 @@ Before an admissibility evaluation may proceed, the implementation must verify, 
 - complete required ValidationRecord bundle exists;
 - every required ValidationRecord status is `passed`;
 - validation fingerprint matches the complete required validation bundle;
+- ValidatedResult traces to the same request/execution plan authority;
 - Metric ID and Metric definition version match the Required Evidence requirement;
 - canonical dataset ID and fingerprint match;
 - population ID and fingerprint match;
@@ -439,22 +534,58 @@ Metric validation and analytical sufficiency are separate authorities.
 
 ## 15. Sufficiency Provenance
 
-P6 must resolve sufficiency provenance deterministically.
+P6 must resolve sufficiency provenance deterministically from authoritative per-Metric Data Sufficiency authority.
+
+Do NOT require overall:
+
+`DataSufficiencyResult.state == SUFFICIENT`
+
+because the Frozen architecture preserves independent Metric-chain outcomes.
+
+A PARTIAL overall `DataSufficiencyResult` may still authorize an independently complete Metric chain.
 
 At minimum, the admissibility evaluator must verify that:
 
-- the DataSufficiencyResult corresponds to the same request ID, dataset, canonical dataset, Metric, period, population, and Required Evidence context as the ValidatedResult;
-- sufficiency state permits the affected Metric chain to proceed;
-- the relevant `MetricEligibility` for the Metric is eligible;
+- the persisted `DataSufficiencyResult` corresponds to the same request ID, dataset, canonical dataset, Metric, period, population, and Required Evidence context as the `ValidatedResult`;
+- exactly one authoritative `MetricEligibility` entry exists for the target Metric;
+- `MetricEligibility.metric_ref` matches;
+- `MetricEligibility.eligible == True`;
+- no blocking failure exists for the target chain;
+- request ID matches;
+- dataset/canonical dataset authority matches downstream execution/validation evidence;
 - no sufficiency failure detail blocks the affected Required Evidence requirement;
 - Available Evidence satisfying the requirement is linked to governed source, dataset, canonicalization, execution, validation, or context records; and
 - qualifications or limitations from sufficiency remain attached when material.
 
-Current MetadataStore schema version 4 does not define a dedicated DataSufficiencyResult table. P6 implementation must first determine whether the current persisted artifacts and records can establish sufficiency authority without a second Required Evidence system.
+If the target `MetricEligibility` is:
 
-If P6 cannot deterministically resolve sufficiency provenance from existing governed records/contracts, then:
+`eligible == False`
 
-STOP and request Main Project review.
+then:
+
+FAIL CLOSED
+NO `AdmissibleEvidence`.
+
+P6 must not re-run Phase 2 sufficiency logic as a second authority.
+
+P6 verifies the persisted authoritative sufficiency result.
+
+Current MetadataStore schema version 4 is NOT sufficient for durable P6 Evidence admissibility authority because current durable metadata does not independently preserve the full authoritative:
+
+- `AnalysisRequest`; and
+- `DataSufficiencyResult`
+
+needed by Evidence admissibility.
+
+P6-001 is therefore AUTHORIZED to extend MetadataStore:
+
+v4
+->
+v5
+
+This is a P6 persistence extension inside the already-approved local-first architecture.
+
+No Frozen Architecture Amendment is required.
 
 Do not fabricate sufficiency authority.
 
@@ -470,22 +601,41 @@ A ValidatedResult with `MetricState.VALID` may become Admissible Evidence only w
 
 `MetricState.VALID` alone is insufficient.
 
+Evidence role:
+
+`metric_value`
+
 ## 17. MetricState.QUALIFIED
 
 The Frozen Evidence Contract permits Qualified admissibility only when the core evidence chain is complete and validated, and a non-blocking assumption, limitation, or non-material gap constrains interpretation or generalization.
 
-For P6-001, a `MetricState.QUALIFIED` ValidatedResult may become Admissible Evidence only when all of the following are deterministically established:
+P6-001 DOES NOT authorize Qualified-result Evidence admissibility.
 
-- the Metric Dictionary identifies the issue as qualifying rather than blocking;
-- P5 validation passed for the governed qualified state;
-- the associated qualification is persisted or otherwise authoritative;
-- the qualification is linked to the affected Metric/result/scope;
-- the Required Evidence requirement permits the narrowed qualified evidence role; and
-- the intended claim type and analytical purpose do not require the missing or constrained evidence as blocking.
+Reason:
 
-If exact admissibility semantics for a specific `MetricState.QUALIFIED` Revenue, Orders, or AOV case are not determined by Frozen authority and current governed context:
+there is currently no separately governed narrow P6 policy mapping current Revenue / Orders / AOV Qualified state + qualifications into deterministic Evidence permission.
 
-STOP and request Main Project review.
+Therefore:
+
+`MetricState.QUALIFIED`
+->
+FAIL CLOSED for P6-001
+->
+NO `AdmissibleEvidence`.
+
+Use an explicit stable failure code such as:
+
+`qualified_metric_state_not_supported_p6_001`
+
+Do NOT convert this to Inadmissible Metric upstream.
+
+Do NOT change `MetricState`.
+
+Do NOT treat qualification as failed validation.
+
+Do NOT invent a qualification policy.
+
+Future authorization may add this behavior.
 
 Do not use qualification to rescue failed validation or missing Required Evidence.
 
@@ -499,6 +649,16 @@ AOV Undefined because Orders = 0.
 
 An AOV ValidatedResult with `MetricState.UNDEFINED`, `value = None`, and `undefined_reason = orders_equals_zero` may become Admissible Evidence only for the bounded descriptive proposition that AOV is undefined for the governed scope and period because Orders equals zero.
 
+The ValidatedResult must already have passed the full P5 validation bundle.
+
+This may produce AdmissibleEvidence ONLY for the governed fact/state:
+
+AOV is Undefined because Orders = 0.
+
+Evidence role:
+
+`metric_state`
+
 It must not become evidence for:
 
 - AOV equals zero;
@@ -510,13 +670,13 @@ It must not become evidence for:
 - causal claims; or
 - prescriptive claims.
 
-If `MetricState.UNDEFINED` appears for Revenue or Orders in this narrow slice:
+Reject:
 
-fail closed unless Frozen authority has explicitly defined that undefined state for the exact Metric and context.
-
-If Frozen authority does not determine whether a specific Undefined state may satisfy the intended Required Evidence role:
-
-STOP and request Main Project review.
+- Undefined Revenue;
+- Undefined Orders;
+- AOV Undefined with another reason;
+- AOV Undefined with numerical value; and
+- any attempt to use Undefined AOV as `metric_value` Evidence.
 
 ## 19. MetricState.INADMISSIBLE
 
@@ -525,6 +685,22 @@ A ValidatedResult with `MetricState.INADMISSIBLE` must not become Admissible Evi
 If such an object exists, P6 must treat it as a fail-closed condition and preserve a deterministic reason/code.
 
 Do not create a successful AdmissibleEvidence object.
+
+## 19A. Evidence Role
+
+P6-001 authorizes the smallest structural Evidence-role distinction needed by P6:
+
+- `EvidenceRole.METRIC_VALUE` / serialized `metric_value`
+- `EvidenceRole.METRIC_STATE` / serialized `metric_state`
+
+Use:
+
+- VALID Revenue / Orders / AOV -> `metric_value`
+- governed AOV Undefined / `orders_equals_zero` -> `metric_state`
+
+Do NOT create a generic Evidence ontology.
+
+Do NOT add arbitrary Evidence roles.
 
 ---
 
@@ -551,22 +727,29 @@ The implementation must remain the smallest governed admissibility slice needed 
 
 For each admissibility evaluation, apply deterministic checks for:
 
-1. Required Evidence requirement existence.
-2. Required Evidence requirement linkage to Business Question / analytical purpose.
-3. Required Evidence requirement linkage to Metric ID and Metric definition version.
-4. Intended claim type compatibility where material.
-5. Data Sufficiency linkage and eligible disposition.
-6. ValidatedResult artifact authenticity.
-7. ValidationRecord bundle completeness and pass status.
-8. Validation fingerprint match.
-9. ExecutedResult and ExecutionRecord lineage.
-10. Canonical dataset identity and fingerprint.
-11. Population identity and fingerprint.
-12. Period and period-role match where applicable.
-13. Currency compatibility where applicable.
-14. MetricState admissibility behavior.
-15. Required qualifications/limitations retained where applicable.
-16. Absence of blocking failure details or contradictions.
+1. Persisted `AnalysisRequest` existence and integrity.
+2. Target Metric exists in `AnalysisRequest.metrics`.
+3. Required Evidence requirement existence.
+4. Complete applicable Required Evidence set derived from persisted `AnalysisRequest`.
+5. Required Evidence requirement linkage to canonical Business Question / analytical purpose.
+6. Required Evidence requirement linkage to Metric ID and Metric definition version.
+7. Supported claim type equals descriptive.
+8. Persisted `DataSufficiencyResult` existence and integrity.
+9. Data Sufficiency request/dataset/canonical dataset context match.
+10. Exactly one target `MetricEligibility`.
+11. Target `MetricEligibility.eligible == True`.
+12. ValidatedResult artifact authenticity.
+13. ValidationRecord bundle completeness and pass status.
+14. Validation fingerprint match.
+15. ExecutedResult and ExecutionRecord lineage.
+16. Canonical dataset identity and fingerprint.
+17. Population identity and fingerprint.
+18. Period and period-role match where applicable.
+19. Currency compatibility where applicable.
+20. MetricState admissibility behavior.
+21. EvidenceRole assignment.
+22. Required assumptions, qualifications, and limitations retained where applicable.
+23. Absence of blocking failure details or contradictions.
 
 All material checks must pass for successful AdmissibleEvidence.
 
@@ -581,9 +764,14 @@ Minimum failure-code categories:
 - `missing_required_evidence`
 - `required_evidence_context_missing`
 - `required_evidence_metric_mismatch`
-- `claim_type_unsupported_for_evidence`
+- `unsupported_claim_type_for_p6_001`
+- `analysis_request_missing`
+- `analysis_request_tamper_or_mismatch`
 - `sufficiency_record_missing`
+- `sufficiency_tamper_or_mismatch`
 - `sufficiency_context_mismatch`
+- `sufficiency_metric_eligibility_absent`
+- `sufficiency_metric_eligibility_duplicate`
 - `sufficiency_not_eligible`
 - `validated_result_artifact_missing`
 - `validated_result_artifact_hash_mismatch`
@@ -600,11 +788,11 @@ Minimum failure-code categories:
 - `period_mismatch`
 - `currency_mismatch`
 - `metric_state_not_admissible`
+- `qualified_metric_state_not_supported_p6_001`
 - `undefined_state_context_mismatch`
+- `undefined_aov_metric_value_not_supported_p6_001`
 - `qualification_authority_missing`
 - `blocking_limitation_present`
-- `admissibility_grain_ambiguous`
-- `frozen_authority_ambiguous`
 
 Codes may be refined during implementation, but each failed evaluation must expose one deterministic primary code and a human-readable reason.
 
@@ -620,32 +808,42 @@ Reuse existing Architecture contracts where governed.
 
 Do not create duplicate lifecycle authorities.
 
-An admissibility record should capture, at minimum:
+An Evidence admissibility evaluation is a deterministic event.
 
-- admissibility event ID;
-- Required Evidence requirement ID/reference;
-- ValidatedResult ID/reference;
+Use a unique event ID per evaluation attempt.
+
+An admissibility record must capture, at minimum:
+
+- evidence evaluation/admissibility event ID;
+- evaluator/policy version;
+- request ID;
+- DataSufficiencyResult ID;
+- ValidatedResult ID;
+- ValidatedResult validation fingerprint;
 - ValidatedResult artifact reference;
 - ValidationRecord IDs/references;
-- validation fingerprint;
 - ExecutedResult ID/reference;
 - ExecutionRecord ID/reference;
 - Metric ID;
 - Metric definition version;
-- Business Question / analytical purpose reference;
-- intended claim type when applicable;
+- canonical Business Question / analytical purpose reference;
 - dataset/canonical dataset reference and fingerprint;
-- population reference and fingerprint;
-- period reference and role where applicable;
+- exact population;
+- exact period;
+- supported claim type;
+- EvidenceRole;
+- applicable Required Evidence requirement IDs;
+- sufficiency/eligibility authority checked;
 - currency where applicable;
-- admissibility evaluator ID/version;
+- assumptions;
+- qualifications;
+- limitations where applicable;
 - checks performed;
-- disposition;
-- exact failure reason/code;
-- qualifications and limitations retained where applicable;
+- status;
+- deterministic failure code/detail;
 - started_at;
 - ended_at; and
-- admitted Evidence artifact/reference when successful.
+- `AdmissibleEvidence` artifact/ref where successful.
 
 Do not add ClaimDecision fields.
 
@@ -661,13 +859,46 @@ Use a generated unique admissibility event ID.
 
 Repeated equivalent evaluations may have distinct IDs and timestamps.
 
-If semantic Evidence equivalence requires a stable fingerprint, use a separate deterministic content-derived fingerprint based on the governed admissibility inputs and outcome.
+Use a separate deterministic:
+
+`evidence_fingerprint`
+
+for semantic identity.
+
+The fingerprint must include material semantic authority such as:
+
+- Evidence admissibility policy/evaluator version;
+- supported claim type;
+- EvidenceRole;
+- canonical Business Question / governed request context;
+- Metric/version;
+- `ValidatedResult.validation_fingerprint`;
+- dataset/canonical dataset;
+- population;
+- period;
+- scope;
+- applicable Required Evidence requirement IDs;
+- authoritative Data Sufficiency identity/integrity reference;
+- material assumptions;
+- qualifications; and
+- limitations.
+
+Exclude:
+
+- evaluation event ID;
+- `started_at`;
+- `ended_at`; and
+- generated artifact/event IDs.
+
+Repeated evaluation of materially identical authoritative inputs:
+
+different event IDs
+but
+equivalent `evidence_fingerprint`.
 
 Do not conflate event identity with semantic identity.
 
-If Frozen authority does not determine evidence fingerprint semantics sufficiently for a material implementation decision:
-
-STOP and request Main Project review.
+Do not create confidence scores.
 
 ---
 
@@ -704,12 +935,17 @@ Business Question / analytical purpose
 Successful AdmissibleEvidence must capture or reference:
 
 - evidence ID;
-- Required Evidence requirement/reference;
-- ValidatedResult reference;
+- evidence fingerprint;
+- request ID;
+- sufficiency ID;
+- exactly one ValidatedResult reference;
+- applicable Required Evidence requirement IDs;
 - Metric identity/version;
 - dataset/canonical dataset reference;
-- supported claim type if applicable;
-- governed scope;
+- exact scope;
+- exact period/population reference where needed for unambiguous lineage;
+- supported claim type = descriptive;
+- EvidenceRole;
 - assumptions;
 - limitations;
 - qualifications; and
@@ -735,7 +971,7 @@ Those remain later lifecycle stages.
 
 Follow the existing local-first persistence architecture.
 
-If P6 requires persistence, use:
+P6 requires persistence. Use:
 
 AdmissibilityRecord
 →
@@ -763,24 +999,93 @@ AdmissibleEvidence artifact when successful
 
 Failed admissibility must be durably traceable where governed and must produce no successful AdmissibleEvidence artifact.
 
+Before a P6 Evidence admissibility evaluation can succeed, the authoritative `AnalysisRequest` must be durably available.
+
+Persist the full schema-valid `AnalysisRequest` in deterministic JSON-compatible form.
+
+Preserve:
+
+- request ID;
+- canonical Business Question ID;
+- Metric refs/versions;
+- periods;
+- scope;
+- grouping;
+- Required Evidence;
+- dataset ref;
+- assumptions;
+- definition refs; and
+- requested outputs.
+
+Use immutable/artifact integrity semantics consistent with the current ArtifactStore architecture where appropriate.
+
+P6 must not trust a caller-supplied `AnalysisRequest` when persisted authority disagrees.
+
+Before P6 Evidence admissibility succeeds, the authoritative `DataSufficiencyResult` must be durably available.
+
+Persist the full schema-valid `DataSufficiencyResult`.
+
+Preserve:
+
+- sufficiency ID;
+- request ID;
+- dataset ref;
+- canonical dataset ref;
+- Required Evidence;
+- Available Evidence;
+- per-Metric MetricEligibility;
+- Data Quality failures;
+- clarification items;
+- assumptions;
+- qualifications; and
+- state.
+
+Use immutable artifact/content-integrity semantics sufficient to detect tampering.
+
+Do NOT recompute a new `DataSufficiencyResult` in P6 and substitute it for the authoritative Phase 2 result.
+
+Do NOT treat caller-supplied sufficiency as authority when persisted content disagrees.
+
 ## 27. Metadata Schema
 
 Current MetadataStore schema version:
 
 4
 
-If MetadataStore schema expansion is required:
+P6-001 is authorized to extend MetadataStore to schema version:
 
-use version 5.
+5
+
+Required new durable record categories:
+
+1. `analysis_requests`
+2. `data_sufficiency_results`
+3. `evidence_admissibility_records`
+
+Do NOT add:
+
+- ClaimDecision table;
+- Finding table;
+- Recommendation table;
+- Benchmark table; or
+- generic graph tables.
 
 Preserve existing migration discipline:
 
 - validate source schema;
 - migrate transactionally;
+- create v5 structures;
 - verify target schema;
 - update schema_version only after verification;
 - preserve Phase 1/2/P3/P4/P5 metadata;
 - malformed legacy schema fails closed.
+
+Support migrations:
+
+- v1 -> v2 -> v3 -> v4 -> v5
+- v2 -> v3 -> v4 -> v5
+- v3 -> v4 -> v5
+- v4 -> v5
 
 Do not use SQLAlchemy or Alembic.
 
@@ -792,10 +1097,6 @@ Do not create Recommendation tables.
 
 Do not create external-executor tables.
 
-If required persistence grain cannot be determined from Frozen authority:
-
-STOP and request Main Project review.
-
 ---
 
 # PART J — REPRODUCIBILITY
@@ -806,7 +1107,7 @@ Given equivalent:
 
 - Business Question / analytical purpose;
 - intended claim type where applicable;
-- Required Evidence requirement;
+- complete applicable Required Evidence requirement set;
 - Data Sufficiency authority;
 - canonical dataset;
 - Metric definition/version;
@@ -822,7 +1123,7 @@ the admissibility disposition must be materially equivalent.
 
 Event IDs and timestamps may differ.
 
-If a semantic admissibility fingerprint is implemented, it must be stable for equivalent governed inputs and outcomes.
+The evidence fingerprint must be stable for equivalent governed inputs and outcomes.
 
 ---
 
@@ -838,50 +1139,58 @@ P6-001 tests must cover only Evidence admissibility for:
 
 Do not add tests for Revenue Change, Product Metrics, Category Metrics, Contribution, rankings, ClaimDecision, Findings, Recommendations, MCP, external executor adapters, Wren, `SKILL.md`, or UI.
 
-Only include tests whose expected outcome can be made authoritative from Frozen contracts.
-
-If an expected disposition is ambiguous:
-
-do not guess;
-
-mark it as requiring Main Project review.
+Only include tests whose expected outcome can be made authoritative from Frozen contracts and this Main Project Evidence Authority Resolution.
 
 ## 30. Required Positive Tests
 
-At minimum, where supported by Frozen semantics:
+At minimum:
 
 1. Authentic persisted Revenue ValidatedResult satisfying Required Evidence becomes AdmissibleEvidence for bounded descriptive Revenue evidence.
 2. Authentic persisted Orders ValidatedResult satisfying Required Evidence becomes AdmissibleEvidence for bounded descriptive Orders evidence.
 3. Authentic persisted AOV ValidatedResult with Orders > 0 satisfying Required Evidence becomes AdmissibleEvidence for bounded descriptive AOV evidence.
-4. Authentic persisted AOV Undefined ValidatedResult with Orders = 0 becomes AdmissibleEvidence only for the bounded proposition that AOV is undefined because Orders equals zero, if Frozen authority and current contracts deterministically support this.
+4. Authentic persisted AOV Undefined ValidatedResult with `value = None` and `undefined_reason = orders_equals_zero` becomes AdmissibleEvidence only for the bounded proposition that AOV is undefined because Orders equals zero.
 5. Repeated equivalent admissibility evaluations produce materially equivalent dispositions while preserving distinct event IDs.
 6. Persisted round-trip maintains complete lineage from AdmissibleEvidence to Required Evidence, ValidatedResult, ValidationRecords, ExecutedResult, ExecutionRecord, Metric, dataset, population, and period.
 
 ## 31. Required Fail-Closed Tests
 
-At minimum, where supported by Frozen semantics:
+At minimum:
 
 1. Numerically valid but wrong Metric for Required Evidence fails closed.
-2. Wrong period fails closed.
-3. Wrong population fails closed.
-4. Missing Required Evidence reference/context fails closed.
-5. Data Sufficiency unsatisfied fails closed.
-6. Missing Data Sufficiency authority fails closed unless a Frozen-governed persisted authority exists.
-7. Tampered ValidatedResult artifact fails closed.
-8. Schema-invalid ValidatedResult artifact fails closed.
-9. Missing ValidatedResult metadata linkage fails closed.
-10. Incomplete validation bundle fails closed.
-11. Failed validation record in the required bundle fails closed.
-12. Validation fingerprint mismatch fails closed.
-13. ExecutedResult lineage mismatch fails closed.
-14. ExecutionRecord lineage mismatch fails closed.
-15. Wrong intended claim type where material fails closed.
+2. Wrong Metric version fails closed.
+3. Wrong period fails closed.
+4. Wrong population fails closed.
+5. Wrong dataset fails closed.
+6. Missing Required Evidence reference/context fails closed.
+7. Data Sufficiency unsatisfied fails closed.
+8. Missing persisted AnalysisRequest fails closed.
+9. AnalysisRequest mismatch or tamper fails closed.
+10. Missing persisted DataSufficiencyResult fails closed.
+11. DataSufficiencyResult mismatch or tamper fails closed.
+12. Target MetricEligibility absent fails closed.
+13. Duplicate target MetricEligibility fails closed.
+14. Target MetricEligibility ineligible fails closed.
+15. Unsupported diagnostic claim type fails closed.
 16. Unsupported causal use of descriptive Evidence fails closed.
 17. Unsupported predictive use of descriptive Evidence fails closed.
 18. Unsupported prescriptive use of descriptive Evidence fails closed.
-19. AOV Undefined used as AOV zero fails closed.
-20. AOV Undefined used as numeric AOV evidence fails closed.
-21. Failed admissibility produces no successful AdmissibleEvidence artifact.
+19. Tampered ValidatedResult artifact fails closed.
+20. Schema-invalid ValidatedResult artifact fails closed.
+21. Missing ValidatedResult metadata linkage fails closed.
+22. Incomplete validation bundle fails closed.
+23. Failed validation record in the required bundle fails closed.
+24. Validation fingerprint mismatch fails closed.
+25. ExecutedResult lineage mismatch fails closed.
+26. ExecutionRecord lineage mismatch fails closed.
+27. Qualified MetricState fails closed.
+28. Inadmissible MetricState fails closed.
+29. Undefined Revenue fails closed.
+30. Undefined Orders fails closed.
+31. AOV Undefined with another reason fails closed.
+32. AOV Undefined with numerical value fails closed.
+33. AOV Undefined used as AOV zero fails closed.
+34. AOV Undefined used as numeric AOV evidence fails closed.
+35. Failed admissibility produces no successful AdmissibleEvidence artifact.
 
 ## 32. Persistence Tests
 
@@ -893,9 +1202,10 @@ At minimum:
 - AdmissibleEvidence artifact tamper detection fails closed;
 - failed admissibility creates no successful AdmissibleEvidence;
 - repeated evaluation events persist separately;
-- semantic fingerprint, if implemented, remains stable for equivalent governed inputs;
-- old schema version 4 metadata survives migration to version 5 if schema expansion is required;
-- malformed legacy admissibility schema fails closed if migration is required.
+- evidence fingerprint remains stable for equivalent governed inputs;
+- schema version 4 metadata survives migration to version 5;
+- schema versions 1, 2, and 3 migrate forward through version 5;
+- malformed legacy admissibility schema fails closed.
 
 ## 33. Regression Gate
 
@@ -1026,19 +1336,10 @@ A new dependency requires Main Project authorization.
 
 ## 39. STOP Conditions
 
-STOP and request Main Project review if any of the following are unresolved by Frozen authority or current governed contracts:
+STOP and request Main Project review if any of the following occur:
 
-- exact Required Evidence requirements for the intended P6 analytical purpose;
-- exact admissibility semantics for `MetricState.QUALIFIED`;
-- exact admissibility semantics for `MetricState.UNDEFINED`;
-- intended claim-type requirement;
-- whether one ValidatedResult can satisfy multiple Required Evidence requirements;
-- whether admissibility is per result, per requirement, per claim context, or another governed grain;
-- required persistence grain;
-- evidence fingerprint semantics;
-- Evidence contract fields required by Frozen Architecture;
-- whether P5 currently persists enough Data Sufficiency / analytical-purpose authority;
-- whether the current `AdmissibleEvidence` contract can carry all required traceability without semantic loss;
+- a new material conflict with Frozen authority is discovered;
+- exact Evidence contract fields beyond the P6-001 narrow extensions cannot carry all required traceability without semantic loss;
 - any need to modify Frozen specs;
 - any need for a new dependency;
 - any need for ClaimDecision to complete P6;
@@ -1062,7 +1363,7 @@ P6-001 may be considered implementation-complete only when, within the exact Fro
 - admissible vs inadmissible disposition is reproducible;
 - successful AdmissibleEvidence is durably traceable;
 - failed admissibility is durably traceable where governed;
-- MetricState Valid, Qualified, Undefined, and Inadmissible behavior follows Frozen authority;
+- MetricState Valid, Qualified, Undefined, and Inadmissible behavior follows this resolved P6-001 authority;
 - no claim authorization is implied;
 - unsupported analytical use fails closed;
 - unsupported causal/predictive/prescriptive use fails closed;
