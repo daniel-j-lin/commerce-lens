@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import Any
 
 from commerce_lens.contracts.common import ArtifactReference
-from commerce_lens.evidence.identifiers import sha256_file, stable_content_id
+from commerce_lens.evidence.identifiers import canonical_json_bytes, sha256_file, stable_content_id
 
 
 class ArtifactStore:
@@ -60,4 +61,30 @@ class ArtifactStore:
             fingerprint=snapshot_fingerprint,
             media_type="application/octet-stream",
             size_bytes=snapshot_size,
+        )
+
+    def write_json_artifact(
+        self,
+        relative_path: str | Path,
+        payload: Any,
+        *,
+        media_type: str = "application/json",
+    ) -> ArtifactReference:
+        self.ensure_layout()
+        destination = self.safe_path(relative_path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        content = canonical_json_bytes(payload)
+        if destination.exists():
+            existing = destination.read_bytes()
+            if existing != content:
+                raise ValueError("existing JSON artifact content mismatch")
+        else:
+            destination.write_bytes(content)
+        artifact_fingerprint = sha256_file(destination)
+        return ArtifactReference(
+            artifact_id=stable_content_id("art", artifact_fingerprint),
+            path=str(destination.relative_to(self.root)),
+            fingerprint=artifact_fingerprint,
+            media_type=media_type,
+            size_bytes=destination.stat().st_size,
         )

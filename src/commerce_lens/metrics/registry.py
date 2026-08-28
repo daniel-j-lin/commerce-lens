@@ -9,10 +9,13 @@ from pydantic import Field, model_validator
 from commerce_lens.contracts.common import ContractBase, GroupingDimension
 
 
-METRIC_REGISTRY_VERSION = "metric_registry_mvp_v1"
+METRIC_REGISTRY_VERSION = "metric_registry_mvp_v2"
 METRIC_DEFINITION_VERSION = "metric_dictionary_v1"
 PRECISION_POLICY_REF = "canonical_dictionary:34:exact_decimal_presentation_rounding_only"
 EXECUTION_NOT_IMPLEMENTED_REF = "not_implemented:p3_001_metric_execution_not_authorized"
+REVENUE_EXECUTION_IMPLEMENTATION_REF = "p4_001:duckdb_reference:revenue_v1"
+ORDERS_EXECUTION_IMPLEMENTATION_REF = "p4_001:duckdb_reference:orders_v1"
+AOV_EXECUTION_IMPLEMENTATION_REF = "p4_001:python_decimal:aov_v1"
 
 
 class MetricCategory(str, Enum):
@@ -162,6 +165,7 @@ def _definition(
     supported_groupings: tuple[GroupingDimension, ...] | None = None,
     required_fields_by_grouping: dict[GroupingDimension, tuple[str, ...]] | None = None,
     currency: str = "single governed currency for monetary metrics; count unit for Orders",
+    implementation_ref: str = EXECUTION_NOT_IMPLEMENTED_REF,
 ) -> MetricDefinition:
     return MetricDefinition(
         metric_id=metric_id,
@@ -181,6 +185,7 @@ def _definition(
         undefined_conditions=undefined,
         qualification_conditions=qualifications,
         required_validation_rule_refs=validation_refs,
+        execution_implementation_ref=implementation_ref,
         output_shape=output_shape,
     )
 
@@ -218,6 +223,7 @@ _DEFAULT_REGISTRY = MetricRegistry(
             Additivity.ADDITIVE,
             ("validation:revenue_sum", "validation:currency_consistency", "validation:population_consistency"),
             "scalar_decimal",
+            implementation_ref=REVENUE_EXECUTION_IMPLEMENTATION_REF,
         ),
         _definition(
             "orders",
@@ -232,6 +238,7 @@ _DEFAULT_REGISTRY = MetricRegistry(
             ("validation:distinct_order_count", "validation:population_consistency"),
             "scalar_integer",
             currency="count of distinct governed orders",
+            implementation_ref=ORDERS_EXECUTION_IMPLEMENTATION_REF,
         ),
         _definition(
             "aov",
@@ -249,6 +256,7 @@ _DEFAULT_REGISTRY = MetricRegistry(
             ("validation:aov_from_revenue_orders", "validation:population_consistency"),
             "scalar_decimal",
             undefined=("orders_equals_zero",),
+            implementation_ref=AOV_EXECUTION_IMPLEMENTATION_REF,
         ),
         _definition(
             "revenue_change",

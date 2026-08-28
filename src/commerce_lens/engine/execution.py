@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
+from datetime import datetime
+from decimal import Decimal, ROUND_HALF_EVEN, localcontext
 from pathlib import Path
 from typing import Any
 
@@ -23,13 +24,19 @@ from commerce_lens.contracts.execution import ExecutedResult, ExecutionRecord, E
 from commerce_lens.contracts.plans import ExecutionPlan, PlanMetricNode
 from commerce_lens.contracts.populations import PopulationDefinition
 from commerce_lens.engine.plan_builder import validate_execution_plan_pre_execution
-from commerce_lens.evidence.identifiers import canonical_json_fingerprint, sha256_file, stable_content_id
+from commerce_lens.engine.populations import population_fingerprint, population_id_for_fingerprint
+from commerce_lens.evidence.identifiers import canonical_json_fingerprint, generate_id, sha256_file
+from commerce_lens.metrics.registry import get_metric_registry
 from commerce_lens.persistence.artifact_store import ArtifactStore
+from commerce_lens.persistence.metadata_store import MetadataStore
 
 
 REFERENCE_EXECUTOR_ID = "commerce_lens_duckdb_reference_executor"
 REFERENCE_EXECUTOR_VERSION = "p4_001_v1"
 APPROVED_EXECUTABLE_METRICS = frozenset({"revenue", "orders", "aov"})
+AOV_DECIMAL_CALCULATION_POLICY_ID = "p4_aov_decimal_calculation_policy_v1"
+AOV_DECIMAL_PRECISION = 38
+AOV_DECIMAL_ROUNDING = ROUND_HALF_EVEN
 _CANONICAL_TABLE = "canonical_lines"
 _SUPPORTED_FILTER_OPERATORS = frozenset({"equals"})
 
@@ -44,10 +51,17 @@ class PlanExecutionOutcome:
     executed_results: tuple[ExecutedResult, ...]
 
 
+@dataclass(frozen=True)
+class PopulationRuntimeMetadata:
+    resolved_currency: str | None
+    eligible_input_row_count: int
+
+
 def execute_plan(
     plan: ExecutionPlan,
     canonical_dataset: CanonicalDatasetReference,
     artifact_store: ArtifactStore,
+    metadata_store: MetadataStore | None = None,
 ) -> PlanExecutionOutcome:
     """Execute authorized P4-001 Revenue, Orders, and AOV plan nodes.
 
@@ -57,6 +71,7 @@ def execute_plan(
     validate_execution_plan_pre_execution(plan)
     _validate_canonical_dataset_linkage(plan, canonical_dataset)
     canonical_path = _verified_canonical_artifact_path(canonical_dataset, artifact_store)
+    active_metadata_store = _execution_metadata_store(artifact_store, metadata_store)
     duckdb_version = _duckdb_version()
 
     population_by_id = {population.population_id: population for population in plan.population_definitions}
@@ -67,6 +82,7 @@ def execute_plan(
     for node in plan.ordered_metrics:
         if node.planning_state == "blocked":
             continue
+        started_at = utc_now()
         if node.metric_ref not in APPROVED_EXECUTABLE_METRICS:
             record = _failed_record(
                 plan,
@@ -76,11 +92,15 @@ def execute_plan(
                 duckdb_version,
                 _unsupported_metric_failure(node),
                 operation={"method": "fail_closed", "reason": "unsupported_metric"},
+                started_at=started_at,
             )
+            active_metadata_store.insert_execution_record(record)
             records.append(record)
             continue
         try:
+            _validate_metric_implementation_ref(node)
             population = _single_total_population(node, population_by_id)
+            _validate_population_identity(population)
             if node.metric_ref == "revenue":
                 record, result = _execute_revenue(
                     plan,
@@ -89,6 +109,7 @@ def execute_plan(
                     canonical_dataset,
                     canonical_path,
                     duckdb_version,
+                    started_at,
                 )
             elif node.metric_ref == "orders":
                 record, result = _execute_orders(
@@ -98,6 +119,7 @@ def execute_plan(
                     canonical_dataset,
                     canonical_path,
                     duckdb_version,
+                    started_at,
                 )
             else:
                 record, result = _execute_aov(
@@ -105,8 +127,10 @@ def execute_plan(
                     node,
                     population,
                     canonical_dataset,
+                    canonical_path,
                     duckdb_version,
                     result_by_node_id,
+                    started_at,
                 )
         except Exception as exc:
             failure = (
@@ -129,9 +153,14 @@ def execute_plan(
                     independent_chains_may_continue=True,
                 ),
                 operation={"method": "execution_failed"},
+                started_at=started_at,
             )
+            active_metadata_store.insert_execution_record(record)
             records.append(record)
             continue
+        result_artifact = _persist_executed_result(result, artifact_store, active_metadata_store)
+        record = record.model_copy(update={"output_artifacts": (result_artifact,)})
+        active_metadata_store.insert_execution_record(record)
         records.append(record)
         results.append(result)
         result_by_node_id[node.node_id] = result
@@ -148,6 +177,15 @@ def _validate_canonical_dataset_linkage(plan: ExecutionPlan, canonical_dataset: 
     source_ids = {population.dataset_ref_id for population in plan.population_definitions}
     if source_ids != {canonical_dataset.source_dataset_id}:
         raise MetricExecutionError("ExecutionPlan populations must preserve canonical dataset source lineage")
+
+
+def _execution_metadata_store(
+    artifact_store: ArtifactStore,
+    metadata_store: MetadataStore | None,
+) -> MetadataStore:
+    active_store = metadata_store or MetadataStore(artifact_store.safe_path("metadata.sqlite"))
+    active_store.initialize()
+    return active_store
 
 
 def _verified_canonical_artifact_path(
@@ -178,6 +216,20 @@ def _single_total_population(
     return population
 
 
+def _validate_metric_implementation_ref(node: PlanMetricNode) -> None:
+    definition = get_metric_registry().require(node.metric_ref)
+    if node.execution_implementation_ref != definition.execution_implementation_ref:
+        raise MetricExecutionError("plan Metric implementation ref does not match approved Metric Registry binding")
+
+
+def _validate_population_identity(population: PopulationDefinition) -> None:
+    recomputed = population_fingerprint(population)
+    if recomputed != population.population_fingerprint:
+        raise MetricExecutionError("governed population fingerprint does not match population semantics")
+    if population_id_for_fingerprint(recomputed) != population.population_id:
+        raise MetricExecutionError("governed population ID does not correspond to population fingerprint")
+
+
 def _execute_revenue(
     plan: ExecutionPlan,
     node: PlanMetricNode,
@@ -185,7 +237,9 @@ def _execute_revenue(
     canonical_dataset: CanonicalDatasetReference,
     canonical_path: Path,
     duckdb_version: str,
+    started_at: datetime,
 ) -> tuple[ExecutionRecord, ExecutedResult]:
+    runtime_metadata = _population_runtime_metadata(population, canonical_path, requires_currency=True)
     sql, params = _population_aggregate_sql(
         "SELECT SUM(line_revenue) AS value",
         population,
@@ -204,6 +258,9 @@ def _execute_revenue(
         canonical_dataset,
         duckdb_version,
         operation,
+        started_at=started_at,
+        resolved_currency=runtime_metadata.resolved_currency,
+        eligible_input_row_count=runtime_metadata.eligible_input_row_count,
         value=value,
         metric_state=MetricState.VALID,
         precision="exact_decimal",
@@ -218,7 +275,9 @@ def _execute_orders(
     canonical_dataset: CanonicalDatasetReference,
     canonical_path: Path,
     duckdb_version: str,
+    started_at: datetime,
 ) -> tuple[ExecutionRecord, ExecutedResult]:
+    runtime_metadata = _population_runtime_metadata(population, canonical_path, requires_currency=False)
     sql, params = _population_aggregate_sql(
         "SELECT COUNT(DISTINCT order_id) AS value",
         population,
@@ -235,6 +294,9 @@ def _execute_orders(
         canonical_dataset,
         duckdb_version,
         operation,
+        started_at=started_at,
+        resolved_currency=runtime_metadata.resolved_currency,
+        eligible_input_row_count=runtime_metadata.eligible_input_row_count,
         value=value,
         metric_state=MetricState.VALID,
         precision="exact_integer",
@@ -247,9 +309,12 @@ def _execute_aov(
     node: PlanMetricNode,
     population: PopulationDefinition,
     canonical_dataset: CanonicalDatasetReference,
+    canonical_path: Path,
     duckdb_version: str,
     result_by_node_id: dict[str, ExecutedResult],
+    started_at: datetime,
 ) -> tuple[ExecutionRecord, ExecutedResult]:
+    runtime_metadata = _population_runtime_metadata(population, canonical_path, requires_currency=True)
     dependency_results = _aov_dependency_results(node, result_by_node_id)
     revenue = dependency_results["revenue"]
     orders = dependency_results["orders"]
@@ -260,6 +325,8 @@ def _execute_aov(
     operation = {
         "method": "python_decimal_dependency_arithmetic",
         "formula": "revenue / orders",
+        "calculation_policy": _aov_calculation_policy_metadata(),
+        "operation_representation": "Decimal(revenue.value) / Decimal(orders.value) under localcontext",
         "revenue_result_ref": revenue.result_id,
         "orders_result_ref": orders.result_id,
     }
@@ -271,12 +338,19 @@ def _execute_aov(
             canonical_dataset,
             duckdb_version,
             operation,
+            started_at=started_at,
+            resolved_currency=runtime_metadata.resolved_currency,
+            eligible_input_row_count=runtime_metadata.eligible_input_row_count,
             value=None,
             metric_state=MetricState.UNDEFINED,
             undefined_reason="orders_equals_zero",
-            precision="exact_decimal",
+            precision=AOV_DECIMAL_CALCULATION_POLICY_ID,
             unit="money_per_order",
         )
+    with localcontext() as context:
+        context.prec = AOV_DECIMAL_PRECISION
+        context.rounding = AOV_DECIMAL_ROUNDING
+        aov_value = revenue.value / Decimal(orders.value)
     return _completed_record_and_result(
         plan,
         node,
@@ -284,9 +358,12 @@ def _execute_aov(
         canonical_dataset,
         duckdb_version,
         operation,
-        value=revenue.value / Decimal(orders.value),
+        started_at=started_at,
+        resolved_currency=runtime_metadata.resolved_currency,
+        eligible_input_row_count=runtime_metadata.eligible_input_row_count,
+        value=aov_value,
         metric_state=MetricState.VALID,
-        precision="exact_decimal",
+        precision=AOV_DECIMAL_CALCULATION_POLICY_ID,
         unit="money_per_order",
     )
 
@@ -337,6 +414,31 @@ def _population_aggregate_sql(
     return sql, (str(canonical_path), *params)
 
 
+def _population_scope_period_sql(
+    select_clause: str,
+    population: PopulationDefinition,
+    canonical_path: Path,
+) -> tuple[str, tuple[Any, ...]]:
+    where_clauses = [
+        "order_date >= ?",
+        "order_date <= ?",
+    ]
+    params: list[Any] = [
+        population.period.start_date,
+        population.period.end_date,
+    ]
+    for scope_filter in population.scope.filters:
+        if scope_filter.field not in population.supported_filter_fields:
+            raise MetricExecutionError("scope filter is not supported by the governed population")
+        where_clauses.append(_scope_filter_sql(scope_filter))
+        params.append(scope_filter.value)
+    sql = (
+        f"{select_clause} FROM read_parquet(?) AS {_CANONICAL_TABLE} "
+        f"WHERE {' AND '.join(where_clauses)}"
+    )
+    return sql, (str(canonical_path), *params)
+
+
 def _scope_filter_sql(scope_filter: ScopeFilter) -> str:
     if scope_filter.operator not in _SUPPORTED_FILTER_OPERATORS:
         raise MetricExecutionError("unsupported governed scope filter operator")
@@ -360,6 +462,52 @@ def _fetch_one(sql: str, params: tuple[Any, ...]) -> tuple[Any, ...]:
     return row
 
 
+def _population_runtime_metadata(
+    population: PopulationDefinition,
+    canonical_path: Path,
+    *,
+    requires_currency: bool,
+) -> PopulationRuntimeMetadata:
+    eligible_sql, eligible_params = _population_aggregate_sql(
+        "SELECT COUNT(*) AS eligible_input_row_count",
+        population,
+        canonical_path,
+    )
+    eligible_count = _fetch_one(eligible_sql, eligible_params)[0]
+    if not isinstance(eligible_count, int):
+        raise MetricExecutionError("eligible input row count returned a non-integer value")
+    resolved_currency = _resolve_governed_currency(population, canonical_path) if requires_currency else None
+    return PopulationRuntimeMetadata(
+        resolved_currency=resolved_currency,
+        eligible_input_row_count=eligible_count,
+    )
+
+
+def _resolve_governed_currency(population: PopulationDefinition, canonical_path: Path) -> str:
+    sql, params = _population_scope_period_sql(
+        """
+        SELECT
+            COUNT(*) AS row_count,
+            COUNT(DISTINCT currency) AS currency_count,
+            MIN(currency) AS currency
+        """,
+        population,
+        canonical_path,
+    )
+    row_count, currency_count, currency = _fetch_one(sql, params)
+    if row_count == 0:
+        raise MetricExecutionError("monetary Metric population has no rows from which to resolve governed currency")
+    if currency_count != 1 or not currency:
+        raise MetricExecutionError("canonical population contradicts single-governed-currency authority")
+    if population.currency_basis_ref.startswith("currency:"):
+        expected = population.currency_basis_ref.removeprefix("currency:")
+        if currency != expected:
+            raise MetricExecutionError("resolved currency does not match governed currency scope filter")
+    elif population.currency_basis_ref != "currency_basis:phase2_single_governed_currency":
+        raise MetricExecutionError("unsupported governed currency basis for P4-001 monetary execution")
+    return str(currency)
+
+
 def _completed_record_and_result(
     plan: ExecutionPlan,
     node: PlanMetricNode,
@@ -368,14 +516,28 @@ def _completed_record_and_result(
     duckdb_version: str,
     operation: dict[str, Any],
     *,
+    started_at: datetime,
+    resolved_currency: str | None,
+    eligible_input_row_count: int,
     value: Decimal | int | None,
     metric_state: MetricState,
     precision: str,
     unit: str,
     undefined_reason: str | None = None,
 ) -> tuple[ExecutionRecord, ExecutedResult]:
-    execution_id = _execution_id(plan, node, population, canonical_dataset, duckdb_version, operation, "completed")
-    result_id = _result_id(node, population, canonical_dataset, value, metric_state, undefined_reason)
+    execution_id = generate_id("exec")
+    result_id = generate_id("exres")
+    result_fingerprint = _result_fingerprint(
+        node,
+        population,
+        canonical_dataset,
+        value,
+        metric_state,
+        undefined_reason,
+        precision,
+        unit,
+        resolved_currency,
+    )
     result = ExecutedResult(
         result_id=result_id,
         execution_id=execution_id,
@@ -385,9 +547,11 @@ def _completed_record_and_result(
         value=value,
         metric_state=metric_state,
         undefined_reason=undefined_reason,
+        result_fingerprint=result_fingerprint,
         precision=precision,
+        precision_metadata=_precision_metadata(node.metric_ref, precision),
         unit=unit,
-        currency=_result_currency(population),
+        currency=resolved_currency if unit != "orders" else None,
         execution_status=ExecutionStatus.COMPLETED,
     )
     record = _record(
@@ -398,7 +562,11 @@ def _completed_record_and_result(
         duckdb_version,
         operation,
         status=ExecutionStatus.COMPLETED,
+        execution_id=execution_id,
+        started_at=started_at,
         result_ref=result.result_id,
+        resolved_currency=resolved_currency if unit != "orders" else None,
+        eligible_input_row_count=eligible_input_row_count,
     )
     return record, result
 
@@ -412,6 +580,7 @@ def _failed_record(
     failure: FailureDetail,
     *,
     operation: dict[str, Any],
+    started_at: datetime,
 ) -> ExecutionRecord:
     populations = tuple(
         population_by_id[population_ref]
@@ -426,6 +595,8 @@ def _failed_record(
         duckdb_version,
         operation,
         status=ExecutionStatus.FAILED,
+        execution_id=generate_id("exec"),
+        started_at=started_at,
         failure_details=(failure,),
     )
 
@@ -439,19 +610,13 @@ def _record(
     operation: dict[str, Any],
     *,
     status: ExecutionStatus,
+    execution_id: str,
+    started_at: datetime,
     result_ref: str | None = None,
+    resolved_currency: str | None = None,
+    eligible_input_row_count: int | None = None,
     failure_details: tuple[FailureDetail, ...] = (),
 ) -> ExecutionRecord:
-    execution_id = _execution_id(
-        plan,
-        node,
-        populations[0] if populations else None,
-        canonical_dataset,
-        duckdb_version,
-        operation,
-        status.value,
-        failure_details=failure_details,
-    )
     return ExecutionRecord(
         execution_id=execution_id,
         request_id=plan.request_id,
@@ -465,14 +630,25 @@ def _record(
         dependency_versions={"duckdb": duckdb_version},
         metric_refs=(node.metric_ref,),
         metric_definition_version=node.metric_version,
+        metric_implementation_ref=node.execution_implementation_ref,
         period_refs=tuple(dict.fromkeys(population.period.period_id for population in populations)),
         period_role=populations[0].period_role.value if len(populations) == 1 else None,
+        periods=tuple(population.period.model_dump(mode="json") for population in populations),
         population_refs=tuple(population.population_id for population in populations),
         population_fingerprints=tuple(population.population_fingerprint for population in populations),
+        scope_filters=tuple(
+            scope_filter.model_dump(mode="json")
+            for population in populations
+            for scope_filter in population.scope.filters
+        ),
+        grouping=populations[0].grouping.value if len(populations) == 1 else node.grouping.value,
+        resolved_currency=resolved_currency,
+        eligible_input_row_count=eligible_input_row_count,
         executor_id=REFERENCE_EXECUTOR_ID,
         executor_version=REFERENCE_EXECUTOR_VERSION,
         duckdb_version=duckdb_version,
         operation=operation,
+        started_at=started_at,
         ended_at=utc_now(),
         result_ref=result_ref,
         status=status,
@@ -480,50 +656,19 @@ def _record(
     )
 
 
-def _execution_id(
-    plan: ExecutionPlan,
-    node: PlanMetricNode,
-    population: PopulationDefinition | None,
-    canonical_dataset: CanonicalDatasetReference,
-    duckdb_version: str,
-    operation: dict[str, Any],
-    status: str,
-    *,
-    failure_details: tuple[FailureDetail, ...] = (),
-) -> str:
-    fingerprint = canonical_json_fingerprint(
-        {
-            "plan_id": plan.plan_id,
-            "plan_fingerprint": plan.plan_fingerprint,
-            "node_id": node.node_id,
-            "metric_ref": node.metric_ref,
-            "metric_version": node.metric_version,
-            "canonical_dataset_ref": canonical_dataset.canonical_dataset_id,
-            "canonical_dataset_fingerprint": canonical_dataset.content_fingerprint,
-            "population_ref": population.population_id if population else None,
-            "population_fingerprint": population.population_fingerprint if population else None,
-            "executor_id": REFERENCE_EXECUTOR_ID,
-            "executor_version": REFERENCE_EXECUTOR_VERSION,
-            "duckdb_version": duckdb_version,
-            "operation": operation,
-            "status": status,
-            "failure_details": [failure.model_dump(mode="json") for failure in failure_details],
-        }
-    )
-    return stable_content_id("exec", fingerprint)
-
-
-def _result_id(
+def _result_fingerprint(
     node: PlanMetricNode,
     population: PopulationDefinition,
     canonical_dataset: CanonicalDatasetReference,
     value: Decimal | int | None,
     metric_state: MetricState,
     undefined_reason: str | None,
+    precision: str,
+    unit: str,
+    currency: str | None,
 ) -> str:
-    fingerprint = canonical_json_fingerprint(
+    return canonical_json_fingerprint(
         {
-            "node_id": node.node_id,
             "metric_ref": node.metric_ref,
             "metric_version": node.metric_version,
             "canonical_dataset_ref": canonical_dataset.canonical_dataset_id,
@@ -533,11 +678,13 @@ def _result_id(
             "value": str(value) if isinstance(value, Decimal) else value,
             "metric_state": metric_state.value,
             "undefined_reason": undefined_reason,
+            "precision": precision,
+            "unit": unit,
+            "currency": currency,
             "executor_id": REFERENCE_EXECUTOR_ID,
             "executor_version": REFERENCE_EXECUTOR_VERSION,
         }
     )
-    return stable_content_id("exres", fingerprint)
 
 
 def _unsupported_metric_failure(node: PlanMetricNode) -> FailureDetail:
@@ -551,14 +698,38 @@ def _unsupported_metric_failure(node: PlanMetricNode) -> FailureDetail:
     )
 
 
-def _json_params(params: tuple[Any, ...]) -> tuple[str | int | bool | None, ...]:
-    return tuple(param.isoformat() if hasattr(param, "isoformat") else param for param in params)
+def _json_params(params: tuple[Any, ...]) -> list[str | int | bool | None]:
+    return [param.isoformat() if hasattr(param, "isoformat") else param for param in params]
 
 
-def _result_currency(population: PopulationDefinition) -> str | None:
-    if population.currency_basis_ref.startswith("currency:"):
-        return population.currency_basis_ref.removeprefix("currency:")
-    return None
+def _aov_calculation_policy_metadata() -> dict[str, str | int]:
+    return {
+        "calculation_policy_id": AOV_DECIMAL_CALCULATION_POLICY_ID,
+        "precision": AOV_DECIMAL_PRECISION,
+        "rounding": str(AOV_DECIMAL_ROUNDING),
+    }
+
+
+def _precision_metadata(metric_ref: str, precision: str) -> dict[str, str | int]:
+    if metric_ref == "aov":
+        return _aov_calculation_policy_metadata()
+    return {"precision_policy": precision}
+
+
+def _persist_executed_result(
+    result: ExecutedResult,
+    artifact_store: ArtifactStore,
+    metadata_store: MetadataStore,
+):
+    artifact = artifact_store.write_json_artifact(
+        Path("runs") / result.execution_id / "results" / f"{result.result_id}.json",
+        result.model_dump(mode="json"),
+    )
+    metadata_store.insert_artifact_reference(artifact)
+    restored = ExecutedResult.model_validate_json(artifact_store.safe_path(artifact.path).read_text(encoding="utf-8"))
+    if restored != result:
+        raise MetricExecutionError("persisted ExecutedResult artifact did not round-trip")
+    return artifact
 
 
 def _duckdb_version() -> str:

@@ -33,10 +33,16 @@ class ExecutionRecord(ContractBase):
     dependency_versions: dict[str, str] = Field(default_factory=dict)
     metric_refs: tuple[str, ...] = ()
     metric_definition_version: str | None = None
+    metric_implementation_ref: str | None = None
     period_refs: tuple[str, ...] = ()
     period_role: str | None = None
+    periods: tuple[dict[str, Any], ...] = ()
     population_refs: tuple[str, ...] = ()
     population_fingerprints: tuple[str, ...] = ()
+    scope_filters: tuple[dict[str, Any], ...] = ()
+    grouping: str | None = None
+    resolved_currency: str | None = None
+    eligible_input_row_count: int | None = Field(default=None, ge=0)
     executor_id: str | None = None
     executor_version: str | None = None
     duckdb_version: str | None = None
@@ -48,8 +54,14 @@ class ExecutionRecord(ContractBase):
     status: ExecutionStatus
     failure_details: tuple[FailureDetail, ...] = ()
 
+    @model_validator(mode="after")
+    def validate_timestamp_order(self) -> "ExecutionRecord":
+        if self.ended_at is not None and self.started_at > self.ended_at:
+            raise ValueError("ExecutionRecord started_at must be before or equal to ended_at")
+        return self
 
-ScalarResultValue = str | int | float | Decimal | bool
+
+ScalarResultValue = Decimal | int | float | bool | str
 
 
 class ExecutedResult(ContractBase):
@@ -61,7 +73,9 @@ class ExecutedResult(ContractBase):
     value: ScalarResultValue | None = None
     metric_state: MetricState
     undefined_reason: str | None = None
+    result_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     precision: str | None = None
+    precision_metadata: dict[str, Any] = Field(default_factory=dict)
     unit: str | None = None
     currency: str | None = None
     grouping_keys: dict[str, str] = Field(default_factory=dict)

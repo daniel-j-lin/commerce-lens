@@ -60,22 +60,17 @@ def _population_for_period(
     preserves_unclassified = grouping in (GroupingDimension.CATEGORY, GroupingDimension.PRODUCT_AND_CATEGORY)
     currency_basis_ref = _currency_basis_ref(request)
     canonical_scope = _canonical_scope(request.scope)
-    payload = {
-        "definition_version": POPULATION_DEFINITION_VERSION,
-        "canonical_dataset_ref_id": sufficiency.canonical_dataset_ref_id,
-        "dataset_ref_id": request.dataset_ref_id,
-        "period": period.model_dump(mode="json"),
-        "period_role": period_role.value,
-        "eligibility_rule_ref": "canonical_dictionary:27:phase2_governed_eligible_population",
-        "currency_basis_ref": currency_basis_ref,
-        "scope": material_scope_payload(canonical_scope),
-        "grouping": grouping.value,
-        "grouping_keys": grouping_keys,
-        "supported_filter_fields": sorted(SUPPORTED_SCOPE_FILTER_FIELDS),
-        "supported_filter_operators": sorted(SUPPORTED_SCOPE_FILTER_OPERATORS),
-        "preserves_unclassified_category": preserves_unclassified,
-        "category_unclassified_rule_ref": CATEGORY_UNCLASSIFIED_RULE_REF if preserves_unclassified else None,
-    }
+    payload = semantic_population_payload(
+        canonical_dataset_ref_id=sufficiency.canonical_dataset_ref_id,
+        dataset_ref_id=request.dataset_ref_id,
+        period=period,
+        period_role=period_role,
+        currency_basis_ref=currency_basis_ref,
+        scope=canonical_scope,
+        grouping=grouping,
+        grouping_keys=grouping_keys,
+        preserves_unclassified_category=preserves_unclassified,
+    )
     fingerprint = canonical_json_fingerprint(payload)
     return PopulationDefinition(
         population_id=stable_content_id("pop", fingerprint),
@@ -92,6 +87,56 @@ def _population_for_period(
         preserves_unclassified_category=preserves_unclassified,
         population_fingerprint=fingerprint,
     )
+
+
+def semantic_population_payload(
+    *,
+    canonical_dataset_ref_id: str,
+    dataset_ref_id: str,
+    period,
+    period_role: PopulationPeriodRole,
+    currency_basis_ref: str,
+    scope: ScopeDefinition,
+    grouping: GroupingDimension,
+    grouping_keys: tuple[str, ...],
+    preserves_unclassified_category: bool,
+) -> dict[str, object]:
+    return {
+        "definition_version": POPULATION_DEFINITION_VERSION,
+        "canonical_dataset_ref_id": canonical_dataset_ref_id,
+        "dataset_ref_id": dataset_ref_id,
+        "period": period.model_dump(mode="json"),
+        "period_role": period_role.value,
+        "eligibility_rule_ref": "canonical_dictionary:27:phase2_governed_eligible_population",
+        "currency_basis_ref": currency_basis_ref,
+        "scope": material_scope_payload(scope),
+        "grouping": grouping.value,
+        "grouping_keys": grouping_keys,
+        "supported_filter_fields": sorted(SUPPORTED_SCOPE_FILTER_FIELDS),
+        "supported_filter_operators": sorted(SUPPORTED_SCOPE_FILTER_OPERATORS),
+        "preserves_unclassified_category": preserves_unclassified_category,
+        "category_unclassified_rule_ref": CATEGORY_UNCLASSIFIED_RULE_REF if preserves_unclassified_category else None,
+    }
+
+
+def population_fingerprint(population: PopulationDefinition) -> str:
+    return canonical_json_fingerprint(
+        semantic_population_payload(
+            canonical_dataset_ref_id=population.canonical_dataset_ref_id,
+            dataset_ref_id=population.dataset_ref_id,
+            period=population.period,
+            period_role=population.period_role,
+            currency_basis_ref=population.currency_basis_ref,
+            scope=population.scope,
+            grouping=population.grouping,
+            grouping_keys=population.grouping_keys,
+            preserves_unclassified_category=population.preserves_unclassified_category,
+        )
+    )
+
+
+def population_id_for_fingerprint(fingerprint: str) -> str:
+    return stable_content_id("pop", fingerprint)
 
 
 def _grouping_keys(grouping: GroupingDimension) -> tuple[str, ...]:

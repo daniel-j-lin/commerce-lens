@@ -3,9 +3,12 @@ from pydantic import ValidationError
 
 from commerce_lens.contracts.common import GroupingDimension
 from commerce_lens.metrics import (
+    AOV_EXECUTION_IMPLEMENTATION_REF,
     DependencyPeriodRole,
     EXECUTION_NOT_IMPLEMENTED_REF,
     METRIC_DEFINITION_VERSION,
+    ORDERS_EXECUTION_IMPLEMENTATION_REF,
+    REVENUE_EXECUTION_IMPLEMENTATION_REF,
     Additivity,
     MetricDependency,
     MetricRegistry,
@@ -47,14 +50,19 @@ def test_unsupported_metric_id_is_rejected() -> None:
         get_metric_registry().require("gross_margin")
 
 
-def test_metric_definitions_are_versioned_and_do_not_execute() -> None:
+def test_metric_definitions_are_versioned_and_only_p4_metrics_have_implementation_refs() -> None:
     registry = get_metric_registry()
 
     assert {definition.definition_version for definition in registry.definitions} == {
         METRIC_DEFINITION_VERSION
     }
+    assert registry.require("revenue").execution_implementation_ref == REVENUE_EXECUTION_IMPLEMENTATION_REF
+    assert registry.require("orders").execution_implementation_ref == ORDERS_EXECUTION_IMPLEMENTATION_REF
+    assert registry.require("aov").execution_implementation_ref == AOV_EXECUTION_IMPLEMENTATION_REF
     assert {
-        definition.execution_implementation_ref for definition in registry.definitions
+        definition.execution_implementation_ref
+        for definition in registry.definitions
+        if definition.metric_id not in {"revenue", "orders", "aov"}
     } == {EXECUTION_NOT_IMPLEMENTED_REF}
 
 

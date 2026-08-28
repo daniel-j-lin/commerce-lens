@@ -1,9 +1,10 @@
 import csv
 import sqlite3
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN, ROUND_HALF_EVEN, ROUND_UP, getcontext, localcontext
 from pathlib import Path
 
+import duckdb
 import pytest
 from openpyxl import Workbook
 
@@ -32,8 +33,18 @@ from commerce_lens.contracts.sufficiency import DataSufficiencyResult, MetricEli
 from commerce_lens.engine import MetricExecutionError, execute_plan
 from commerce_lens.engine.plan_builder import build_execution_plan
 from commerce_lens.intake.registry import DatasetRegistry
-from commerce_lens.metrics import METRIC_DEFINITION_VERSION, METRIC_REGISTRY_VERSION
+from commerce_lens.contracts.execution import ExecutedResult
+from commerce_lens.evidence.identifiers import sha256_file
+from commerce_lens.metrics import (
+    AOV_EXECUTION_IMPLEMENTATION_REF,
+    EXECUTION_NOT_IMPLEMENTED_REF,
+    METRIC_DEFINITION_VERSION,
+    METRIC_REGISTRY_VERSION,
+    ORDERS_EXECUTION_IMPLEMENTATION_REF,
+    REVENUE_EXECUTION_IMPLEMENTATION_REF,
+)
 from commerce_lens.persistence.artifact_store import ArtifactStore
+from commerce_lens.persistence.metadata_store import MetadataStore
 
 
 def test_revenue_executes_single_and_multiple_eligible_lines_with_decimal_authority(tmp_path) -> None:
@@ -91,7 +102,32 @@ def test_revenue_preserves_high_scale_decimal_and_repeatability(tmp_path) -> Non
 
     assert _result(first, "revenue", "baseline").value == Decimal("10.123456789130")
     assert _result(first, "revenue", "baseline").value == _result(second, "revenue", "baseline").value
-    assert _result(first, "revenue", "baseline").result_id == _result(second, "revenue", "baseline").result_id
+    assert _result(first, "revenue", "baseline").result_id != _result(second, "revenue", "baseline").result_id
+    assert _result(first, "revenue", "baseline").result_fingerprint == _result(
+        second,
+        "revenue",
+        "baseline",
+    ).result_fingerprint
+
+
+def test_repeated_equivalent_execution_uses_unique_event_ids_and_ordered_timestamps(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(tmp_path, ("revenue",), [_row()])
+
+    first = execute_plan(plan, canonical, store)
+    second = execute_plan(plan, canonical, store)
+    first_record = _record(first, "revenue", "baseline")
+    second_record = _record(second, "revenue", "baseline")
+    first_result = _result(first, "revenue", "baseline")
+    second_result = _result(second, "revenue", "baseline")
+
+    assert first_record.execution_id != second_record.execution_id
+    assert first_result.result_id != second_result.result_id
+    assert first_result.value == second_result.value == Decimal("10.00")
+    assert first_result.result_fingerprint == second_result.result_fingerprint
+    assert first_result.execution_id == first_record.execution_id
+    assert second_result.execution_id == second_record.execution_id
+    assert first_record.started_at <= first_record.ended_at
+    assert second_record.started_at <= second_record.ended_at
 
 
 def test_orders_count_distinct_eligible_orders_not_lines(tmp_path) -> None:
@@ -137,7 +173,14 @@ def test_aov_uses_executed_revenue_and_orders_dependencies(tmp_path) -> None:
     assert baseline.value == Decimal("15.00")
     assert comparison.value == Decimal("10.00")
     assert isinstance(baseline.value, Decimal)
+    assert _result(outcome, "revenue", "baseline").currency == "USD"
+    assert baseline.currency == "USD"
     assert baseline_record.operation["method"] == "python_decimal_dependency_arithmetic"
+    assert baseline_record.operation["calculation_policy"] == {
+        "calculation_policy_id": "p4_aov_decimal_calculation_policy_v1",
+        "precision": 38,
+        "rounding": "ROUND_HALF_EVEN",
+    }
     assert "revenue_result_ref" in baseline_record.operation
     assert "orders_result_ref" in baseline_record.operation
 
@@ -186,8 +229,67 @@ def test_aov_exact_decimal_division_does_not_use_float(tmp_path) -> None:
 
     result = _result(execute_plan(plan, canonical, store), "aov", "baseline")
 
-    assert result.value == Decimal("0.3333333333333333333333333333")
+    assert result.value == Decimal("0.33333333333333333333333333333333333333")
     assert isinstance(result.value, Decimal)
+
+
+def test_aov_decimal_policy_is_independent_of_ambient_decimal_context(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("aov",),
+        [
+            _row(order_id="o1", order_line_id="l1", line_revenue="1"),
+            _row(order_id="o2", order_line_id="l1", line_revenue="0"),
+            _row(order_id="o3", order_line_id="l1", line_revenue="0"),
+        ],
+    )
+    expected = Decimal("0.33333333333333333333333333333333333333")
+    observed = []
+
+    for precision in (10, 28, 50):
+        with localcontext() as context:
+            context.prec = precision
+            context.rounding = ROUND_HALF_EVEN
+            observed.append(_result(execute_plan(plan, canonical, store), "aov", "baseline").value)
+    for rounding in (ROUND_DOWN, ROUND_UP):
+        with localcontext() as context:
+            context.prec = 10
+            context.rounding = rounding
+            observed.append(_result(execute_plan(plan, canonical, store), "aov", "baseline").value)
+
+    assert observed == [expected] * 5
+    assert all(isinstance(value, Decimal) for value in observed)
+
+
+def test_aov_decimal_policy_does_not_mutate_global_context(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("aov",),
+        [
+            _row(order_id="o1", order_line_id="l1", line_revenue="1"),
+            _row(order_id="o2", order_line_id="l1", line_revenue="0"),
+            _row(order_id="o3", order_line_id="l1", line_revenue="0"),
+        ],
+    )
+    context = getcontext()
+    original_precision = context.prec
+    original_rounding = context.rounding
+    context.prec = 10
+    context.rounding = ROUND_UP
+    try:
+        result = _result(execute_plan(plan, canonical, store), "aov", "baseline")
+        assert result.value == Decimal("0.33333333333333333333333333333333333333")
+        assert result.precision == "p4_aov_decimal_calculation_policy_v1"
+        assert result.precision_metadata == {
+            "calculation_policy_id": "p4_aov_decimal_calculation_policy_v1",
+            "precision": 38,
+            "rounding": "ROUND_HALF_EVEN",
+        }
+        assert context.prec == 10
+        assert context.rounding == ROUND_UP
+    finally:
+        context.prec = original_precision
+        context.rounding = original_rounding
 
 
 def test_executable_revenue_and_orders_execute_while_blocked_nodes_do_not(tmp_path) -> None:
@@ -292,6 +394,53 @@ def test_unsupported_p4_metric_node_fails_closed_without_executed_result(tmp_pat
     assert failed
     assert failed[0].status.value == "failed"
     assert "unsupported P4-001 Metric execution" in failed[0].failure_details[0].reason
+    assert failed[0].operation == {"method": "fail_closed", "reason": "unsupported_metric"}
+    assert not any(result.metric_ref == "revenue_change" for result in outcome.executed_results)
+
+
+@pytest.mark.parametrize(
+    ("replacement_ref", "expected_reason"),
+    (
+        (EXECUTION_NOT_IMPLEMENTED_REF, "does not match approved Metric Registry binding"),
+        ("review:mismatched_implementation_ref", "does not match approved Metric Registry binding"),
+        (ORDERS_EXECUTION_IMPLEMENTATION_REF, "does not match approved Metric Registry binding"),
+    ),
+)
+def test_executable_metric_requires_registry_approved_implementation_ref(
+    tmp_path,
+    replacement_ref: str,
+    expected_reason: str,
+) -> None:
+    plan, canonical, store = _execution_inputs(tmp_path, ("revenue",), [_row()])
+    forged_node = plan.ordered_metrics[0].model_copy(update={"execution_implementation_ref": replacement_ref})
+    forged_plan = plan.model_copy(update={"ordered_metrics": (forged_node, *plan.ordered_metrics[1:])})
+
+    outcome = execute_plan(forged_plan, canonical, store)
+    failed = _record(outcome, "revenue", "baseline")
+
+    assert failed.status.value == "failed"
+    assert expected_reason in failed.failure_details[0].reason
+    assert failed.started_at <= failed.ended_at
+    assert not outcome.executed_results
+
+
+def test_supported_dependencies_execute_but_unsupported_revenue_change_root_produces_no_result(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("revenue_change",),
+        [
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="10.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="11.00"),
+        ],
+        filename="partial_revenue_change.csv",
+    )
+
+    outcome = execute_plan(plan, canonical, store)
+
+    assert _result(outcome, "revenue", "baseline").value == Decimal("10.00")
+    assert _result(outcome, "revenue", "comparison").value == Decimal("11.00")
+    failed_root = next(record for record in outcome.execution_records if record.metric_refs == ("revenue_change",))
+    assert failed_root.operation == {"method": "fail_closed", "reason": "unsupported_metric"}
     assert not any(result.metric_ref == "revenue_change" for result in outcome.executed_results)
 
 
@@ -323,18 +472,149 @@ def test_provenance_records_plan_node_metric_dataset_population_executor_operati
     assert record.plan_node_id
     assert record.metric_refs == ("revenue",)
     assert record.metric_definition_version == METRIC_DEFINITION_VERSION
+    assert record.metric_implementation_ref == REVENUE_EXECUTION_IMPLEMENTATION_REF
     assert record.canonical_dataset_ref_ids == (canonical.canonical_dataset_id,)
     assert record.canonical_dataset_fingerprints == (canonical.content_fingerprint,)
     assert record.population_refs
     assert record.population_fingerprints
+    assert record.periods[0]["period_id"] == "baseline"
+    assert record.scope_filters == ({"field": "currency", "operator": "equals", "value": "USD"},)
+    assert record.grouping == "none"
+    assert record.resolved_currency == "USD"
+    assert record.eligible_input_row_count == 1
     assert record.executor_id == "commerce_lens_duckdb_reference_executor"
     assert record.executor_version == "p4_001_v1"
     assert record.duckdb_version
     assert record.operation["method"] == "duckdb_sql"
     assert "SUM(line_revenue)" in record.operation["sql"]
     assert record.result_ref == _result(outcome, "revenue", "baseline").result_id
+    assert record.output_artifacts
     assert not hasattr(record, "validation_passed")
     assert not hasattr(record, "admissible_evidence_ref")
+
+
+def test_mixed_runtime_currency_fails_closed_for_monetary_metrics(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("revenue",),
+        [
+            _row(order_id="o1", line_revenue="10.00", currency="USD"),
+            _row(order_id="o2", order_line_id="l1", line_revenue="20.00", currency="USD"),
+        ],
+        filename="mixed_runtime_currency.csv",
+    )
+    tampered = _replace_canonical_parquet_rows(
+        canonical,
+        store,
+        "SELECT * REPLACE (CASE WHEN order_id = 'o2' THEN 'EUR' ELSE currency END AS currency) FROM read_parquet(?)",
+    )
+
+    outcome = execute_plan(plan, tampered, store)
+    failed = _record(outcome, "revenue", "baseline")
+
+    assert failed.status.value == "failed"
+    assert "single-governed-currency" in failed.failure_details[0].reason
+    assert not any(result.metric_ref == "revenue" and result.period_ref == "baseline" for result in outcome.executed_results)
+
+
+def test_stale_population_fingerprint_fails_closed_before_execution(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(tmp_path, ("revenue",), [_row()])
+    baseline_population = next(pop for pop in plan.population_definitions if pop.period.period_id == "baseline")
+    tampered_period = baseline_population.period.model_copy(update={"end_date": date(2026, 1, 3)})
+    stale_population = baseline_population.model_copy(update={"period": tampered_period})
+    stale_plan = plan.model_copy(
+        update={
+            "population_definitions": tuple(
+                stale_population if pop.population_id == baseline_population.population_id else pop
+                for pop in plan.population_definitions
+            )
+        }
+    )
+
+    outcome = execute_plan(stale_plan, canonical, store)
+    failed = _record(outcome, "revenue", "baseline")
+
+    assert failed.status.value == "failed"
+    assert "population fingerprint" in failed.failure_details[0].reason
+    assert not any(result.metric_ref == "revenue" and result.period_ref == "baseline" for result in outcome.executed_results)
+
+
+def test_completed_execution_record_and_result_artifact_persist(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(tmp_path, ("revenue",), [_row()])
+    metadata_store = MetadataStore(tmp_path / "execution_registry.sqlite")
+
+    outcome = execute_plan(plan, canonical, store, metadata_store)
+    record = _record(outcome, "revenue", "baseline")
+    result = _result(outcome, "revenue", "baseline")
+    stored_record = metadata_store.get_execution_record(record.execution_id)
+
+    assert stored_record == record
+    assert stored_record.output_artifacts
+    artifact = metadata_store.get_artifact_reference(stored_record.output_artifacts[0].artifact_id)
+    assert artifact == stored_record.output_artifacts[0]
+    artifact_path = store.safe_path(artifact.path)
+    restored = ExecutedResult.model_validate_json(artifact_path.read_text(encoding="utf-8"))
+    assert restored == result
+    assert restored.value == Decimal("10.00")
+    assert isinstance(restored.value, Decimal)
+    assert restored.execution_id == record.execution_id
+
+
+def test_undefined_aov_result_artifact_persists(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(
+        tmp_path,
+        ("aov",),
+        [_row(order_id="o1", order_line_id="l1", eligibility_status="cancelled")],
+        filename="undefined_aov_persistence.csv",
+    )
+    metadata_store = MetadataStore(tmp_path / "undefined_registry.sqlite")
+
+    outcome = execute_plan(plan, canonical, store, metadata_store)
+    result = _result(outcome, "aov", "baseline")
+    record = _record(outcome, "aov", "baseline")
+    artifact_path = store.safe_path(record.output_artifacts[0].path)
+    restored = ExecutedResult.model_validate_json(artifact_path.read_text(encoding="utf-8"))
+
+    assert restored.metric_state is MetricState.UNDEFINED
+    assert restored.undefined_reason == "orders_equals_zero"
+    assert restored.value is None
+    assert restored.precision_metadata["calculation_policy_id"] == "p4_aov_decimal_calculation_policy_v1"
+    assert restored == result
+
+
+def test_failed_unsupported_metric_execution_record_persists_without_result_artifact(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(tmp_path, ("revenue_change",), [_row()])
+    metadata_store = MetadataStore(tmp_path / "failed_registry.sqlite")
+
+    outcome = execute_plan(plan, canonical, store, metadata_store)
+    failed = next(record for record in outcome.execution_records if record.metric_refs == ("revenue_change",))
+    stored_failed = metadata_store.get_execution_record(failed.execution_id)
+
+    assert stored_failed == failed
+    assert stored_failed.status.value == "failed"
+    assert stored_failed.result_ref is None
+    assert stored_failed.output_artifacts == ()
+    assert not any(result.metric_ref == "revenue_change" for result in outcome.executed_results)
+
+
+def test_repeated_equivalent_execution_attempts_persist_separately(tmp_path) -> None:
+    plan, canonical, store = _execution_inputs(tmp_path, ("revenue",), [_row()])
+    metadata_store = MetadataStore(tmp_path / "repeat_registry.sqlite")
+
+    first = execute_plan(plan, canonical, store, metadata_store)
+    second = execute_plan(plan, canonical, store, metadata_store)
+    records = [
+        record
+        for record in metadata_store.list_execution_records()
+        if record.metric_refs == ("revenue",) and record.period_refs == ("baseline",)
+    ]
+
+    assert len(records) == 2
+    assert {record.execution_id for record in records} == {
+        _record(first, "revenue", "baseline").execution_id,
+        _record(second, "revenue", "baseline").execution_id,
+    }
+    assert records[0].execution_id != records[1].execution_id
 
 
 def test_missing_or_mismatched_canonical_artifact_fails_closed(tmp_path) -> None:
@@ -524,6 +804,29 @@ def _write_sqlite(path: Path, rows: list[dict[str, str]]) -> None:
             [[row.get(key, "") for key in _headers()] for row in rows],
         )
     conn.close()
+
+
+def _replace_canonical_parquet_rows(canonical, store: ArtifactStore, select_sql: str):
+    path = store.safe_path(canonical.artifact.path)
+    replacement = path.with_name(f"{path.stem}_replacement.parquet")
+    input_sql = str(path).replace("'", "''")
+    output_sql = str(replacement).replace("'", "''")
+    conn = duckdb.connect(database=":memory:")
+    try:
+        conn.execute(f"COPY ({select_sql}) TO '{output_sql}' (FORMAT PARQUET)", (input_sql,))
+    finally:
+        conn.close()
+    path.unlink()
+    replacement.rename(path)
+    fingerprint = sha256_file(path)
+    return canonical.model_copy(
+        update={
+            "content_fingerprint": fingerprint,
+            "artifact": canonical.artifact.model_copy(
+                update={"fingerprint": fingerprint, "size_bytes": path.stat().st_size}
+            ),
+        }
+    )
 
 
 def _headers() -> tuple[str, ...]:
