@@ -66,6 +66,7 @@ def build_execution_plan(
     )
     nodes: list[PlanMetricNode] = []
     node_keys: dict[tuple[str, str | None, GroupingDimension], str] = {}
+    requested_root_node_ids: dict[str, list[str]] = {metric_id: [] for metric_id in requested_ids}
 
     def add_node(metric_id: str, period_role: PopulationPeriodRole | None, grouping: GroupingDimension) -> PlanMetricNode:
         key = (metric_id, period_role.value if period_role else None, grouping)
@@ -87,21 +88,6 @@ def build_execution_plan(
                     )
                 )
 
-        dependency_failures = tuple(
-            FailureDetail(
-                stage=FailureStage.PLANNING,
-                reason="dependency node is blocked",
-                target_ref=dependency.node_id,
-                governing_ref="tasks:P3-001:28",
-                dependency_scope=metric_id,
-                independent_chains_may_continue=True,
-            )
-            for dependency in dependency_nodes
-            if dependency.planning_state == "blocked"
-        )
-        eligibility = eligibility_by_metric.get(metric_id)
-        eligibility_failures = _eligibility_failures(metric_id, eligibility)
-        planning_state = "blocked" if eligibility_failures or dependency_failures else "executable"
         population_refs = _population_refs(definition, populations, period_role, grouping)
         period_refs = tuple(population.period.period_id for population in populations if population.population_id in population_refs)
         payload = {
@@ -113,7 +99,6 @@ def build_execution_plan(
             "population_refs": population_refs,
             "grouping": grouping.value,
             "dependency_node_ids": [node.node_id for node in dependency_nodes],
-            "planning_state": planning_state,
         }
         node_fingerprint = canonical_json_fingerprint(payload)
         node = PlanMetricNode(
@@ -130,8 +115,6 @@ def build_execution_plan(
             output_shape=definition.output_shape,
             precision_policy_ref=definition.precision_policy_ref,
             execution_implementation_ref=definition.execution_implementation_ref,
-            planning_state=planning_state,
-            failure_details=tuple((*eligibility_failures, *dependency_failures)),
         )
         nodes.append(node)
         node_keys[key] = node.node_id
@@ -141,10 +124,20 @@ def build_execution_plan(
         definition = active_registry.require(metric_id)
         period_roles = _root_period_roles(definition)
         for period_role in period_roles:
-            add_node(metric_id, period_role, _effective_grouping(metric_id, request.grouping, active_registry))
+            node = add_node(metric_id, period_role, _effective_grouping(metric_id, request.grouping, active_registry))
+            requested_root_node_ids[metric_id].append(node.node_id)
 
+    nodes = _apply_chain_authorization(
+        nodes=nodes,
+        requested_ids=requested_ids,
+        requested_root_node_ids=requested_root_node_ids,
+        eligibility_by_metric=eligibility_by_metric,
+    )
     all_validation_refs = tuple(dict.fromkeys(ref for node in nodes for ref in node.required_validation_rule_refs))
     blocked_metric_refs = tuple(dict.fromkeys(node.metric_ref for node in nodes if node.planning_state == "blocked"))
+    eligible_requested_ids = tuple(
+        metric_id for metric_id in requested_ids if eligibility_by_metric[metric_id].eligible
+    )
     fingerprint = canonical_json_fingerprint(
         {
             "planner_version": EXECUTION_PLAN_VERSION,
@@ -161,6 +154,7 @@ def build_execution_plan(
             "grouping": request.grouping.value,
             "population_fingerprints": [population.population_fingerprint for population in populations],
             "metric_eligibility": [_eligibility_payload(item) for item in sufficiency.metric_eligibility],
+            "eligible_requested_metric_refs": eligible_requested_ids,
             "nodes": [node.model_dump(mode="json") for node in nodes],
         }
     )
@@ -174,6 +168,8 @@ def build_execution_plan(
         period_refs=(request.baseline_period.period_id, request.comparison_period.period_id),
         population_refs=tuple(population.population_id for population in populations),
         blocked_metric_refs=blocked_metric_refs,
+        requested_metric_refs=requested_ids,
+        eligible_requested_metric_refs=eligible_requested_ids,
         grouping=request.grouping,
         precision_policy_ref=PRECISION_POLICY_REF,
         required_validation_rule_refs=all_validation_refs,
@@ -200,6 +196,17 @@ def validate_execution_plan_pre_execution(
         raise PlanningError("ExecutionPlan must include governed population definitions for pre-execution validation")
     if set(plan.population_refs) != set(population_by_id):
         raise PlanningError("ExecutionPlan population refs must match embedded governed population definitions")
+    if len(plan.requested_metric_refs) != len(tuple(dict.fromkeys(plan.requested_metric_refs))):
+        raise PlanningError("ExecutionPlan requested Metric refs must be unique")
+    if len(plan.eligible_requested_metric_refs) != len(tuple(dict.fromkeys(plan.eligible_requested_metric_refs))):
+        raise PlanningError("ExecutionPlan eligible requested Metric refs must be unique")
+    if any(metric_ref not in plan.requested_metric_refs for metric_ref in plan.eligible_requested_metric_refs):
+        raise PlanningError("ExecutionPlan eligible requested Metric refs must be requested Metric refs")
+    for metric_ref in (*plan.requested_metric_refs, *plan.eligible_requested_metric_refs):
+        try:
+            active_registry.require(metric_ref)
+        except KeyError as exc:
+            raise PlanningError(str(exc)) from exc
     for node in plan.ordered_metrics:
         try:
             definition = active_registry.require(node.metric_ref)
@@ -211,6 +218,31 @@ def validate_execution_plan_pre_execution(
         for dependency_id in node.dependency_node_ids:
             if dependency_id not in node_by_id:
                 raise PlanningError(f"plan node {node.node_id} references missing dependency node {dependency_id}")
+        if node.planning_state == "executable":
+            if not node.authorized_requested_metric_refs:
+                raise PlanningError(
+                    f"plan node {node.node_id} is executable without eligible requested-chain authorization"
+                )
+            if any(
+                metric_ref not in plan.eligible_requested_metric_refs
+                for metric_ref in node.authorized_requested_metric_refs
+            ):
+                raise PlanningError(f"plan node {node.node_id} has authorization from a non-eligible requested Metric")
+            for dependency_id in node.dependency_node_ids:
+                dependency_node = node_by_id[dependency_id]
+                if dependency_node.planning_state != "executable":
+                    raise PlanningError(f"plan node {node.node_id} is executable with a blocked dependency node")
+                missing_authorizations = [
+                    metric_ref
+                    for metric_ref in node.authorized_requested_metric_refs
+                    if metric_ref not in dependency_node.authorized_requested_metric_refs
+                ]
+                if missing_authorizations:
+                    raise PlanningError(
+                        f"plan node {node.node_id} has an incomplete requested-chain authorization path"
+                    )
+        elif node.authorized_requested_metric_refs:
+            raise PlanningError(f"blocked plan node {node.node_id} cannot carry executable-chain authorization")
         if any(population_ref not in population_by_id for population_ref in node.population_refs):
             raise PlanningError(f"plan node {node.node_id} references unknown governed population")
         if any(population_by_id[population_ref].grouping is not node.grouping for population_ref in node.population_refs):
@@ -233,6 +265,14 @@ def validate_execution_plan_pre_execution(
             }
             if len(dependency_populations) != 1 or len(dependency_periods) != 1:
                 raise PlanningError("AOV dependency nodes must use identical governed populations and periods")
+    for metric_ref in plan.eligible_requested_metric_refs:
+        if not any(
+            node.metric_ref == metric_ref
+            and node.planning_state == "executable"
+            and metric_ref in node.authorized_requested_metric_refs
+            for node in plan.ordered_metrics
+        ):
+            raise PlanningError(f"eligible requested Metric {metric_ref} has no authorized executable root node")
     if any(node.execution_status != "not_executed" for node in plan.ordered_metrics):
         raise PlanningError("P3-001 ExecutionPlan nodes must remain not_executed")
 
@@ -315,6 +355,90 @@ def _validate_grouping_supported(definition: MetricDefinition, grouping: Groupin
         raise PlanningError(f"Metric {definition.metric_id} requires an explicit governed grouping")
     if grouping is not definition.grouping_requirement:
         raise PlanningError(f"Metric {definition.metric_id} requires grouping {definition.grouping_requirement.value}")
+
+
+def _apply_chain_authorization(
+    *,
+    nodes: list[PlanMetricNode],
+    requested_ids: tuple[str, ...],
+    requested_root_node_ids: dict[str, list[str]],
+    eligibility_by_metric: dict[str, MetricEligibility],
+) -> list[PlanMetricNode]:
+    """Authorize executable nodes only through eligible requested root closures."""
+    node_by_id = {node.node_id: node for node in nodes}
+    authorized_by_node_id: dict[str, set[str]] = {node.node_id: set() for node in nodes}
+
+    def authorize_dependency_closure(root_metric_id: str, node_id: str) -> None:
+        stack = [node_id]
+        while stack:
+            current_id = stack.pop()
+            authorizations = authorized_by_node_id[current_id]
+            if root_metric_id in authorizations:
+                continue
+            authorizations.add(root_metric_id)
+            stack.extend(node_by_id[current_id].dependency_node_ids)
+
+    for metric_id in requested_ids:
+        if eligibility_by_metric[metric_id].eligible:
+            for node_id in requested_root_node_ids[metric_id]:
+                authorize_dependency_closure(metric_id, node_id)
+
+    blocked_root_metric_ids_by_node_id: dict[str, list[str]] = {node.node_id: [] for node in nodes}
+    for metric_id in requested_ids:
+        if not eligibility_by_metric[metric_id].eligible:
+            for node_id in requested_root_node_ids[metric_id]:
+                blocked_root_metric_ids_by_node_id[node_id].append(metric_id)
+
+    finalized_by_id: dict[str, PlanMetricNode] = {}
+    finalized_nodes: list[PlanMetricNode] = []
+    for node in nodes:
+        authorized_refs = tuple(
+            metric_id for metric_id in requested_ids if metric_id in authorized_by_node_id[node.node_id]
+        )
+        planning_state = "executable" if authorized_refs else "blocked"
+        failure_details: tuple[FailureDetail, ...] = ()
+        if planning_state == "blocked":
+            direct_failures = tuple(
+                failure
+                for metric_id in blocked_root_metric_ids_by_node_id[node.node_id]
+                for failure in _eligibility_failures(metric_id, eligibility_by_metric[metric_id])
+            )
+            authorization_failures = () if direct_failures else (_chain_authorization_failure(node),)
+            dependency_failures = tuple(
+                FailureDetail(
+                    stage=FailureStage.PLANNING,
+                    reason="dependency node is blocked",
+                    target_ref=dependency_id,
+                    governing_ref="tasks:P3-001:28",
+                    dependency_scope=node.metric_ref,
+                    independent_chains_may_continue=True,
+                )
+                for dependency_id in node.dependency_node_ids
+                if finalized_by_id[dependency_id].planning_state == "blocked"
+            )
+            failure_details = tuple((*direct_failures, *authorization_failures, *dependency_failures))
+
+        finalized_node = node.model_copy(
+            update={
+                "planning_state": planning_state,
+                "authorized_requested_metric_refs": authorized_refs,
+                "failure_details": failure_details,
+            }
+        )
+        finalized_by_id[node.node_id] = finalized_node
+        finalized_nodes.append(finalized_node)
+    return finalized_nodes
+
+
+def _chain_authorization_failure(node: PlanMetricNode) -> FailureDetail:
+    return FailureDetail(
+        stage=FailureStage.PLANNING,
+        reason="dependency node has no eligible requested-chain authorization",
+        target_ref=node.node_id,
+        governing_ref="architecture:8.2:data_sufficiency_per_metric_dependency_chain",
+        dependency_scope=node.metric_ref,
+        independent_chains_may_continue=True,
+    )
 
 
 def _required_canonical_fields(

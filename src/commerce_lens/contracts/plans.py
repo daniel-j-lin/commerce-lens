@@ -26,6 +26,7 @@ class PlanMetricNode(ContractBase):
     execution_implementation_ref: str | None = None
     execution_status: Literal["not_executed"] = "not_executed"
     planning_state: Literal["executable", "blocked"] = "executable"
+    authorized_requested_metric_refs: tuple[str, ...] = ()
     failure_details: tuple[FailureDetail, ...] = ()
 
 
@@ -39,6 +40,8 @@ class ExecutionPlan(ContractBase):
     period_refs: tuple[str, ...] = ()
     population_refs: tuple[str, ...] = ()
     blocked_metric_refs: tuple[str, ...] = ()
+    requested_metric_refs: tuple[str, ...] = ()
+    eligible_requested_metric_refs: tuple[str, ...] = ()
     grouping: GroupingDimension = GroupingDimension.NONE
     precision_policy_ref: str = Field(min_length=1)
     required_validation_rule_refs: tuple[str, ...] = ()

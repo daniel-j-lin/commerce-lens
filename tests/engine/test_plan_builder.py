@@ -211,6 +211,106 @@ def test_ineligible_single_period_metric_with_empty_failure_details_cannot_becom
     assert "aov" in plan.blocked_metric_refs
 
 
+def test_ineligible_aov_only_blocks_entire_requested_chain() -> None:
+    request = _request(metrics=("aov",))
+    plan = build_execution_plan(request, _sufficiency(request, ineligible={"aov": ()}))
+
+    assert _node_states_by_metric_and_period(plan) == {
+        ("revenue", ("baseline",)): "blocked",
+        ("orders", ("baseline",)): "blocked",
+        ("aov", ("baseline",)): "blocked",
+        ("revenue", ("comparison",)): "blocked",
+        ("orders", ("comparison",)): "blocked",
+        ("aov", ("comparison",)): "blocked",
+    }
+    dependency_nodes = [node for node in plan.ordered_metrics if node.metric_ref in {"revenue", "orders"}]
+    assert all(node.authorized_requested_metric_refs == () for node in dependency_nodes)
+    assert all(
+        any(
+            failure.reason == "dependency node has no eligible requested-chain authorization"
+            for failure in node.failure_details
+        )
+        for node in dependency_nodes
+    )
+
+
+def test_ineligible_revenue_change_only_blocks_revenue_dependencies() -> None:
+    request = _request(metrics=("revenue_change",))
+    plan = build_execution_plan(request, _sufficiency(request, ineligible={"revenue_change": ()}))
+
+    assert _node_states_by_metric_and_period(plan) == {
+        ("revenue", ("baseline",)): "blocked",
+        ("revenue", ("comparison",)): "blocked",
+        ("revenue_change", ("baseline", "comparison")): "blocked",
+    }
+    assert all(node.authorized_requested_metric_refs == () for node in plan.ordered_metrics)
+
+
+def test_ineligible_product_absolute_contribution_only_blocks_exclusive_chain() -> None:
+    request = _request(metrics=("product_absolute_contribution",), grouping=GroupingDimension.PRODUCT)
+    plan = build_execution_plan(
+        request,
+        _sufficiency(request, ineligible={"product_absolute_contribution": ()}),
+    )
+
+    assert {node.planning_state for node in plan.ordered_metrics} == {"blocked"}
+    assert all(node.authorized_requested_metric_refs == () for node in plan.ordered_metrics)
+    assert {
+        (node.metric_ref, tuple(node.period_refs), node.grouping)
+        for node in plan.ordered_metrics
+    } == {
+        ("revenue", ("baseline",), GroupingDimension.NONE),
+        ("product_revenue", ("baseline",), GroupingDimension.PRODUCT),
+        ("product_revenue_change", ("baseline", "comparison"), GroupingDimension.PRODUCT),
+        ("revenue", ("comparison",), GroupingDimension.NONE),
+        ("product_revenue", ("comparison",), GroupingDimension.PRODUCT),
+        ("revenue_change", ("baseline", "comparison"), GroupingDimension.NONE),
+        ("product_absolute_contribution", ("baseline", "comparison"), GroupingDimension.PRODUCT),
+    }
+
+
+def test_eligible_revenue_authorizes_shared_revenue_when_aov_ineligible() -> None:
+    request = _request(metrics=("revenue", "aov"))
+    plan = build_execution_plan(request, _sufficiency(request, ineligible={"aov": ()}))
+
+    revenue_nodes = [node for node in plan.ordered_metrics if node.metric_ref == "revenue"]
+    orders_nodes = [node for node in plan.ordered_metrics if node.metric_ref == "orders"]
+    aov_nodes = [node for node in plan.ordered_metrics if node.metric_ref == "aov"]
+
+    assert {node.planning_state for node in revenue_nodes} == {"executable"}
+    assert {node.authorized_requested_metric_refs for node in revenue_nodes} == {("revenue",)}
+    assert {node.planning_state for node in orders_nodes} == {"blocked"}
+    assert {node.planning_state for node in aov_nodes} == {"blocked"}
+
+
+def test_eligible_revenue_change_authorizes_shared_revenue_when_aov_ineligible() -> None:
+    request = _request(metrics=("revenue_change", "aov"))
+    plan = build_execution_plan(request, _sufficiency(request, ineligible={"aov": ()}))
+
+    revenue_nodes = [node for node in plan.ordered_metrics if node.metric_ref == "revenue"]
+    orders_nodes = [node for node in plan.ordered_metrics if node.metric_ref == "orders"]
+    revenue_change = next(node for node in plan.ordered_metrics if node.metric_ref == "revenue_change")
+    aov_nodes = [node for node in plan.ordered_metrics if node.metric_ref == "aov"]
+
+    assert {node.planning_state for node in revenue_nodes} == {"executable"}
+    assert {node.authorized_requested_metric_refs for node in revenue_nodes} == {("revenue_change",)}
+    assert revenue_change.planning_state == "executable"
+    assert revenue_change.authorized_requested_metric_refs == ("revenue_change",)
+    assert {node.planning_state for node in orders_nodes} == {"blocked"}
+    assert {node.planning_state for node in aov_nodes} == {"blocked"}
+
+
+def test_two_independent_eligible_requested_roots_authorize_dependency_closures() -> None:
+    request = _request(metrics=("revenue_change", "aov"))
+    plan = build_execution_plan(request, _sufficiency(request))
+
+    assert {node.planning_state for node in plan.ordered_metrics} == {"executable"}
+    revenue_nodes = [node for node in plan.ordered_metrics if node.metric_ref == "revenue"]
+    orders_nodes = [node for node in plan.ordered_metrics if node.metric_ref == "orders"]
+    assert {node.authorized_requested_metric_refs for node in revenue_nodes} == {("revenue_change", "aov")}
+    assert {node.authorized_requested_metric_refs for node in orders_nodes} == {("aov",)}
+
+
 def test_missing_requested_metric_eligibility_fails_closed() -> None:
     request = _request(metrics=("revenue_change", "aov"))
     sufficiency = _sufficiency(request).model_copy(
@@ -570,6 +670,16 @@ def test_pre_execution_validation_rejects_missing_dependency_node() -> None:
         validate_execution_plan_pre_execution(bad_plan)
 
 
+def test_pre_execution_validation_rejects_executable_node_without_requested_chain_authorization() -> None:
+    request = _request(metrics=("revenue_change",))
+    plan = build_execution_plan(request, _sufficiency(request))
+    bad_node = plan.ordered_metrics[0].model_copy(update={"authorized_requested_metric_refs": ()})
+    bad_plan = plan.model_copy(update={"ordered_metrics": (bad_node, *plan.ordered_metrics[1:])})
+
+    with pytest.raises(PlanningError):
+        validate_execution_plan_pre_execution(bad_plan)
+
+
 def test_pre_execution_validation_rejects_non_not_executed_node() -> None:
     request = _request(metrics=("revenue_change",))
     plan = build_execution_plan(request, _sufficiency(request))
@@ -685,3 +795,10 @@ def _semantic_node_keys(plan: ExecutionPlan) -> tuple[tuple[str, tuple[str, ...]
         (node.metric_ref, tuple(node.period_refs), node.grouping, tuple(node.population_refs))
         for node in plan.ordered_metrics
     )
+
+
+def _node_states_by_metric_and_period(plan: ExecutionPlan) -> dict[tuple[str, tuple[str, ...]], str]:
+    return {
+        (node.metric_ref, tuple(node.period_refs)): node.planning_state
+        for node in plan.ordered_metrics
+    }
