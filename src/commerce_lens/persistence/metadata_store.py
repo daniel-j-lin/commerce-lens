@@ -17,7 +17,8 @@ from commerce_lens.contracts.execution import ExecutionRecord
 from commerce_lens.contracts.requests import AnalysisRequest
 from commerce_lens.contracts.sufficiency import DataSufficiencyResult
 from commerce_lens.contracts.validation import ValidationRecord
-from commerce_lens.evidence.identifiers import canonical_json_fingerprint
+from commerce_lens.evidence.identifiers import canonical_json_fingerprint, sha256_file
+from commerce_lens.persistence.artifact_store import ArtifactStore
 
 
 SCHEMA_VERSION = 5
@@ -113,6 +114,7 @@ _PHASE5_TABLE_COLUMNS = {
         "request_id",
         "canonical_business_question_id",
         "dataset_ref_id",
+        "request_artifact_id",
         "record_fingerprint",
         "created_at",
         "record_json",
@@ -122,6 +124,7 @@ _PHASE5_TABLE_COLUMNS = {
         "request_id",
         "dataset_ref_id",
         "canonical_dataset_ref_id",
+        "sufficiency_artifact_id",
         "state",
         "record_fingerprint",
         "record_json",
@@ -470,9 +473,15 @@ class MetadataStore:
             rows = conn.execute("SELECT record_json FROM validation_records ORDER BY started_at, validation_id").fetchall()
         return [ValidationRecord.model_validate(json.loads(row["record_json"])) for row in rows]
 
-    def insert_analysis_request(self, request: AnalysisRequest) -> AnalysisRequest:
+    def insert_analysis_request(
+        self,
+        request: AnalysisRequest,
+        artifact_store: ArtifactStore | None = None,
+    ) -> AnalysisRequest:
+        artifact_store = self._authority_artifact_store(artifact_store)
         payload = request.model_dump_json()
-        record_fingerprint = canonical_json_fingerprint(json.loads(payload))
+        payload_obj = json.loads(payload)
+        record_fingerprint = canonical_json_fingerprint(payload_obj)
         with self._connect() as conn:
             if not self._stable_record_needs_insert(
                 conn,
@@ -482,41 +491,78 @@ class MetadataStore:
                 payload=payload,
             ):
                 return request
+        artifact = artifact_store.write_json_artifact(
+            Path("runs") / request.request_id / "analysis_request" / f"{request.request_id}.json",
+            payload_obj,
+        )
+        self.insert_artifact_reference(artifact)
+        with self._connect() as conn:
             conn.execute(
                 """
                 INSERT INTO analysis_requests (
                     request_id, canonical_business_question_id, dataset_ref_id,
-                    record_fingerprint, created_at, record_json
+                    request_artifact_id, record_fingerprint, created_at, record_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     request.request_id,
                     request.canonical_business_question_id,
                     request.dataset_ref_id,
+                    artifact.artifact_id,
                     record_fingerprint,
                     request.created_at.isoformat(),
                     payload,
                 ),
             )
-        return self.get_analysis_request(request.request_id) or request
+        return self.get_analysis_request(request.request_id, artifact_store) or request
 
-    def get_analysis_request(self, request_id: str) -> AnalysisRequest | None:
+    def get_analysis_request(
+        self,
+        request_id: str,
+        artifact_store: ArtifactStore | None = None,
+    ) -> AnalysisRequest | None:
+        artifact_store = self._authority_artifact_store(artifact_store)
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT record_fingerprint, record_json FROM analysis_requests WHERE request_id = ?",
+                """
+                SELECT request_id, canonical_business_question_id, dataset_ref_id,
+                       request_artifact_id, record_fingerprint, created_at, record_json
+                FROM analysis_requests
+                WHERE request_id = ?
+                """,
                 (request_id,),
             ).fetchone()
         if row is None:
             return None
-        payload = json.loads(row["record_json"])
-        if canonical_json_fingerprint(payload) != row["record_fingerprint"]:
-            raise RuntimeError(f"analysis request durable authority tamper detected for {request_id}")
-        return AnalysisRequest.model_validate(payload)
+        payload = self._verified_authority_payload(
+            row,
+            artifact_store,
+            id_column="request_id",
+            expected_id=request_id,
+            artifact_id_column="request_artifact_id",
+            record_type="analysis request",
+        )
+        request = AnalysisRequest.model_validate(payload)
+        if request.request_id != request_id:
+            raise RuntimeError(f"analysis request artifact identity mismatch for {request_id}")
+        if row["canonical_business_question_id"] != request.canonical_business_question_id:
+            raise RuntimeError(f"analysis request indexed authority mismatch for {request_id}")
+        if row["dataset_ref_id"] != request.dataset_ref_id:
+            raise RuntimeError(f"analysis request indexed authority mismatch for {request_id}")
+        if row["created_at"] != request.created_at.isoformat():
+            raise RuntimeError(f"analysis request indexed authority mismatch for {request_id}")
+        return request
 
-    def insert_data_sufficiency_result(self, result: DataSufficiencyResult) -> DataSufficiencyResult:
+    def insert_data_sufficiency_result(
+        self,
+        result: DataSufficiencyResult,
+        artifact_store: ArtifactStore | None = None,
+    ) -> DataSufficiencyResult:
+        artifact_store = self._authority_artifact_store(artifact_store)
         payload = result.model_dump_json()
-        record_fingerprint = canonical_json_fingerprint(json.loads(payload))
+        payload_obj = json.loads(payload)
+        record_fingerprint = canonical_json_fingerprint(payload_obj)
         with self._connect() as conn:
             if not self._stable_record_needs_insert(
                 conn,
@@ -526,38 +572,72 @@ class MetadataStore:
                 payload=payload,
             ):
                 return result
+        artifact = artifact_store.write_json_artifact(
+            Path("runs") / result.request_id / "data_sufficiency" / f"{result.sufficiency_id}.json",
+            payload_obj,
+        )
+        self.insert_artifact_reference(artifact)
+        with self._connect() as conn:
             conn.execute(
                 """
                 INSERT INTO data_sufficiency_results (
                     sufficiency_id, request_id, dataset_ref_id, canonical_dataset_ref_id,
-                    state, record_fingerprint, record_json
+                    sufficiency_artifact_id, state, record_fingerprint, record_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     result.sufficiency_id,
                     result.request_id,
                     result.dataset_ref_id,
                     result.canonical_dataset_ref_id,
+                    artifact.artifact_id,
                     result.state.value,
                     record_fingerprint,
                     payload,
                 ),
             )
-        return self.get_data_sufficiency_result(result.sufficiency_id) or result
+        return self.get_data_sufficiency_result(result.sufficiency_id, artifact_store) or result
 
-    def get_data_sufficiency_result(self, sufficiency_id: str) -> DataSufficiencyResult | None:
+    def get_data_sufficiency_result(
+        self,
+        sufficiency_id: str,
+        artifact_store: ArtifactStore | None = None,
+    ) -> DataSufficiencyResult | None:
+        artifact_store = self._authority_artifact_store(artifact_store)
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT record_fingerprint, record_json FROM data_sufficiency_results WHERE sufficiency_id = ?",
+                """
+                SELECT sufficiency_id, request_id, dataset_ref_id, canonical_dataset_ref_id,
+                       sufficiency_artifact_id, state, record_fingerprint, record_json
+                FROM data_sufficiency_results
+                WHERE sufficiency_id = ?
+                """,
                 (sufficiency_id,),
             ).fetchone()
         if row is None:
             return None
-        payload = json.loads(row["record_json"])
-        if canonical_json_fingerprint(payload) != row["record_fingerprint"]:
-            raise RuntimeError(f"data sufficiency durable authority tamper detected for {sufficiency_id}")
-        return DataSufficiencyResult.model_validate(payload)
+        payload = self._verified_authority_payload(
+            row,
+            artifact_store,
+            id_column="sufficiency_id",
+            expected_id=sufficiency_id,
+            artifact_id_column="sufficiency_artifact_id",
+            record_type="data sufficiency",
+        )
+        result = DataSufficiencyResult.model_validate(payload)
+        if result.sufficiency_id != sufficiency_id:
+            raise RuntimeError(f"data sufficiency artifact identity mismatch for {sufficiency_id}")
+        indexed = {
+            "request_id": result.request_id,
+            "dataset_ref_id": result.dataset_ref_id,
+            "canonical_dataset_ref_id": result.canonical_dataset_ref_id,
+            "state": result.state.value,
+        }
+        for key, expected in indexed.items():
+            if row[key] != expected:
+                raise RuntimeError(f"data sufficiency indexed authority mismatch for {sufficiency_id}")
+        return result
 
     def insert_evidence_admissibility_record(
         self,
@@ -757,6 +837,7 @@ class MetadataStore:
                 request_id TEXT PRIMARY KEY,
                 canonical_business_question_id TEXT NOT NULL,
                 dataset_ref_id TEXT NOT NULL,
+                request_artifact_id TEXT NOT NULL,
                 record_fingerprint TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 record_json TEXT NOT NULL
@@ -770,6 +851,7 @@ class MetadataStore:
                 request_id TEXT NOT NULL,
                 dataset_ref_id TEXT NOT NULL,
                 canonical_dataset_ref_id TEXT,
+                sufficiency_artifact_id TEXT NOT NULL,
                 state TEXT NOT NULL,
                 record_fingerprint TEXT NOT NULL,
                 record_json TEXT NOT NULL
@@ -852,6 +934,39 @@ class MetadataStore:
         if json.loads(row["record_json"]) == json.loads(payload):
             return False
         raise RuntimeError(f"stable provenance record conflict for {stable_id}")
+
+    def _verified_authority_payload(
+        self,
+        row: sqlite3.Row,
+        artifact_store: ArtifactStore,
+        *,
+        id_column: str,
+        expected_id: str,
+        artifact_id_column: str,
+        record_type: str,
+    ) -> dict:
+        row_payload = json.loads(row["record_json"])
+        if canonical_json_fingerprint(row_payload) != row["record_fingerprint"]:
+            raise RuntimeError(f"{record_type} durable authority tamper detected for {expected_id}")
+        artifact = self.get_artifact_reference(row[artifact_id_column])
+        if artifact is None:
+            raise RuntimeError(f"{record_type} authority artifact reference missing for {expected_id}")
+        path = artifact_store.safe_path(artifact.path)
+        if not path.is_file():
+            raise RuntimeError(f"{record_type} authority artifact missing for {expected_id}")
+        if artifact.fingerprint is None or sha256_file(path) != artifact.fingerprint:
+            raise RuntimeError(f"{record_type} authority artifact hash mismatch for {expected_id}")
+        artifact_payload = json.loads(path.read_text(encoding="utf-8"))
+        if artifact_payload.get(id_column) != expected_id:
+            raise RuntimeError(f"{record_type} authority artifact identity mismatch for {expected_id}")
+        if artifact_payload != row_payload:
+            raise RuntimeError(f"{record_type} row cache mismatches immutable artifact for {expected_id}")
+        if row["record_fingerprint"] != canonical_json_fingerprint(artifact_payload):
+            raise RuntimeError(f"{record_type} fingerprint mismatches immutable artifact for {expected_id}")
+        return artifact_payload
+
+    def _authority_artifact_store(self, artifact_store: ArtifactStore | None) -> ArtifactStore:
+        return artifact_store or ArtifactStore(self.db_path.parent / "artifacts")
 
     def _quote_literal(self, value: str) -> str:
         return "'" + value.replace("'", "''") + "'"

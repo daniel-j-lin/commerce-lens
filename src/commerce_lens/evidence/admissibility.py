@@ -19,6 +19,7 @@ from commerce_lens.contracts.execution import ExecutedResult, ExecutionRecord, E
 from commerce_lens.contracts.requests import AnalysisRequest
 from commerce_lens.contracts.sufficiency import DataSufficiencyResult
 from commerce_lens.contracts.validation import ValidatedResult, ValidationRecord, ValidationStatus
+from commerce_lens.engine.populations import material_scope_payload
 from commerce_lens.evidence.identifiers import canonical_json_fingerprint, generate_id, sha256_file, stable_content_id
 from commerce_lens.metrics.registry import get_metric_registry
 from commerce_lens.persistence.artifact_store import ArtifactStore
@@ -91,12 +92,12 @@ def evaluate_evidence_admissibility(
             )
         checks.append("claim_type_descriptive")
 
-        request = _load_request(request_id, metadata_store, supplied_request)
+        request = _load_request(request_id, artifact_store, metadata_store, supplied_request)
         context["canonical_business_question_id"] = request.canonical_business_question_id
         context["dataset_ref_id"] = request.dataset_ref_id
         checks.append("analysis_request_authority_verified")
 
-        sufficiency = _load_sufficiency(sufficiency_id, metadata_store, supplied_sufficiency)
+        sufficiency = _load_sufficiency(sufficiency_id, artifact_store, metadata_store, supplied_sufficiency)
         _verify_sufficiency_request_context(request, sufficiency)
         checks.append("sufficiency_request_context_verified")
 
@@ -287,11 +288,12 @@ def evaluate_evidence_admissibility(
 
 def _load_request(
     request_id: str,
+    artifact_store: ArtifactStore,
     metadata_store: MetadataStore,
     supplied_request: AnalysisRequest | None,
 ) -> AnalysisRequest:
     try:
-        request = metadata_store.get_analysis_request(request_id)
+        request = metadata_store.get_analysis_request(request_id, artifact_store)
     except Exception as exc:
         raise EvidenceAdmissibilityError(
             "analysis_request_tamper_or_mismatch",
@@ -309,11 +311,12 @@ def _load_request(
 
 def _load_sufficiency(
     sufficiency_id: str,
+    artifact_store: ArtifactStore,
     metadata_store: MetadataStore,
     supplied_sufficiency: DataSufficiencyResult | None,
 ) -> DataSufficiencyResult:
     try:
-        sufficiency = metadata_store.get_data_sufficiency_result(sufficiency_id)
+        sufficiency = metadata_store.get_data_sufficiency_result(sufficiency_id, artifact_store)
     except Exception as exc:
         raise EvidenceAdmissibilityError(
             "sufficiency_tamper_or_mismatch",
@@ -466,6 +469,7 @@ def _verify_lineage_context(
         raise EvidenceAdmissibilityError("period_mismatch", "ExecutionRecord period role mismatches ValidatedResult")
     if execution_record.grouping != request.grouping.value:
         raise EvidenceAdmissibilityError("population_mismatch", "ExecutionRecord grouping mismatches AnalysisRequest scope")
+    _verify_request_scope_matches_execution(request, result, execution_record)
     if executed_result.metric_ref != result.metric_ref:
         raise EvidenceAdmissibilityError("required_evidence_metric_mismatch", "ExecutedResult Metric mismatches ValidatedResult")
     if executed_result.scope_ref != result.population_ref:
@@ -478,6 +482,18 @@ def _verify_lineage_context(
         raise EvidenceAdmissibilityError("undefined_state_context_mismatch", "ExecutedResult undefined reason mismatches ValidatedResult")
     if executed_result.currency != result.currency:
         raise EvidenceAdmissibilityError("currency_mismatch", "ExecutedResult currency mismatches ValidatedResult")
+
+
+def _verify_request_scope_matches_execution(
+    request: AnalysisRequest,
+    result: ValidatedResult,
+    execution_record: ExecutionRecord,
+) -> None:
+    request_filters = tuple(material_scope_payload(request.scope)["filters"])
+    if tuple(execution_record.scope_filters) != request_filters:
+        raise EvidenceAdmissibilityError("population_mismatch", "ExecutionRecord scope filters mismatch AnalysisRequest scope")
+    if request.scope.population_ref is not None and request.scope.population_ref != result.population_ref:
+        raise EvidenceAdmissibilityError("population_mismatch", "AnalysisRequest population_ref mismatches ValidatedResult population")
 
 
 def _resolve_evidence_role(result: ValidatedResult, requested_role: EvidenceRole | None) -> EvidenceRole:
@@ -747,15 +763,145 @@ def _persist_admissible_evidence(
     artifact_store: ArtifactStore,
     metadata_store: MetadataStore,
 ) -> ArtifactReference:
-    artifact = artifact_store.write_json_artifact(
-        Path("runs") / (evidence.execution_id or "unknown_execution") / "admissible_evidence" / f"{evidence.evidence_id}.json",
-        evidence.model_dump(mode="json"),
-    )
-    metadata_store.insert_artifact_reference(artifact)
-    restored = AdmissibleEvidence.model_validate_json(artifact_store.safe_path(artifact.path).read_text(encoding="utf-8"))
-    if restored != evidence:
-        raise EvidenceAdmissibilityError(
-            "admissible_evidence_artifact_roundtrip_failed",
-            "persisted AdmissibleEvidence artifact did not round-trip",
+    for record in metadata_store.list_evidence_admissibility_records():
+        if (
+            record.status is EvidenceAdmissibilityStatus.PASSED
+            and record.admissible_evidence_id == evidence.evidence_id
+        ):
+            if record.admissible_evidence_artifact_ref is None:
+                raise EvidenceAdmissibilityError(
+                    "admissible_evidence_artifact_integrity_failure",
+                    "successful EvidenceAdmissibilityRecord lacks AdmissibleEvidence artifact reference",
+                )
+            restored = verify_admissible_evidence_artifact(
+                record.admissible_evidence_artifact_ref,
+                artifact_store=artifact_store,
+                metadata_store=metadata_store,
+                expected_evidence=evidence,
+                admissibility_record=record,
+            )
+            if restored == evidence:
+                return record.admissible_evidence_artifact_ref
+            raise EvidenceAdmissibilityError(
+                "admissible_evidence_artifact_integrity_failure",
+                "existing AdmissibleEvidence artifact differs from expected semantic Evidence",
+            )
+    try:
+        artifact = artifact_store.write_json_artifact(
+            Path("runs") / (evidence.execution_id or "unknown_execution") / "admissible_evidence" / f"{evidence.evidence_id}.json",
+            evidence.model_dump(mode="json"),
         )
+    except ValueError as exc:
+        if str(exc) == "existing JSON artifact content mismatch":
+            raise EvidenceAdmissibilityError(
+                "admissible_evidence_artifact_integrity_failure",
+                "existing AdmissibleEvidence artifact content mismatches the expected semantic Evidence",
+            ) from exc
+        raise
+    metadata_store.insert_artifact_reference(artifact)
+    verify_admissible_evidence_artifact(
+        artifact,
+        artifact_store=artifact_store,
+        metadata_store=metadata_store,
+        expected_evidence=evidence,
+    )
     return artifact
+
+
+def verify_admissible_evidence_artifact(
+    artifact: ArtifactReference,
+    *,
+    artifact_store: ArtifactStore,
+    metadata_store: MetadataStore,
+    expected_evidence: AdmissibleEvidence | None = None,
+    admissibility_record: EvidenceAdmissibilityRecord | None = None,
+) -> AdmissibleEvidence:
+    persisted = metadata_store.get_artifact_reference(artifact.artifact_id)
+    if persisted != artifact:
+        raise EvidenceAdmissibilityError(
+            "admissible_evidence_artifact_integrity_failure",
+            "AdmissibleEvidence artifact reference is missing or mismatched",
+        )
+    path = artifact_store.safe_path(artifact.path)
+    if not path.is_file():
+        raise EvidenceAdmissibilityError(
+            "admissible_evidence_artifact_integrity_failure",
+            "AdmissibleEvidence artifact is missing",
+        )
+    if artifact.fingerprint is None or sha256_file(path) != artifact.fingerprint:
+        raise EvidenceAdmissibilityError(
+            "admissible_evidence_artifact_integrity_failure",
+            "AdmissibleEvidence artifact hash does not match metadata",
+        )
+    try:
+        evidence = AdmissibleEvidence.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValidationError as exc:
+        raise EvidenceAdmissibilityError(
+            "admissible_evidence_artifact_integrity_failure",
+            f"AdmissibleEvidence artifact is schema-invalid: {exc}",
+        ) from exc
+    if evidence.evidence_fingerprint is None:
+        raise EvidenceAdmissibilityError(
+            "admissible_evidence_artifact_integrity_failure",
+            "AdmissibleEvidence lacks semantic evidence_fingerprint",
+        )
+    if evidence.evidence_id != stable_content_id("ev", evidence.evidence_fingerprint):
+        raise EvidenceAdmissibilityError(
+            "admissible_evidence_artifact_integrity_failure",
+            "AdmissibleEvidence evidence_id does not match semantic fingerprint",
+        )
+    if expected_evidence is not None:
+        if evidence.evidence_id != expected_evidence.evidence_id:
+            raise EvidenceAdmissibilityError(
+                "admissible_evidence_artifact_integrity_failure",
+                "AdmissibleEvidence artifact identity does not match expected Evidence",
+            )
+        if evidence.evidence_fingerprint != expected_evidence.evidence_fingerprint:
+            raise EvidenceAdmissibilityError(
+                "admissible_evidence_artifact_integrity_failure",
+                "AdmissibleEvidence semantic fingerprint does not match expected Evidence",
+            )
+        if evidence != expected_evidence:
+            raise EvidenceAdmissibilityError(
+                "admissible_evidence_artifact_integrity_failure",
+                "AdmissibleEvidence artifact content differs from expected semantic Evidence",
+            )
+    if admissibility_record is not None:
+        _verify_admissible_evidence_record_lineage(evidence, admissibility_record, artifact)
+    return evidence
+
+
+def _verify_admissible_evidence_record_lineage(
+    evidence: AdmissibleEvidence,
+    record: EvidenceAdmissibilityRecord,
+    artifact: ArtifactReference,
+) -> None:
+    expected = {
+        "request_id": evidence.request_id,
+        "sufficiency_id": evidence.sufficiency_id,
+        "validated_result_id": evidence.validated_result_ids[0],
+        "validation_record_ids": evidence.validation_record_ids,
+        "executed_result_id": evidence.executed_result_id,
+        "execution_id": evidence.execution_id,
+        "metric_ref": evidence.metric_ref,
+        "metric_definition_version": evidence.metric_definition_version,
+        "dataset_ref_id": evidence.dataset_ref_id,
+        "canonical_dataset_ref_id": evidence.canonical_dataset_ref_id,
+        "canonical_dataset_fingerprint": evidence.canonical_dataset_fingerprint,
+        "population_ref": evidence.population_ref,
+        "population_fingerprint": evidence.population_fingerprint,
+        "period_ref": evidence.period_ref,
+        "period_role": evidence.period_role,
+        "supported_claim_type": evidence.supported_claim_type,
+        "evidence_role": evidence.evidence_role,
+        "applicable_required_evidence_requirement_ids": evidence.applicable_required_evidence_requirement_ids,
+        "admissible_evidence_id": evidence.evidence_id,
+        "admissible_evidence_artifact_ref": artifact,
+        "evidence_fingerprint": evidence.evidence_fingerprint,
+    }
+    for field_name, expected_value in expected.items():
+        if getattr(record, field_name) != expected_value:
+            raise EvidenceAdmissibilityError(
+                "admissible_evidence_artifact_integrity_failure",
+                "AdmissibleEvidence artifact lineage mismatches EvidenceAdmissibilityRecord",
+            )

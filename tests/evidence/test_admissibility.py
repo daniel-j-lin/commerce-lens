@@ -17,13 +17,14 @@ from commerce_lens.contracts.common import (
     FailureStage,
     MetricState,
     ScopeDefinition,
+    ScopeFilter,
 )
 from commerce_lens.contracts.evidence import AdmissibleEvidence, EvidenceAdmissibilityStatus, EvidenceRole
 from commerce_lens.contracts.sufficiency import MetricEligibility, SufficiencyState
 from commerce_lens.contracts.validation import ValidatedResult, ValidationStatus
 from commerce_lens.engine import execute_plan
 from commerce_lens.engine.plan_builder import build_execution_plan
-from commerce_lens.evidence.admissibility import evaluate_evidence_admissibility
+from commerce_lens.evidence.admissibility import EvidenceAdmissibilityError, evaluate_evidence_admissibility, verify_admissible_evidence_artifact
 from commerce_lens.evidence.identifiers import canonical_json_bytes, sha256_file, stable_content_id
 from commerce_lens.persistence.metadata_store import MetadataStore, SCHEMA_VERSION
 from commerce_lens.validation import validate_executed_result
@@ -312,6 +313,268 @@ def test_admissibility_fail_closed_cases(tmp_path, tamper, expected_code) -> Non
     assert outcome.admissibility_record.admissible_evidence_id is None
 
 
+@pytest.mark.parametrize(
+    ("authority", "tamper"),
+    [
+        ("request", "row_json_only"),
+        ("request", "row_fingerprint_only"),
+        ("request", "row_json_and_fingerprint"),
+        ("request", "artifact_content"),
+        ("request", "artifact_reference_hash"),
+        ("request", "missing_artifact"),
+        ("sufficiency", "row_json_only"),
+        ("sufficiency", "row_fingerprint_only"),
+        ("sufficiency", "row_json_and_fingerprint"),
+        ("sufficiency", "artifact_content"),
+        ("sufficiency", "artifact_reference_hash"),
+        ("sufficiency", "missing_artifact"),
+    ],
+)
+def test_request_and_sufficiency_immutable_authority_fail_closed(tmp_path, authority, tamper) -> None:
+    fixture = _fixture(tmp_path, ("revenue",), [_row()])
+    validation = _validate(fixture, "revenue")
+    if authority == "request":
+        expected_code = "analysis_request_tamper_or_mismatch"
+        if tamper == "row_json_only":
+            _tamper_json(fixture.metadata_store, "analysis_requests", "request_id", fixture.request.request_id, "dataset_ref_id", "ds_wrong")
+        elif tamper == "row_fingerprint_only":
+            _set_record_fingerprint(fixture.metadata_store, "analysis_requests", "request_id", fixture.request.request_id, "f" * 64)
+        elif tamper == "row_json_and_fingerprint":
+            _replace_request_row_only(fixture, canonical_business_question_id="canonical_revenue_change_substituted")
+        elif tamper == "artifact_content":
+            _tamper_authority_artifact(fixture, "analysis_requests", "request_id", fixture.request.request_id, "request_artifact_id", "canonical_business_question_id", "canonical_revenue_change_substituted")
+        elif tamper == "artifact_reference_hash":
+            _tamper_authority_artifact_reference_hash(fixture, "analysis_requests", "request_id", fixture.request.request_id, "request_artifact_id")
+        elif tamper == "missing_artifact":
+            _unlink_authority_artifact(fixture, "analysis_requests", "request_id", fixture.request.request_id, "request_artifact_id")
+    else:
+        expected_code = "sufficiency_tamper_or_mismatch"
+        if tamper == "row_json_only":
+            _tamper_json(fixture.metadata_store, "data_sufficiency_results", "sufficiency_id", fixture.sufficiency.sufficiency_id, "dataset_ref_id", "ds_wrong")
+        elif tamper == "row_fingerprint_only":
+            _set_record_fingerprint(fixture.metadata_store, "data_sufficiency_results", "sufficiency_id", fixture.sufficiency.sufficiency_id, "f" * 64)
+        elif tamper == "row_json_and_fingerprint":
+            _replace_sufficiency_row_only(
+                fixture,
+                available_evidence=fixture.sufficiency.available_evidence
+                + (AvailableEvidence(evidence_id="fabricated", description="fabricated evidence"),),
+                metric_eligibility=(MetricEligibility(metric_ref="revenue", eligible=True, metric_state=MetricState.QUALIFIED),),
+            )
+        elif tamper == "artifact_content":
+            _tamper_authority_artifact(
+                fixture,
+                "data_sufficiency_results",
+                "sufficiency_id",
+                fixture.sufficiency.sufficiency_id,
+                "sufficiency_artifact_id",
+                "state",
+                SufficiencyState.INSUFFICIENT_EVIDENCE.value,
+            )
+        elif tamper == "artifact_reference_hash":
+            _tamper_authority_artifact_reference_hash(
+                fixture,
+                "data_sufficiency_results",
+                "sufficiency_id",
+                fixture.sufficiency.sufficiency_id,
+                "sufficiency_artifact_id",
+            )
+        elif tamper == "missing_artifact":
+            _unlink_authority_artifact(
+                fixture,
+                "data_sufficiency_results",
+                "sufficiency_id",
+                fixture.sufficiency.sufficiency_id,
+                "sufficiency_artifact_id",
+            )
+
+    outcome = _admit(fixture, validation.validated_result)
+
+    assert outcome.admissible_evidence is None
+    assert outcome.admissibility_record.status is EvidenceAdmissibilityStatus.FAILED
+    assert outcome.admissibility_record.failure_code == expected_code
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    [
+        "request_filter_differs_from_execution",
+        "request_population_conflicts",
+        "request_filtered_execution_unfiltered",
+        "execution_filtered_request_broader",
+        "row_scope_substitution",
+        "artifact_scope_differs_from_execution",
+    ],
+)
+def test_exact_scope_lineage_fail_closed(tmp_path, tamper) -> None:
+    filtered_scope = ScopeDefinition(
+        scope_id="currency_usd_scope",
+        filters=(ScopeFilter(field="currency", operator="equals", value="USD"),),
+    )
+    fixture = _fixture(tmp_path, ("revenue",), [_row()], scope=filtered_scope)
+    validation = _validate(fixture, "revenue")
+    result = validation.validated_result
+    expected_code = "population_mismatch"
+    if tamper == "request_filter_differs_from_execution":
+        _set_execution_record_scope_filters(
+            fixture,
+            result.execution_id,
+            (ScopeFilter(field="currency", operator="equals", value="EUR").model_dump(mode="json"),),
+        )
+    elif tamper == "request_population_conflicts":
+        _replace_request(fixture, scope=filtered_scope.model_copy(update={"population_ref": "pop_other"}))
+    elif tamper == "request_filtered_execution_unfiltered":
+        _set_execution_record_scope_filters(fixture, result.execution_id, ())
+    elif tamper == "execution_filtered_request_broader":
+        fixture = _fixture(tmp_path / "broad", ("revenue",), [_row()])
+        validation = _validate(fixture, "revenue")
+        result = validation.validated_result
+        _set_execution_record_scope_filters(
+            fixture,
+            result.execution_id,
+            (ScopeFilter(field="currency", operator="equals", value="USD").model_dump(mode="json"),),
+        )
+    elif tamper == "row_scope_substitution":
+        expected_code = "analysis_request_tamper_or_mismatch"
+        _replace_request_row_only(
+            fixture,
+            scope=ScopeDefinition(
+                scope_id="currency_eur_probe",
+                filters=(ScopeFilter(field="currency", operator="equals", value="EUR"),),
+            ),
+        )
+    elif tamper == "artifact_scope_differs_from_execution":
+        _replace_request(
+            fixture,
+            scope=ScopeDefinition(
+                scope_id="currency_eur_probe",
+                filters=(ScopeFilter(field="currency", operator="equals", value="EUR"),),
+            ),
+        )
+
+    outcome = _admit(fixture, result)
+
+    assert outcome.admissible_evidence is None
+    assert outcome.admissibility_record.status is EvidenceAdmissibilityStatus.FAILED
+    assert outcome.admissibility_record.failure_code == expected_code
+
+
+def test_exact_scope_lineage_valid_control_passes(tmp_path) -> None:
+    scope = ScopeDefinition(
+        scope_id="currency_usd_scope",
+        filters=(ScopeFilter(field="currency", operator="equals", value="USD"),),
+    )
+    fixture = _fixture(tmp_path, ("revenue",), [_row()], scope=scope)
+    validation = _validate(fixture, "revenue")
+
+    outcome = _admit(fixture, validation.validated_result)
+
+    assert outcome.admissibility_record.status is EvidenceAdmissibilityStatus.PASSED
+
+
+def test_admissible_evidence_artifact_verifier_accepts_genuine_artifact(tmp_path) -> None:
+    fixture = _fixture(tmp_path, ("revenue",), [_row()])
+    validation = _validate(fixture, "revenue")
+    outcome = _admit(fixture, validation.validated_result)
+
+    restored = verify_admissible_evidence_artifact(
+        outcome.admissibility_record.admissible_evidence_artifact_ref,
+        artifact_store=fixture.artifact_store,
+        metadata_store=fixture.metadata_store,
+        expected_evidence=outcome.admissible_evidence,
+        admissibility_record=outcome.admissibility_record,
+    )
+
+    assert restored == outcome.admissible_evidence
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    [
+        "artifact_missing",
+        "artifact_hash_mismatch",
+        "schema_invalid_artifact",
+        "evidence_id_mismatch",
+        "evidence_fingerprint_mismatch",
+        "content_differs_from_expected",
+        "record_points_wrong_artifact",
+    ],
+)
+def test_admissible_evidence_artifact_verifier_fails_deterministically(tmp_path, tamper) -> None:
+    fixture = _fixture(tmp_path, ("revenue",), [_row()])
+    validation = _validate(fixture, "revenue")
+    outcome = _admit(fixture, validation.validated_result)
+    artifact = outcome.admissibility_record.admissible_evidence_artifact_ref
+    expected = outcome.admissible_evidence
+    record = outcome.admissibility_record
+    if tamper == "artifact_missing":
+        fixture.artifact_store.safe_path(artifact.path).unlink()
+    elif tamper == "artifact_hash_mismatch":
+        _tamper_evidence_artifact(fixture, artifact, {"dataset_ref_id": "ds_wrong"})
+    elif tamper == "schema_invalid_artifact":
+        artifact = _replace_evidence_artifact_content(fixture, artifact, {"evidence_id": 1})
+    elif tamper == "evidence_id_mismatch":
+        artifact = _replace_evidence_artifact_content(fixture, artifact, expected.model_copy(update={"evidence_id": "ev_wrong"}).model_dump(mode="json"))
+    elif tamper == "evidence_fingerprint_mismatch":
+        artifact = _replace_evidence_artifact_content(fixture, artifact, expected.model_copy(update={"evidence_fingerprint": "f" * 64}).model_dump(mode="json"))
+    elif tamper == "content_differs_from_expected":
+        artifact = _replace_evidence_artifact_content(fixture, artifact, expected.model_copy(update={"dataset_ref_id": "ds_wrong"}).model_dump(mode="json"))
+    elif tamper == "record_points_wrong_artifact":
+        other = _fixture(tmp_path / "other", ("orders",), [_row()])
+        other_validation = _validate(other, "orders")
+        other_outcome = _admit(other, other_validation.validated_result)
+        artifact = other_outcome.admissibility_record.admissible_evidence_artifact_ref
+
+    with pytest.raises(EvidenceAdmissibilityError) as exc_info:
+        verify_admissible_evidence_artifact(
+            artifact,
+            artifact_store=fixture.artifact_store if tamper != "record_points_wrong_artifact" else other.artifact_store,
+            metadata_store=fixture.metadata_store if tamper != "record_points_wrong_artifact" else other.metadata_store,
+            expected_evidence=expected,
+            admissibility_record=record,
+        )
+
+    assert exc_info.value.failure_code == "admissible_evidence_artifact_integrity_failure"
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    [
+        "artifact_hash_mismatch",
+        "artifact_missing",
+        "schema_invalid_artifact",
+        "content_differs_from_expected",
+    ],
+)
+def test_repeated_equivalent_evaluation_fails_closed_on_existing_admissible_evidence_artifact_tamper(tmp_path, tamper) -> None:
+    fixture = _fixture(tmp_path, ("revenue",), [_row()])
+    validation = _validate(fixture, "revenue")
+    first = _admit(fixture, validation.validated_result)
+    artifact = first.admissibility_record.admissible_evidence_artifact_ref
+    if tamper == "artifact_hash_mismatch":
+        _tamper_evidence_artifact(fixture, artifact, {"dataset_ref_id": "ds_wrong"})
+    elif tamper == "artifact_missing":
+        fixture.artifact_store.safe_path(artifact.path).unlink()
+    elif tamper == "schema_invalid_artifact":
+        refreshed = _replace_evidence_artifact_content(fixture, artifact, {"evidence_id": 1})
+        _set_admissibility_record_artifact_ref(fixture, first.admissibility_record.admissibility_id, refreshed)
+    elif tamper == "content_differs_from_expected":
+        refreshed = _replace_evidence_artifact_content(
+            fixture,
+            artifact,
+            first.admissible_evidence.model_copy(update={"dataset_ref_id": "ds_wrong"}).model_dump(mode="json"),
+        )
+        _set_admissibility_record_artifact_ref(fixture, first.admissibility_record.admissibility_id, refreshed)
+
+    second = _admit(fixture, validation.validated_result)
+
+    assert second.admissible_evidence is None
+    assert second.admissibility_record.status is EvidenceAdmissibilityStatus.FAILED
+    assert second.admissibility_record.failure_code == "admissible_evidence_artifact_integrity_failure"
+    assert second.admissibility_record.admissible_evidence_id is None
+    records = fixture.metadata_store.list_evidence_admissibility_records()
+    assert records[-1].status is EvidenceAdmissibilityStatus.FAILED
+
+
 def test_metadata_store_v5_persistence_and_migrations(tmp_path) -> None:
     store = MetadataStore(tmp_path / "new.sqlite")
     store.initialize()
@@ -319,12 +582,24 @@ def test_metadata_store_v5_persistence_and_migrations(tmp_path) -> None:
     _assert_v5_tables(store)
 
     fixture = _fixture(tmp_path / "roundtrip", ("revenue",), [_row()])
-    assert fixture.metadata_store.get_analysis_request(fixture.request.request_id) == fixture.request
-    assert fixture.metadata_store.get_data_sufficiency_result(fixture.sufficiency.sufficiency_id) == fixture.sufficiency
+    assert fixture.metadata_store.get_analysis_request(fixture.request.request_id, fixture.artifact_store) == fixture.request
+    assert (
+        fixture.metadata_store.get_data_sufficiency_result(
+            fixture.sufficiency.sufficiency_id,
+            fixture.artifact_store,
+        )
+        == fixture.sufficiency
+    )
     with pytest.raises(RuntimeError, match="stable provenance record conflict"):
-        fixture.metadata_store.insert_analysis_request(fixture.request.model_copy(update={"dataset_ref_id": "ds_conflict"}))
+        fixture.metadata_store.insert_analysis_request(
+            fixture.request.model_copy(update={"dataset_ref_id": "ds_conflict"}),
+            fixture.artifact_store,
+        )
     with pytest.raises(RuntimeError, match="stable provenance record conflict"):
-        fixture.metadata_store.insert_data_sufficiency_result(fixture.sufficiency.model_copy(update={"dataset_ref_id": "ds_conflict"}))
+        fixture.metadata_store.insert_data_sufficiency_result(
+            fixture.sufficiency.model_copy(update={"dataset_ref_id": "ds_conflict"}),
+            fixture.artifact_store,
+        )
 
     for version, creator in ((1, _create_supported_v1_tables), (2, _create_supported_v2_tables), (3, _create_supported_v3_tables), (4, _create_supported_v4_tables)):
         db_path = tmp_path / f"legacy_{version}.sqlite"
@@ -368,12 +643,13 @@ def _fixture(
     rows: list[dict[str, str]],
     *,
     ineligible: dict[str, tuple[FailureDetail, ...]] | None = None,
+    scope: ScopeDefinition | None = None,
 ) -> _Fixture:
     tmp_path.mkdir(parents=True, exist_ok=True)
     source_metrics = tuple(dict.fromkeys((*metrics, "revenue", "orders"))) if "aov" in metrics else metrics
     dataset, artifact_store = _registered_source(tmp_path, rows, filename="orders.csv", source_type="csv")
     canonicalization = canonicalize_dataset(dataset, _canonicalization_request(dataset), artifact_store)
-    request = _request(source_metrics, dataset.dataset_id, scope=ScopeDefinition(scope_id="all_eligible"))
+    request = _request(source_metrics, dataset.dataset_id, scope=scope or ScopeDefinition(scope_id="all_eligible"))
     request = request.model_copy(
         update={
             "required_evidence": (
@@ -409,8 +685,8 @@ def _fixture(
     plan = build_execution_plan(request, sufficiency)
     metadata_store = MetadataStore(tmp_path / "registry.sqlite")
     metadata_store.initialize()
-    metadata_store.insert_analysis_request(request)
-    metadata_store.insert_data_sufficiency_result(sufficiency)
+    metadata_store.insert_analysis_request(request, artifact_store)
+    metadata_store.insert_data_sufficiency_result(sufficiency, artifact_store)
     outcome = execute_plan(plan, canonicalization.canonical_dataset, artifact_store, metadata_store)
     return _Fixture(request, sufficiency, plan, canonicalization.canonical_dataset, artifact_store, metadata_store, outcome)
 
@@ -532,30 +808,183 @@ def _tamper_json(metadata_store: MetadataStore, table: str, id_column: str, valu
         conn.execute(f"UPDATE {table} SET record_json = ? WHERE {id_column} = ?", (json.dumps(payload, sort_keys=True), value))
 
 
-def _replace_request(fixture: _Fixture, **updates) -> None:
+def _set_record_fingerprint(metadata_store: MetadataStore, table: str, id_column: str, value: str, fingerprint: str) -> None:
+    with sqlite3.connect(metadata_store.db_path) as conn:
+        conn.execute(f"UPDATE {table} SET record_fingerprint = ? WHERE {id_column} = ?", (fingerprint, value))
+
+
+def _replace_request_row_only(fixture: _Fixture, **updates) -> None:
     request = fixture.request.model_copy(update=updates)
-    payload = request.model_dump_json()
+    payload = request.model_dump(mode="json")
     with sqlite3.connect(fixture.metadata_store.db_path) as conn:
         conn.execute(
-            "UPDATE analysis_requests SET record_json = ?, record_fingerprint = ? WHERE request_id = ?",
-            (payload, _fingerprint(payload), request.request_id),
+            """
+            UPDATE analysis_requests
+            SET canonical_business_question_id = ?, dataset_ref_id = ?,
+                record_json = ?, record_fingerprint = ?, created_at = ?
+            WHERE request_id = ?
+            """,
+            (
+                request.canonical_business_question_id,
+                request.dataset_ref_id,
+                json.dumps(payload, sort_keys=True),
+                _fingerprint(payload),
+                request.created_at.isoformat(),
+                request.request_id,
+            ),
+        )
+
+
+def _replace_sufficiency_row_only(fixture: _Fixture, **updates) -> None:
+    sufficiency = fixture.sufficiency.model_copy(update=updates)
+    payload = sufficiency.model_dump(mode="json")
+    with sqlite3.connect(fixture.metadata_store.db_path) as conn:
+        conn.execute(
+            """
+            UPDATE data_sufficiency_results
+            SET request_id = ?, dataset_ref_id = ?, canonical_dataset_ref_id = ?,
+                state = ?, record_json = ?, record_fingerprint = ?
+            WHERE sufficiency_id = ?
+            """,
+            (
+                sufficiency.request_id,
+                sufficiency.dataset_ref_id,
+                sufficiency.canonical_dataset_ref_id,
+                sufficiency.state.value,
+                json.dumps(payload, sort_keys=True),
+                _fingerprint(payload),
+                sufficiency.sufficiency_id,
+            ),
+        )
+
+
+def _tamper_authority_artifact(
+    fixture: _Fixture,
+    table: str,
+    id_column: str,
+    value: str,
+    artifact_column: str,
+    key: str,
+    new_value,
+) -> None:
+    artifact = _authority_artifact(fixture, table, id_column, value, artifact_column)
+    path = fixture.artifact_store.safe_path(artifact.path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload[key] = new_value
+    path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+
+
+def _tamper_authority_artifact_reference_hash(
+    fixture: _Fixture,
+    table: str,
+    id_column: str,
+    value: str,
+    artifact_column: str,
+) -> None:
+    artifact = _authority_artifact(fixture, table, id_column, value, artifact_column)
+    payload = artifact.model_copy(update={"fingerprint": "f" * 64}).model_dump_json()
+    with sqlite3.connect(fixture.metadata_store.db_path) as conn:
+        conn.execute("UPDATE artifact_references SET record_json = ? WHERE artifact_id = ?", (payload, artifact.artifact_id))
+
+
+def _unlink_authority_artifact(
+    fixture: _Fixture,
+    table: str,
+    id_column: str,
+    value: str,
+    artifact_column: str,
+) -> None:
+    artifact = _authority_artifact(fixture, table, id_column, value, artifact_column)
+    fixture.artifact_store.safe_path(artifact.path).unlink()
+
+
+def _replace_request(fixture: _Fixture, **updates) -> None:
+    request = fixture.request.model_copy(update=updates)
+    payload = request.model_dump(mode="json")
+    artifact = _authority_artifact(fixture, "analysis_requests", "request_id", fixture.request.request_id, "request_artifact_id")
+    path = fixture.artifact_store.safe_path(artifact.path)
+    path.write_bytes(canonical_json_bytes(payload))
+    refreshed = _refreshed_artifact_ref(fixture, artifact)
+    fixture.metadata_store.insert_artifact_reference(refreshed)
+    with sqlite3.connect(fixture.metadata_store.db_path) as conn:
+        conn.execute(
+            """
+            UPDATE analysis_requests
+            SET canonical_business_question_id = ?, dataset_ref_id = ?, request_artifact_id = ?,
+                record_json = ?, record_fingerprint = ?, created_at = ?
+            WHERE request_id = ?
+            """,
+            (
+                request.canonical_business_question_id,
+                request.dataset_ref_id,
+                refreshed.artifact_id,
+                json.dumps(payload, sort_keys=True),
+                _fingerprint(payload),
+                request.created_at.isoformat(),
+                request.request_id,
+            ),
         )
 
 
 def _replace_sufficiency(fixture: _Fixture, **updates) -> None:
     sufficiency = fixture.sufficiency.model_copy(update=updates)
-    payload = sufficiency.model_dump_json()
+    payload = sufficiency.model_dump(mode="json")
+    artifact = _authority_artifact(
+        fixture,
+        "data_sufficiency_results",
+        "sufficiency_id",
+        fixture.sufficiency.sufficiency_id,
+        "sufficiency_artifact_id",
+    )
+    path = fixture.artifact_store.safe_path(artifact.path)
+    path.write_bytes(canonical_json_bytes(payload))
+    refreshed = _refreshed_artifact_ref(fixture, artifact)
+    fixture.metadata_store.insert_artifact_reference(refreshed)
     with sqlite3.connect(fixture.metadata_store.db_path) as conn:
         conn.execute(
-            "UPDATE data_sufficiency_results SET record_json = ?, record_fingerprint = ? WHERE sufficiency_id = ?",
-            (payload, _fingerprint(payload), sufficiency.sufficiency_id),
+            """
+            UPDATE data_sufficiency_results
+            SET request_id = ?, dataset_ref_id = ?, canonical_dataset_ref_id = ?,
+                sufficiency_artifact_id = ?, state = ?, record_json = ?, record_fingerprint = ?
+            WHERE sufficiency_id = ?
+            """,
+            (
+                sufficiency.request_id,
+                sufficiency.dataset_ref_id,
+                sufficiency.canonical_dataset_ref_id,
+                refreshed.artifact_id,
+                sufficiency.state.value,
+                json.dumps(payload, sort_keys=True),
+                _fingerprint(payload),
+                sufficiency.sufficiency_id,
+            ),
         )
 
 
-def _fingerprint(payload: str) -> str:
+def _fingerprint(payload) -> str:
     from commerce_lens.evidence.identifiers import canonical_json_fingerprint
 
-    return canonical_json_fingerprint(json.loads(payload))
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    return canonical_json_fingerprint(payload)
+
+
+def _authority_artifact(fixture: _Fixture, table: str, id_column: str, value: str, artifact_column: str) -> ArtifactReference:
+    with sqlite3.connect(fixture.metadata_store.db_path) as conn:
+        row = conn.execute(f"SELECT {artifact_column} FROM {table} WHERE {id_column} = ?", (value,)).fetchone()
+    return fixture.metadata_store.get_artifact_reference(row[0])
+
+
+def _refreshed_artifact_ref(fixture: _Fixture, artifact: ArtifactReference) -> ArtifactReference:
+    path = fixture.artifact_store.safe_path(artifact.path)
+    fingerprint = sha256_file(path)
+    return ArtifactReference(
+        artifact_id=stable_content_id("art", fingerprint),
+        path=artifact.path,
+        fingerprint=fingerprint,
+        media_type=artifact.media_type,
+        size_bytes=path.stat().st_size,
+    )
 
 
 def _set_validation_record_status(fixture: _Fixture, validation_id: str, status: str) -> None:
@@ -603,6 +1032,48 @@ def _set_execution_record_population_refs(fixture: _Fixture, execution_id: str, 
     payload["population_refs"] = list(population_refs)
     with sqlite3.connect(fixture.metadata_store.db_path) as conn:
         conn.execute("UPDATE execution_records SET record_json = ? WHERE execution_id = ?", (json.dumps(payload, sort_keys=True), execution_id))
+
+
+def _set_execution_record_scope_filters(fixture: _Fixture, execution_id: str, scope_filters: tuple[dict, ...]) -> None:
+    record = fixture.metadata_store.get_execution_record(execution_id)
+    payload = record.model_dump(mode="json")
+    payload["scope_filters"] = list(scope_filters)
+    with sqlite3.connect(fixture.metadata_store.db_path) as conn:
+        conn.execute("UPDATE execution_records SET record_json = ? WHERE execution_id = ?", (json.dumps(payload, sort_keys=True), execution_id))
+
+
+def _tamper_evidence_artifact(fixture: _Fixture, artifact: ArtifactReference, updates: dict) -> None:
+    path = fixture.artifact_store.safe_path(artifact.path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload.update(updates)
+    path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+
+
+def _replace_evidence_artifact_content(fixture: _Fixture, artifact: ArtifactReference, payload: dict) -> ArtifactReference:
+    path = fixture.artifact_store.safe_path(artifact.path)
+    path.write_bytes(canonical_json_bytes(payload))
+    refreshed = _refreshed_artifact_ref(fixture, artifact)
+    fixture.metadata_store.insert_artifact_reference(refreshed)
+    return refreshed
+
+
+def _set_admissibility_record_artifact_ref(
+    fixture: _Fixture,
+    admissibility_id: str,
+    artifact: ArtifactReference,
+) -> None:
+    record = fixture.metadata_store.get_evidence_admissibility_record(admissibility_id)
+    payload = record.model_dump(mode="json")
+    payload["admissible_evidence_artifact_ref"] = artifact.model_dump(mode="json")
+    with sqlite3.connect(fixture.metadata_store.db_path) as conn:
+        conn.execute(
+            """
+            UPDATE evidence_admissibility_records
+            SET admissible_evidence_artifact_id = ?, record_json = ?
+            WHERE admissibility_id = ?
+            """,
+            (artifact.artifact_id, json.dumps(payload, sort_keys=True), admissibility_id),
+        )
 
 
 def _assert_v5_tables(store: MetadataStore) -> None:
