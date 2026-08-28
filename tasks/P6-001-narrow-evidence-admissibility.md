@@ -2,13 +2,31 @@
 
 ## Status
 
-AUTHORIZED SPECIFICATION -- EVIDENCE AUTHORITY RESOLVED
+APPROVED / FROZEN
 
 Implementation:
-NOT STARTED
+COMPLETE
 
 Main Project Review:
-NOT REQUIRED FOR THE P6-001 AUTHORITY RESOLVED IN THIS TASK
+PASSED
+
+Final independent verification:
+PASSED
+
+Final approved commit:
+6dafc4872902a39341fc34cc949b0c94c0d07bdb
+
+Final verified full suite:
+301 passed
+
+MetadataStore:
+v5
+
+AnalysisRequest durable authority:
+IMPLEMENTED
+
+DataSufficiencyResult durable authority:
+IMPLEMENTED
 
 If a new material conflict with Frozen authority is discovered during later implementation:
 STOP and request Main Project review.
@@ -17,10 +35,16 @@ Revenue / Orders / AOV deterministic validation:
 IMPLEMENTED BY P5-001
 
 Evidence admissibility:
-AUTHORIZED ONLY BY THIS TASK WHEN SEPARATELY IMPLEMENTED
+IMPLEMENTED
 
-Admissible Evidence:
-NOT YET IMPLEMENTED
+EvidenceAdmissibilityRecord:
+IMPLEMENTED
+
+AdmissibleEvidence:
+IMPLEMENTED
+
+AdmissibleEvidence artifact verification:
+IMPLEMENTED
 
 ClaimDecision:
 NOT PART OF P6-001

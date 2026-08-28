@@ -207,6 +207,34 @@ P5-001 must not be reopened without a specific implementation defect or governin
 
 ---
 
+### P6-001 — Narrow Evidence Admissibility
+
+Status:
+
+APPROVED / FROZEN
+
+Final approved commit:
+
+6dafc4872902a39341fc34cc949b0c94c0d07bdb
+
+Final independent verification:
+
+PASSED
+
+Final verified full suite:
+
+301 passed
+
+MetadataStore schema:
+
+5
+
+P6-001 implemented deterministic Evidence admissibility for Revenue, Orders, and AOV within the approved narrow Evidence scope.
+
+P6-001 must not be reopened without a specific implementation defect or governing conflict.
+
+---
+
 ## Current Production Execution Foundation
 
 The currently Frozen Architecture specifies:
@@ -217,33 +245,35 @@ as the primary tabular execution engine and common canonical analytical executio
 
 This remains the authoritative production architecture unless a formally approved Architecture Amendment changes it.
 
-Current deterministic reliability foundation:
+Current deterministic reliability chain:
 
-Metric Registry
-↓
-Governed Population Definitions
-↓
-Data Sufficiency gating
-↓
+AnalysisRequest
+→
+Required Evidence
+→
+Data Sufficiency
+→
 ExecutionPlan
-↓
-chain-level execution authorization
-↓
-direct DuckDB reference execution
-↓
+→
+deterministic execution
+→
 ExecutionRecord
-↓
+→
 ExecutedResult
-↓
+→
 Required Validation Rules
-↓
-deterministic ValidationRecords
-↓
-complete validation bundle
-↓
+→
+ValidationRecords
+→
 ValidatedResult
-↓
-durable persistence
+→
+deterministic Evidence admissibility
+→
+EvidenceAdmissibilityRecord
+→
+AdmissibleEvidence
+→
+durable immutable evidence artifact
 
 Current implemented Metrics:
 
@@ -265,7 +295,7 @@ Current implemented execution semantics include:
 - governed currency resolution;
 - durable ExecutionRecord persistence;
 - immutable ExecutedResult artifacts;
-- MetadataStore schema version 4.
+- MetadataStore schema version 5.
 
 Current validation authority includes:
 
@@ -287,7 +317,23 @@ Current validation authority includes:
 - population fingerprint integrity;
 - failed validation persistence;
 - no ValidatedResult on failed validation;
-- MetadataStore schema version 4.
+- MetadataStore schema version 5.
+
+Evidence admissibility currently supports:
+
+- descriptive Evidence only;
+- metric_value for Valid Revenue / Orders / AOV;
+- metric_state only for governed AOV Undefined because Orders = 0;
+- exact Required Evidence linkage;
+- authoritative per-Metric Data Sufficiency;
+- immutable AnalysisRequest authority;
+- immutable DataSufficiencyResult authority;
+- P5 ValidatedResult authenticity;
+- exact request/execution scope binding;
+- P3 population authority;
+- independently verifiable AdmissibleEvidence artifacts;
+- semantic Evidence fingerprints;
+- fail-closed Evidence artifact integrity handling.
 
 Current lifecycle authority:
 
@@ -295,24 +341,23 @@ ExecutedResult
 ≠
 ValidatedResult
 
-ValidatedResult:
+ValidatedResult
+!=
+AdmissibleEvidence
 
-≠
-Admissible Evidence
+AdmissibleEvidence
+!=
+ClaimDecision
 
-Admissible Evidence:
-
-NOT YET IMPLEMENTED
-
-Revenue Change:
-
-NOT YET IMPLEMENTED
-
-Evidence admissibility:
+ClaimDecision:
 
 NOT YET IMPLEMENTED
 
-Claim admissibility:
+Findings:
+
+NOT YET IMPLEMENTED
+
+Recommendations:
 
 NOT YET IMPLEMENTED
 
@@ -405,19 +450,15 @@ Research must remain isolated from production implementation.
 
 ## Current Main-Branch Production State
 
-The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, and P5-001 deterministic result validation for Revenue, Orders, and AOV.
+The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, P5-001 deterministic result validation, and P6-001 deterministic Evidence admissibility for Revenue, Orders, and AOV.
 
 R-001 must not silently modify production execution architecture.
 
 Any Wren experiment should be isolated in a research boundary or separate worktree/task.
 
-Deterministic result validation and ValidatedResult persistence are implemented for Revenue, Orders, and AOV.
+Deterministic result validation, ValidatedResult persistence, Evidence admissibility, EvidenceAdmissibilityRecord persistence, and AdmissibleEvidence artifact verification are implemented for Revenue, Orders, and AOV.
 
-Admissible Evidence is not yet implemented.
-
-Evidence admissibility is not yet implemented.
-
-Claim admissibility is not yet implemented.
+ClaimDecision is not yet implemented.
 
 Revenue Change is not yet implemented.
 
@@ -437,7 +478,7 @@ Wren may be reconsidered later if material capabilities or project requirements 
 
 ## Next Authorized Work
 
-P5-001 is Approved / Frozen.
+P6-001 is Approved / Frozen.
 
 Any next implementation slice requires separate authorization.
 
@@ -446,7 +487,9 @@ Do not begin:
 - Revenue Change implementation;
 - Product or Category Metric execution;
 - Contribution production execution;
-- Evidence admissibility;
+- ClaimDecision;
+- Findings;
+- Recommendations;
 - Claim policy;
 - MCP or external executor adapters;
 - Wren production implementation;
@@ -467,7 +510,9 @@ Codex must stop and request Main Project review before:
 - replacing DuckDB production responsibilities;
 - adopting Wren into production;
 - adding a major runtime framework or dependency;
-- beginning Evidence admissibility;
+- beginning ClaimDecision;
+- beginning Findings;
+- beginning Recommendations;
 - beginning Claim admissibility;
 - beginning Revenue Change or Contribution execution;
 - adopting MCP or external executor adapters;
@@ -531,33 +576,50 @@ PASSED
 P5-001 final verified full suite:
 227 passed
 
-Current deterministic reliability foundation:
+P6-001:
+APPROVED / FROZEN
 
-Metric Registry
-↓
-Governed Population Definitions
-↓
-Data Sufficiency gating
-↓
+P6-001 final approved commit:
+6dafc4872902a39341fc34cc949b0c94c0d07bdb
+
+P6-001 final independent verification:
+PASSED
+
+P6-001 final verified full suite:
+301 passed
+
+MetadataStore schema:
+5
+
+Current deterministic reliability chain:
+
+AnalysisRequest
+→
+Required Evidence
+→
+Data Sufficiency
+→
 ExecutionPlan
-↓
-chain-level execution authorization
-↓
-direct DuckDB reference execution
-↓
+→
+deterministic execution
+→
 ExecutionRecord
-↓
+→
 ExecutedResult
-↓
+→
 Required Validation Rules
-↓
-deterministic ValidationRecords
-↓
-complete validation bundle
-↓
+→
+ValidationRecords
+→
 ValidatedResult
-↓
-durable persistence
+→
+deterministic Evidence admissibility
+→
+EvidenceAdmissibilityRecord
+→
+AdmissibleEvidence
+→
+durable immutable evidence artifact
 
 Current implemented Metrics:
 
@@ -585,7 +647,23 @@ Current validation authority includes:
 - population fingerprint integrity;
 - failed validation persistence;
 - no ValidatedResult on failed validation;
-- MetadataStore schema version 4.
+- MetadataStore schema version 5.
+
+Evidence admissibility currently supports:
+
+- descriptive Evidence only;
+- metric_value for Valid Revenue / Orders / AOV;
+- metric_state only for governed AOV Undefined because Orders = 0;
+- exact Required Evidence linkage;
+- authoritative per-Metric Data Sufficiency;
+- immutable AnalysisRequest authority;
+- immutable DataSufficiencyResult authority;
+- P5 ValidatedResult authenticity;
+- exact request/execution scope binding;
+- P3 population authority;
+- independently verifiable AdmissibleEvidence artifacts;
+- semantic Evidence fingerprints;
+- fail-closed Evidence artifact integrity handling.
 
 Current lifecycle authority:
 
@@ -594,16 +672,20 @@ ExecutedResult
 ValidatedResult
 
 ValidatedResult
-≠
-Admissible Evidence
+!=
+AdmissibleEvidence
 
-Admissible Evidence:
+AdmissibleEvidence
+!=
+ClaimDecision
+
+ClaimDecision:
 NOT YET IMPLEMENTED
 
-Evidence admissibility:
+Findings:
 NOT YET IMPLEMENTED
 
-Claim admissibility:
+Recommendations:
 NOT YET IMPLEMENTED
 
 Revenue Change:
