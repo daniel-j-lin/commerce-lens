@@ -32,6 +32,18 @@ Decision Reliability Benchmark
 
 The Decision Reliability Benchmark is not part of the current implementation phase except for governed MVP evaluation requirements.
 
+Strategic direction:
+
+CommerceLens is evolving toward:
+
+Evidence Reliability Kernel
++
+Evidence-first Agent
++
+controlled deterministic executor boundary
+
+This direction does not adopt an external executor adapter or MCP execution architecture. DuckDB remains the immediate MVP executor, and future commodity analytical capabilities should be reused rather than rebuilt only when evidence supports doing so.
+
 ---
 
 ## Frozen Governing Specifications
@@ -113,6 +125,44 @@ Phase 2 must not be reopened without a specific implementation defect or governi
 
 ---
 
+### P3-001 — Metric Registry, Governed Populations, and Execution Plan Foundation
+
+Status:
+
+APPROVED / FROZEN
+
+Final approved commit:
+
+25713d2d2bd81b34484139edeeabab706e842e03
+
+Final verification:
+
+PASSED
+
+Final verified suite:
+
+161 passed
+
+Current deterministic pre-execution foundation:
+
+Metric Registry
+↓
+Governed Population Definitions
+↓
+Data Sufficiency gating
+↓
+ExecutionPlan
+↓
+chain-level execution authorization
+
+Actual Metric execution:
+
+NOT YET IMPLEMENTED
+
+P3-001 must not be reopened without a specific implementation defect or governing conflict.
+
+---
+
 ## Current Production Execution Foundation
 
 The currently Frozen Architecture specifies:
@@ -123,7 +173,11 @@ as the primary tabular execution engine and common canonical analytical executio
 
 This remains the authoritative production architecture unless a formally approved Architecture Amendment changes it.
 
-No alternative execution foundation is currently adopted.
+Current approved execution foundation:
+
+DuckDB
+
+No external executor adapter, MCP execution architecture, or Wren production path is currently adopted.
 
 ---
 
@@ -175,8 +229,6 @@ This conclusion does not claim Wren has no value.
 
 DuckDB remains the production execution foundation.
 
-Phase 3 may begin only through a separately authorized task.
-
 ---
 
 ## Explicitly Not Authorized by R-001
@@ -204,11 +256,13 @@ Research must remain isolated from production implementation.
 
 ## Current Main-Branch Production State
 
-The main CommerceLens implementation must remain based on the Approved / Frozen Phase 1 and Phase 2 implementation.
+The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, and P3-001 deterministic pre-execution foundations.
 
 R-001 must not silently modify production execution architecture.
 
 Any Wren experiment should be isolated in a research boundary or separate worktree/task.
+
+Actual Metric execution is not yet implemented.
 
 ---
 
@@ -226,21 +280,19 @@ Wren may be reconsidered later if material capabilities or project requirements 
 
 ## Next Authorized Work
 
-R-001 no longer blocks the next separately authorized implementation slice.
+P3-001 is Approved / Frozen.
 
-Phase 3 implementation is NOT yet authorized.
+Actual Metric execution requires separate authorization.
 
 Do not begin:
 
-- Metric Registry production implementation;
-- governed population execution;
 - Revenue production execution;
 - Orders production execution;
 - AOV production execution;
 - Contribution production execution;
 - Metric validation implementation;
 
-until the R-001 foundation decision has completed Main Project Review.
+until a separate implementation task authorizes that work.
 
 ---
 
@@ -256,7 +308,7 @@ Codex must stop and request Main Project review before:
 - replacing DuckDB production responsibilities;
 - adopting Wren into production;
 - adding a major runtime framework or dependency;
-- beginning Phase 3 after the R-001 decision;
+- beginning actual Metric execution after P3-001;
 - merging a research result into the production execution path.
 
 ---
@@ -272,14 +324,29 @@ APPROVED / FROZEN
 Production execution architecture:
 DuckDB per Frozen Architecture v1.0
 
-Current research decision:
-R-001 Wren Foundation Feasibility
+Current approved execution foundation:
+DuckDB
 
-Wren status:
-Foundation Candidate — Not Adopted
+R-001:
+COMPLETED / CLOSED
 
-Current authorized implementation:
-R-001 research only
+Decision:
+KEEP DUCKDB
 
-Phase 3:
-NOT AUTHORIZED
+P3-001:
+APPROVED / FROZEN
+
+P3-001 final approved commit:
+25713d2d2bd81b34484139edeeabab706e842e03
+
+P3-001 final verification:
+PASSED
+
+P3-001 final verified suite:
+161 passed
+
+Actual Metric execution:
+NOT YET IMPLEMENTED
+
+External executor / MCP / Wren production implementation:
+NOT IMPLEMENTED
