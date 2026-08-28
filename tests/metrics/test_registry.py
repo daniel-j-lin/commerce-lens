@@ -117,13 +117,18 @@ def test_registry_rejects_cyclic_dependency_metadata() -> None:
         MetricRegistry(definitions=definitions)
 
 
-def test_ranking_registry_declares_grouping_dependent_dependencies() -> None:
-    positive = get_metric_registry().require("leading_positive_contributors")
+@pytest.mark.parametrize("metric", ("leading_positive_contributors", "leading_negative_contributors"))
+def test_ranking_registry_declares_grouping_dependent_dependencies(metric: str) -> None:
+    ranking = get_metric_registry().require(metric)
 
-    assert positive.supported_groupings == (GroupingDimension.PRODUCT, GroupingDimension.CATEGORY)
+    assert ranking.grouping_requirement is None
+    assert ranking.supported_groupings == (GroupingDimension.PRODUCT, GroupingDimension.CATEGORY)
+    assert GroupingDimension.PRODUCT_AND_CATEGORY not in ranking.supported_groupings
+    assert "category_id" not in ranking.required_canonical_fields_by_grouping[GroupingDimension.PRODUCT]
+    assert "product_id" not in ranking.required_canonical_fields_by_grouping[GroupingDimension.CATEGORY]
     assert {
         (dependency.metric_id, dependency.grouping, dependency.applies_to_groupings)
-        for dependency in positive.dependencies
+        for dependency in ranking.dependencies
     } == {
         ("product_absolute_contribution", GroupingDimension.PRODUCT, (GroupingDimension.PRODUCT,)),
         ("category_absolute_contribution", GroupingDimension.CATEGORY, (GroupingDimension.CATEGORY,)),

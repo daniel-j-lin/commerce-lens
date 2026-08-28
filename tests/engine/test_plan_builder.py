@@ -128,6 +128,60 @@ def test_ineligible_chain_is_blocked_while_independent_chain_survives() -> None:
     assert blocked.failure_details[0].independent_chains_may_continue
 
 
+def test_ineligible_single_period_aov_remains_structural_and_independent_change_survives() -> None:
+    request = _request(metrics=("revenue_change", "aov"))
+    sufficiency = _sufficiency(
+        request,
+        ineligible={
+            "aov": (
+                FailureDetail(
+                    stage=FailureStage.SUFFICIENCY,
+                    reason="orders evidence missing",
+                    target_ref="orders",
+                    governing_ref="canonical_dictionary:17",
+                    dependency_scope="aov",
+                    independent_chains_may_continue=True,
+                ),
+            )
+        },
+    )
+
+    plan = build_execution_plan(request, sufficiency)
+
+    assert any(node.metric_ref == "revenue_change" and node.planning_state == "executable" for node in plan.ordered_metrics)
+    aov_nodes = [node for node in plan.ordered_metrics if node.metric_ref == "aov"]
+    assert {tuple(node.period_refs) for node in aov_nodes} == {("baseline",), ("comparison",)}
+    assert {node.planning_state for node in aov_nodes} == {"blocked"}
+    assert "aov" in plan.blocked_metric_refs
+
+
+def test_ineligible_single_period_product_revenue_remains_structural_and_independent_change_survives() -> None:
+    request = _request(metrics=("revenue_change", "product_revenue"), grouping=GroupingDimension.PRODUCT)
+    sufficiency = _sufficiency(
+        request,
+        ineligible={
+            "product_revenue": (
+                FailureDetail(
+                    stage=FailureStage.SUFFICIENCY,
+                    reason="product identity evidence missing",
+                    target_ref="product_id",
+                    governing_ref="canonical_dictionary:19",
+                    dependency_scope="product_revenue",
+                    independent_chains_may_continue=True,
+                ),
+            )
+        },
+    )
+
+    plan = build_execution_plan(request, sufficiency)
+
+    assert any(node.metric_ref == "revenue_change" and node.planning_state == "executable" for node in plan.ordered_metrics)
+    product_nodes = [node for node in plan.ordered_metrics if node.metric_ref == "product_revenue"]
+    assert {tuple(node.period_refs) for node in product_nodes} == {("baseline",), ("comparison",)}
+    assert {node.grouping for node in product_nodes} == {GroupingDimension.PRODUCT}
+    assert {node.planning_state for node in product_nodes} == {"blocked"}
+
+
 def test_ineligible_metric_with_empty_failure_details_cannot_become_executable() -> None:
     request = _request(metrics=("revenue_change", "aov"))
     sufficiency = _sufficiency(
@@ -142,6 +196,19 @@ def test_ineligible_metric_with_empty_failure_details_cannot_become_executable()
     assert blocked.failure_details
     assert "revenue_change" in plan.blocked_metric_refs
     assert any(node.metric_ref == "aov" and node.planning_state == "executable" for node in plan.ordered_metrics)
+
+
+def test_ineligible_single_period_metric_with_empty_failure_details_cannot_become_executable() -> None:
+    request = _request(metrics=("revenue_change", "aov"))
+    sufficiency = _sufficiency(request, ineligible={"aov": ()})
+
+    plan = build_execution_plan(request, sufficiency)
+
+    blocked = [node for node in plan.ordered_metrics if node.metric_ref == "aov"]
+    assert blocked
+    assert all(node.planning_state == "blocked" for node in blocked)
+    assert all(node.failure_details for node in blocked)
+    assert "aov" in plan.blocked_metric_refs
 
 
 def test_missing_requested_metric_eligibility_fails_closed() -> None:
@@ -198,6 +265,60 @@ def test_custom_registry_with_unsupported_metric_cannot_be_planned() -> None:
 
     with pytest.raises(PlanningError):
         build_execution_plan(request, _sufficiency(request), registry=custom_registry)
+
+
+def test_pre_execution_validation_rejects_custom_registry_with_unsupported_metric() -> None:
+    registry = get_metric_registry()
+    gross_margin = registry.require("revenue").model_copy(
+        update={
+            "metric_id": "gross_margin",
+            "display_name": "Gross Margin",
+            "business_definition": "Unsupported injected Metric.",
+            "prerequisite_metric_ids": (),
+            "dependencies": (),
+        }
+    )
+    custom_registry = MetricRegistry(definitions=(*registry.definitions, gross_margin))
+    plan = ExecutionPlan(
+        plan_id="plan_custom_registry",
+        plan_version="execution_plan_p3_001_v1",
+        request_id="req_1",
+        ordered_metrics=(
+            PlanMetricNode(
+                node_id="node_gross_margin",
+                metric_ref="gross_margin",
+                metric_version=METRIC_DEFINITION_VERSION,
+            ),
+        ),
+        precision_policy_ref=PRECISION_POLICY_REF,
+        plan_fingerprint="a" * 64,
+    )
+
+    with pytest.raises(PlanningError):
+        validate_execution_plan_pre_execution(plan, registry=custom_registry)
+
+
+def test_pre_execution_validation_rejects_modified_approved_metric_definition() -> None:
+    registry = get_metric_registry()
+    modified_revenue = registry.require("revenue").model_copy(update={"business_definition": "Tampered definition."})
+    modified_registry = MetricRegistry(
+        definitions=tuple(
+            modified_revenue if definition.metric_id == "revenue" else definition
+            for definition in registry.definitions
+        )
+    )
+    request = _request(metrics=("revenue_change",))
+    plan = build_execution_plan(request, _sufficiency(request))
+
+    with pytest.raises(PlanningError):
+        validate_execution_plan_pre_execution(plan, registry=modified_registry)
+
+
+def test_pre_execution_validation_accepts_authoritative_registry_and_valid_plan() -> None:
+    request = _request(metrics=("revenue_change",))
+    plan = build_execution_plan(request, _sufficiency(request))
+
+    validate_execution_plan_pre_execution(plan, registry=get_metric_registry())
 
 
 @pytest.mark.parametrize(
@@ -307,12 +428,81 @@ def test_ranking_plan_uses_one_grouping_dependent_contributor_chain(
     )
 
 
+@pytest.mark.parametrize("metric", ("leading_positive_contributors", "leading_negative_contributors"))
 @pytest.mark.parametrize("grouping", (GroupingDimension.NONE, GroupingDimension.PRODUCT_AND_CATEGORY))
-def test_unsupported_ranking_grouping_fails_closed(grouping: GroupingDimension) -> None:
-    request = _request(metrics=("leading_positive_contributors",), grouping=grouping)
+def test_unsupported_ranking_grouping_fails_closed(metric: str, grouping: GroupingDimension) -> None:
+    request = _request(metrics=(metric,), grouping=grouping)
 
     with pytest.raises(PlanningError):
         build_execution_plan(request, _sufficiency(request))
+
+
+@pytest.mark.parametrize("metric", ("leading_positive_contributors", "leading_negative_contributors"))
+def test_product_ranking_inputs_do_not_require_category_id(metric: str) -> None:
+    request = _request(metrics=(metric,), grouping=GroupingDimension.PRODUCT)
+    plan = build_execution_plan(request, _sufficiency(request))
+    ranking = next(node for node in plan.ordered_metrics if node.metric_ref == metric)
+
+    assert "product_id" in ranking.required_canonical_inputs
+    assert "category_id" not in ranking.required_canonical_inputs
+
+
+@pytest.mark.parametrize("metric", ("leading_positive_contributors", "leading_negative_contributors"))
+def test_category_ranking_inputs_do_not_require_product_id(metric: str) -> None:
+    request = _request(metrics=(metric,), grouping=GroupingDimension.CATEGORY)
+    plan = build_execution_plan(request, _sufficiency(request))
+    ranking = next(node for node in plan.ordered_metrics if node.metric_ref == metric)
+
+    assert "category_id" in ranking.required_canonical_inputs
+    assert "product_id" not in ranking.required_canonical_inputs
+
+
+def test_exact_duplicate_equals_filters_do_not_change_plan_fingerprint() -> None:
+    plain = _request(
+        metrics=("revenue_change",),
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(ScopeFilter(field="currency", operator="equals", value="USD"),),
+        ),
+    )
+    duplicate = _request(
+        metrics=("revenue_change",),
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+            ),
+        ),
+    )
+
+    assert build_execution_plan(plain, _sufficiency(plain)).plan_fingerprint == build_execution_plan(
+        duplicate, _sufficiency(duplicate)
+    ).plan_fingerprint
+
+
+def test_different_equals_filter_values_remain_material_to_plan_fingerprint() -> None:
+    usd = _request(
+        metrics=("revenue_change",),
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(ScopeFilter(field="currency", operator="equals", value="USD"),),
+        ),
+    )
+    mixed = _request(
+        metrics=("revenue_change",),
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+                ScopeFilter(field="currency", operator="equals", value="EUR"),
+            ),
+        ),
+    )
+
+    assert build_execution_plan(usd, _sufficiency(usd)).plan_fingerprint != build_execution_plan(
+        mixed, _sufficiency(mixed)
+    ).plan_fingerprint
 
 
 def test_pre_execution_validation_rejects_incompatible_aov_populations() -> None:

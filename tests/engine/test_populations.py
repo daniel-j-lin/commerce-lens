@@ -69,6 +69,58 @@ def test_equivalent_scope_filter_order_has_same_population_identity() -> None:
     )[0].population_fingerprint
 
 
+def test_exact_duplicate_equals_filters_do_not_change_population_identity_or_currency_basis() -> None:
+    plain = _request(
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(ScopeFilter(field="currency", operator="equals", value="USD"),),
+        )
+    )
+    duplicate = _request(
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+            ),
+        )
+    )
+
+    plain_population = build_population_definitions(plain, _sufficiency(plain))[0]
+    duplicate_population = build_population_definitions(duplicate, _sufficiency(duplicate))[0]
+
+    assert plain_population.population_fingerprint == duplicate_population.population_fingerprint
+    assert plain_population.population_id == duplicate_population.population_id
+    assert plain_population.currency_basis_ref == duplicate_population.currency_basis_ref == "currency:USD"
+    assert duplicate_population.scope.filters == plain_population.scope.filters
+
+
+def test_different_equals_filter_values_remain_material_to_population_identity_and_currency_basis() -> None:
+    usd = _request(
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(ScopeFilter(field="currency", operator="equals", value="USD"),),
+        )
+    )
+    mixed = _request(
+        scope=ScopeDefinition(
+            scope_id="filtered",
+            filters=(
+                ScopeFilter(field="currency", operator="equals", value="USD"),
+                ScopeFilter(field="currency", operator="equals", value="EUR"),
+            ),
+        )
+    )
+
+    usd_population = build_population_definitions(usd, _sufficiency(usd))[0]
+    mixed_population = build_population_definitions(mixed, _sufficiency(mixed))[0]
+
+    assert usd_population.population_fingerprint != mixed_population.population_fingerprint
+    assert usd_population.population_id != mixed_population.population_id
+    assert usd_population.currency_basis_ref == "currency:USD"
+    assert mixed_population.currency_basis_ref == "currency_filters:EUR,USD"
+
+
 def test_materially_different_filters_change_population_identity() -> None:
     product = _request(
         scope=ScopeDefinition(

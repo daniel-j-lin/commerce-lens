@@ -60,8 +60,9 @@ class MetricDefinition(ContractBase):
     prerequisite_metric_ids: tuple[str, ...] = ()
     dependencies: tuple[MetricDependency, ...] = ()
     population_definition_ref: str = Field(min_length=1)
-    grouping_requirement: GroupingDimension = GroupingDimension.NONE
+    grouping_requirement: GroupingDimension | None = GroupingDimension.NONE
     supported_groupings: tuple[GroupingDimension, ...] = ()
+    required_canonical_fields_by_grouping: dict[GroupingDimension, tuple[str, ...]] = Field(default_factory=dict)
     period_requirement: PeriodRequirement
     currency_unit_semantics: str = Field(min_length=1)
     additivity: Additivity
@@ -150,7 +151,7 @@ def _definition(
     metric_category: MetricCategory,
     required_canonical_fields: tuple[str, ...],
     dependencies: tuple[MetricDependency, ...],
-    grouping: GroupingDimension,
+    grouping: GroupingDimension | None,
     period_requirement: PeriodRequirement,
     additivity: Additivity,
     validation_refs: tuple[str, ...],
@@ -159,6 +160,7 @@ def _definition(
     undefined: tuple[str, ...] = (),
     qualifications: tuple[str, ...] = (),
     supported_groupings: tuple[GroupingDimension, ...] | None = None,
+    required_fields_by_grouping: dict[GroupingDimension, tuple[str, ...]] | None = None,
     currency: str = "single governed currency for monetary metrics; count unit for Orders",
 ) -> MetricDefinition:
     return MetricDefinition(
@@ -172,6 +174,7 @@ def _definition(
         population_definition_ref="population_mvp_v1:governed_eligible_order_lines",
         grouping_requirement=grouping,
         supported_groupings=supported_groupings or (),
+        required_canonical_fields_by_grouping=required_fields_by_grouping or {},
         period_requirement=period_requirement,
         currency_unit_semantics=currency,
         additivity=additivity,
@@ -476,7 +479,7 @@ _DEFAULT_REGISTRY = MetricRegistry(
             "Leading Positive Contributors",
             "Entities with Absolute Contribution greater than zero, ordered by unrounded Absolute Contribution descending.",
             MetricCategory.RANKING,
-            ("product_id", "category_id", "line_revenue", "currency", "order_date"),
+            ("line_revenue", "currency", "order_date"),
             (
                 _dependency(
                     "product_absolute_contribution",
@@ -491,19 +494,23 @@ _DEFAULT_REGISTRY = MetricRegistry(
                     applies_to_groupings=(GroupingDimension.CATEGORY,),
                 ),
             ),
-            GroupingDimension.PRODUCT_AND_CATEGORY,
+            None,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.RANKING,
             ("validation:positive_ranking_uses_absolute_contribution",),
             "ranking",
             supported_groupings=(GroupingDimension.PRODUCT, GroupingDimension.CATEGORY),
+            required_fields_by_grouping={
+                GroupingDimension.PRODUCT: ("product_id", "line_revenue", "currency", "order_date"),
+                GroupingDimension.CATEGORY: ("category_id", "line_revenue", "currency", "order_date"),
+            },
         ),
         _definition(
             "leading_negative_contributors",
             "Leading Negative Contributors",
             "Entities with Absolute Contribution less than zero, ordered from most negative to least negative using unrounded Absolute Contribution.",
             MetricCategory.RANKING,
-            ("product_id", "category_id", "line_revenue", "currency", "order_date"),
+            ("line_revenue", "currency", "order_date"),
             (
                 _dependency(
                     "product_absolute_contribution",
@@ -518,12 +525,16 @@ _DEFAULT_REGISTRY = MetricRegistry(
                     applies_to_groupings=(GroupingDimension.CATEGORY,),
                 ),
             ),
-            GroupingDimension.PRODUCT_AND_CATEGORY,
+            None,
             PeriodRequirement.BASELINE_AND_COMPARISON,
             Additivity.RANKING,
             ("validation:negative_ranking_uses_absolute_contribution",),
             "ranking",
             supported_groupings=(GroupingDimension.PRODUCT, GroupingDimension.CATEGORY),
+            required_fields_by_grouping={
+                GroupingDimension.PRODUCT: ("product_id", "line_revenue", "currency", "order_date"),
+                GroupingDimension.CATEGORY: ("category_id", "line_revenue", "currency", "order_date"),
+            },
         ),
     )
 )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from commerce_lens.contracts.common import (
     GroupingDimension,
+    ScopeDefinition,
     SUPPORTED_SCOPE_FILTER_FIELDS,
     SUPPORTED_SCOPE_FILTER_OPERATORS,
 )
@@ -58,6 +59,7 @@ def _population_for_period(
     grouping_keys = _grouping_keys(grouping)
     preserves_unclassified = grouping in (GroupingDimension.CATEGORY, GroupingDimension.PRODUCT_AND_CATEGORY)
     currency_basis_ref = _currency_basis_ref(request)
+    canonical_scope = _canonical_scope(request.scope)
     payload = {
         "definition_version": POPULATION_DEFINITION_VERSION,
         "canonical_dataset_ref_id": sufficiency.canonical_dataset_ref_id,
@@ -66,7 +68,7 @@ def _population_for_period(
         "period_role": period_role.value,
         "eligibility_rule_ref": "canonical_dictionary:27:phase2_governed_eligible_population",
         "currency_basis_ref": currency_basis_ref,
-        "scope": material_scope_payload(request.scope),
+        "scope": material_scope_payload(canonical_scope),
         "grouping": grouping.value,
         "grouping_keys": grouping_keys,
         "supported_filter_fields": sorted(SUPPORTED_SCOPE_FILTER_FIELDS),
@@ -82,7 +84,7 @@ def _population_for_period(
         period=period,
         period_role=period_role,
         currency_basis_ref=currency_basis_ref,
-        scope=request.scope,
+        scope=canonical_scope,
         grouping=grouping,
         grouping_keys=grouping_keys,
         supported_filter_fields=tuple(sorted(SUPPORTED_SCOPE_FILTER_FIELDS)),
@@ -103,7 +105,7 @@ def _grouping_keys(grouping: GroupingDimension) -> tuple[str, ...]:
 
 
 def _currency_basis_ref(request: AnalysisRequest) -> str:
-    currency_filters = tuple(filter(lambda item: item.field == "currency", request.scope.filters))
+    currency_filters = tuple(item for item in _canonical_filters(request.scope.filters) if item.field == "currency")
     if len(currency_filters) == 1 and currency_filters[0].operator == "equals":
         return f"currency:{currency_filters[0].value}"
     if len(currency_filters) > 1:
@@ -120,10 +122,17 @@ def material_scope_payload(scope) -> dict[str, object]:
     }
 
 
+def _canonical_scope(scope: ScopeDefinition) -> ScopeDefinition:
+    return scope.model_copy(update={"filters": _canonical_filters(scope.filters)})
+
+
 def _canonical_filters(filters) -> tuple:
-    return tuple(
-        sorted(
-            filters,
-            key=lambda item: (item.field, item.operator, type(item.value).__name__, str(item.value)),
-        )
+    canonical = sorted(
+        filters,
+        key=lambda item: (item.field, item.operator, type(item.value).__name__, str(item.value)),
     )
+    deduplicated = {}
+    for item in canonical:
+        key = (item.field, item.operator, type(item.value).__name__, item.value)
+        deduplicated.setdefault(key, item)
+    return tuple(deduplicated.values())

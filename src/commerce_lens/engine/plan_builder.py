@@ -125,7 +125,7 @@ def build_execution_plan(
             period_refs=period_refs,
             population_refs=population_refs,
             grouping=grouping,
-            required_canonical_inputs=definition.required_canonical_fields,
+            required_canonical_inputs=_required_canonical_fields(definition, grouping),
             required_validation_rule_refs=definition.required_validation_rule_refs,
             output_shape=definition.output_shape,
             precision_policy_ref=definition.precision_policy_ref,
@@ -138,10 +138,6 @@ def build_execution_plan(
         return node
 
     for metric_id in requested_ids:
-        eligibility = eligibility_by_metric.get(metric_id)
-        if eligibility is not None and not eligibility.eligible:
-            add_node(metric_id, None, _effective_grouping(metric_id, request.grouping, active_registry))
-            continue
         definition = active_registry.require(metric_id)
         period_roles = _root_period_roles(definition)
         for period_role in period_roles:
@@ -194,6 +190,10 @@ def validate_execution_plan_pre_execution(
 ) -> None:
     """Fail closed when a structural plan violates governed pre-execution rules."""
     active_registry = registry or get_metric_registry()
+    try:
+        assert_registry_matches_approved_authority(active_registry)
+    except ValueError as exc:
+        raise PlanningError(str(exc)) from exc
     node_by_id = {node.node_id: node for node in plan.ordered_metrics}
     population_by_id = {population.population_id: population for population in plan.population_definitions}
     if plan.population_refs and not population_by_id:
@@ -281,6 +281,8 @@ def _effective_grouping(
         return requested_grouping
     if definition.supported_groupings and requested_grouping not in definition.supported_groupings:
         raise PlanningError(f"Metric {metric_id} does not support requested grouping {requested_grouping.value}")
+    if definition.grouping_requirement is None:
+        raise PlanningError(f"Metric {metric_id} requires an explicit governed grouping")
     return definition.grouping_requirement
 
 
@@ -298,14 +300,28 @@ def _effective_dependencies(
 def _dependency_grouping(dependency: MetricDependency, registry: MetricRegistry) -> GroupingDimension:
     if dependency.grouping is not None:
         return dependency.grouping
-    return registry.require(dependency.metric_id).grouping_requirement
+    grouping = registry.require(dependency.metric_id).grouping_requirement
+    if grouping is None:
+        raise PlanningError(f"Metric {dependency.metric_id} requires an explicit governed grouping")
+    return grouping
 
 
 def _validate_grouping_supported(definition: MetricDefinition, grouping: GroupingDimension) -> None:
     if definition.supported_groupings and grouping not in definition.supported_groupings:
         raise PlanningError(f"Metric {definition.metric_id} does not support grouping {grouping.value}")
-    if not definition.supported_groupings and grouping is not definition.grouping_requirement:
+    if definition.supported_groupings:
+        return
+    if definition.grouping_requirement is None:
+        raise PlanningError(f"Metric {definition.metric_id} requires an explicit governed grouping")
+    if grouping is not definition.grouping_requirement:
         raise PlanningError(f"Metric {definition.metric_id} requires grouping {definition.grouping_requirement.value}")
+
+
+def _required_canonical_fields(
+    definition: MetricDefinition,
+    grouping: GroupingDimension,
+) -> tuple[str, ...]:
+    return definition.required_canonical_fields_by_grouping.get(grouping, definition.required_canonical_fields)
 
 
 def _requested_eligibility_by_metric(
