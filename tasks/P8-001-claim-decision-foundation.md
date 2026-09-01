@@ -2,13 +2,13 @@
 
 ## Status
 
-APPROVED FOR IMPLEMENTATION / NOT FROZEN
+APPROVED / FROZEN
 
 Implementation:
-AUTHORIZED / NOT STARTED
+COMPLETE
 
 Formal Main Project decision:
-P8-001 TASK APPROVED FOR IMPLEMENTATION
+P8-001 CLAIMDECISION FOUNDATION APPROVED / FROZEN
 
 Main Project Review:
 
@@ -16,9 +16,37 @@ Main Project Review:
 - five narrow corrections applied;
 - corrected task commit: `457fa8a1ab0c588ef69e89f602de914423af11a4`;
 - implementation authorized;
-- task is NOT implemented;
-- task is NOT approved/frozen as an implementation; and
-- P9 is not authorized.
+- implementation completed;
+- final Main Project hostile source review completed;
+- task is approved/frozen as an implementation; and
+- P9 implementation is not authorized.
+
+Approved implementation lineage:
+
+- initial implementation: `cd90fe9bc4b8fc0fb279064d42b559803dedd530`
+- authority verification correction: `108e424e455b81519725b2359d7e112524cdb983`
+- authoritative retrieval correction / approved implementation: `fff3229d03e5e122cb62aa8105f1c0d8f28021b2`
+
+Final verified full suite:
+
+455 passed
+
+Final Main Project decision:
+
+- P8 ClaimDecision Foundation approved;
+- deterministic ClaimDecision owns material Claim permission;
+- ClaimCandidate remains persisted evaluation input, not permission;
+- persistence-only ClaimDecision records are distinct from authoritative ClaimDecision retrieval;
+- authoritative Admissible retrieval re-authenticates artifact, Candidate, Evidence/upstream lineage, and deterministic P8 policy;
+- caller-created Admissible decisions cannot obtain authoritative permission;
+- caller-supplied candidate fingerprint is not authority;
+- cross-request substitution fails closed;
+- same-context cross-run equal-value substitution fails closed;
+- AOV Undefined behavior preserved;
+- Revenue Change authority preserved without formula duplication;
+- schema remains v6;
+- no Finding;
+- P9 not begun.
 
 This task specification defines the next proposed CommerceLens implementation slice after:
 
@@ -44,9 +72,9 @@ Current verified full suite at P7 governance integration:
 
 Current MetadataStore schema:
 
-5
+6
 
-This task does not authorize implementation until Main Project approval is explicitly granted.
+This task is approved/frozen as the completed P8-001 implementation.
 
 ---
 

@@ -289,6 +289,61 @@ P7-001 must not be reopened without a specific implementation defect or governin
 
 ---
 
+### P8-001 — ClaimDecision Foundation
+
+Status:
+
+APPROVED / FROZEN
+
+Formal Main Project decision:
+
+P8-001 — APPROVED / FROZEN
+
+Approved implementation HEAD before governance commit:
+
+fff3229d03e5e122cb62aa8105f1c0d8f28021b2
+
+Final approved implementation lineage:
+
+- initial implementation: cd90fe9bc4b8fc0fb279064d42b559803dedd530
+- authority verification correction: 108e424e455b81519725b2359d7e112524cdb983
+- authoritative retrieval correction / approved implementation: fff3229d03e5e122cb62aa8105f1c0d8f28021b2
+
+Final verification:
+
+PASSED
+
+Final verified full suite:
+
+455 passed
+
+MetadataStore schema:
+
+6
+
+P8-001 implemented deterministic ClaimDecision authority for supported descriptive Claim permission over authentic persisted AdmissibleEvidence.
+
+Final Main Project decision:
+
+- P8 ClaimDecision Foundation approved;
+- deterministic ClaimDecision owns material Claim permission;
+- ClaimCandidate remains persisted evaluation input, not permission;
+- persistence-only ClaimDecision records are distinct from authoritative ClaimDecision retrieval;
+- authoritative Admissible retrieval re-authenticates artifact, Candidate, Evidence/upstream lineage, and deterministic P8 policy;
+- caller-created Admissible decisions cannot obtain authoritative permission;
+- caller-supplied candidate fingerprint is not authority;
+- cross-request substitution fails closed;
+- same-context cross-run equal-value substitution fails closed;
+- AOV Undefined behavior preserved;
+- Revenue Change authority preserved without formula duplication;
+- schema remains v6;
+- no Finding;
+- P9 not begun.
+
+P8-001 must not be reopened without a specific implementation defect or governing conflict.
+
+---
+
 ## Current Production Execution Foundation
 
 The currently Frozen Architecture specifies:
@@ -303,38 +358,42 @@ Current deterministic reliability chain:
 
 AnalysisRequest
 →
-Required Evidence
-→
-Data Sufficiency
+DataSufficiencyResult
 →
 ExecutionPlan
-→
-deterministic execution
 →
 ExecutionRecord
 →
 ExecutedResult
 →
-Required Validation Rules
-→
-ValidationRecords
+ValidationRecord
 →
 ValidatedResult
-→
-deterministic Evidence admissibility
 →
 EvidenceAdmissibilityRecord
 →
 AdmissibleEvidence
 →
-durable immutable evidence artifact
+ClaimCandidate
+→
+ClaimDecision
+→
+STOP
 
-Current implemented Metrics:
+Current governed Metrics:
 
-- Revenue
-- Orders
-- AOV
-- Revenue Change
+- revenue
+- orders
+- aov
+- revenue_change
+
+Current positive Claim permission:
+
+ClaimType.DESCRIPTIVE only
+
+Positive Qualified Admissible path:
+
+NONE
 
 Current implemented execution semantics include:
 
@@ -351,7 +410,7 @@ Current implemented execution semantics include:
 - governed currency resolution;
 - durable ExecutionRecord persistence;
 - immutable ExecutedResult artifacts;
-- MetadataStore schema version 5.
+- MetadataStore schema version 6.
 
 Current validation authority includes:
 
@@ -374,7 +433,7 @@ Current validation authority includes:
 - population fingerprint integrity;
 - failed validation persistence;
 - no ValidatedResult on failed validation;
-- MetadataStore schema version 5.
+- MetadataStore schema version 6.
 
 Evidence admissibility currently supports:
 
@@ -408,7 +467,7 @@ ClaimDecision
 
 ClaimDecision:
 
-NOT YET IMPLEMENTED
+IMPLEMENTED THROUGH P8-001
 
 Findings:
 
@@ -507,15 +566,15 @@ Research must remain isolated from production implementation.
 
 ## Current Main-Branch Production State
 
-The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, P5-001 deterministic result validation, P6-001 deterministic Evidence admissibility for Revenue, Orders, and AOV, and P7-001 Revenue Change vertical metric slice.
+The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, P5-001 deterministic result validation, P6-001 deterministic Evidence admissibility for Revenue, Orders, and AOV, P7-001 Revenue Change vertical metric slice, and P8-001 ClaimDecision Foundation.
 
 R-001 must not silently modify production execution architecture.
 
 Any Wren experiment should be isolated in a research boundary or separate worktree/task.
 
-Deterministic result validation, ValidatedResult persistence, Evidence admissibility, EvidenceAdmissibilityRecord persistence, and AdmissibleEvidence artifact verification are implemented for Revenue, Orders, AOV, and Revenue Change.
+Deterministic result validation, ValidatedResult persistence, Evidence admissibility, EvidenceAdmissibilityRecord persistence, AdmissibleEvidence artifact verification, ClaimCandidate persistence, and ClaimDecision authority are implemented for Revenue, Orders, AOV, and Revenue Change.
 
-ClaimDecision is not yet implemented.
+ClaimDecision is implemented through P8-001 for ClaimType.DESCRIPTIVE only.
 
 Revenue Change is implemented through P7-001.
 
@@ -535,19 +594,20 @@ Wren may be reconsidered later if material capabilities or project requirements 
 
 ## Next Authorized Work
 
-P7-001 is Approved / Frozen.
+P8-001 is Approved / Frozen.
 
-Any next implementation slice requires separate authorization.
+Next authorized planning target:
+
+P9 Minimum Physical Fixture Runner
+
+P9 implementation is not authorized.
 
 Do not begin:
 
-- P8;
 - Product or Category Metric execution;
 - Contribution production execution;
-- ClaimDecision;
 - Findings;
 - Recommendations;
-- Claim policy;
 - MCP or external executor adapters;
 - Wren production implementation;
 
@@ -567,12 +627,10 @@ Codex must stop and request Main Project review before:
 - replacing DuckDB production responsibilities;
 - adopting Wren into production;
 - adding a major runtime framework or dependency;
-- beginning ClaimDecision;
 - beginning Findings;
 - beginning Recommendations;
-- beginning Claim admissibility;
 - beginning Contribution execution;
-- beginning P8;
+- beginning P9 implementation;
 - adopting MCP or external executor adapters;
 - merging a research result into the production execution path.
 
@@ -667,45 +725,58 @@ P7-001 corrected blocker classes:
 2. Revenue Change scope provenance duplication;
 3. validation-stage dependency ExecutionRecord lineage.
 
+P8-001:
+APPROVED / FROZEN
+
+P8-001 approved implementation HEAD before governance commit:
+fff3229d03e5e122cb62aa8105f1c0d8f28021b2
+
+P8-001 final verified full suite:
+455 passed
+
 MetadataStore schema:
-5
+6
 
 Current deterministic reliability chain:
 
 AnalysisRequest
 →
-Required Evidence
-→
-Data Sufficiency
+DataSufficiencyResult
 →
 ExecutionPlan
-→
-deterministic execution
 →
 ExecutionRecord
 →
 ExecutedResult
 →
-Required Validation Rules
-→
-ValidationRecords
+ValidationRecord
 →
 ValidatedResult
-→
-deterministic Evidence admissibility
 →
 EvidenceAdmissibilityRecord
 →
 AdmissibleEvidence
 →
-durable immutable evidence artifact
+ClaimCandidate
+→
+ClaimDecision
+→
+STOP
 
-Current implemented Metrics:
+Current governed Metrics:
 
-- Revenue
-- Orders
-- AOV
-- Revenue Change
+- revenue
+- orders
+- aov
+- revenue_change
+
+Current positive Claim permission:
+
+ClaimType.DESCRIPTIVE only
+
+Positive Qualified Admissible path:
+
+NONE
 
 Current validation authority includes:
 
@@ -728,7 +799,7 @@ Current validation authority includes:
 - population fingerprint integrity;
 - failed validation persistence;
 - no ValidatedResult on failed validation;
-- MetadataStore schema version 5.
+- MetadataStore schema version 6.
 
 Evidence admissibility currently supports:
 
@@ -761,7 +832,7 @@ AdmissibleEvidence
 ClaimDecision
 
 ClaimDecision:
-NOT YET IMPLEMENTED
+IMPLEMENTED THROUGH P8-001
 
 Findings:
 NOT YET IMPLEMENTED
@@ -771,6 +842,12 @@ NOT YET IMPLEMENTED
 
 Revenue Change:
 APPROVED / FROZEN
+
+Next authorized planning target:
+P9 Minimum Physical Fixture Runner
+
+P9 implementation:
+NOT AUTHORIZED / NOT BEGUN
 
 Current approved executor:
 DuckDB direct reference path
