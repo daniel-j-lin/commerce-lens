@@ -209,11 +209,11 @@ P8-001 may define and later implement only:
 - minimum deterministic `ClaimDecision` contract changes needed for P8;
 - a lightweight deterministic Claim Admissibility Evaluator;
 - a narrow immutable/static Claim policy;
-- persisted runtime authority for `ClaimCandidate`;
+- persisted authentic evaluation-input identity for `ClaimCandidate`;
 - persisted runtime authority for `ClaimDecision`;
 - immutable artifacts for Claim candidates and Claim decisions;
-- a narrow MetadataStore schema v6 migration to index ClaimCandidate and ClaimDecision authority;
-- deterministic semantic decision fingerprints;
+- a narrow MetadataStore schema v6 migration for durable ClaimCandidate and ClaimDecision metadata rows;
+- deterministic semantic ClaimCandidate and ClaimDecision fingerprints;
 - failure-code behavior for fail-closed Claim evaluation; and
 - tests required to prove this P8 slice.
 
@@ -260,6 +260,7 @@ The future contract must preserve or adapt existing fields where compatible, and
 Required P8 fields:
 
 - `claim_candidate_id` or a backwards-compatible replacement for current `claim_id`;
+- `claim_candidate_fingerprint`;
 - `claim_type`: exact existing `ClaimType.DESCRIPTIVE` value `descriptive` for admissible P8 cases;
 - `metric_ref`: one of `revenue`, `orders`, `aov`, `revenue_change`;
 - `metric_definition_version`: currently `metric_dictionary_v1`;
@@ -285,13 +286,53 @@ Revenue Change candidates must also represent:
 - `comparison_period_ref`;
 - `baseline_population_ref`;
 - `comparison_population_ref`;
-- `baseline_population_fingerprint`;
-- `comparison_population_fingerprint`; and
-- comparison direction semantics: Comparison Revenue minus Baseline Revenue.
+- `baseline_population_fingerprint`; and
+- `comparison_population_fingerprint`.
 
 The material meaning used for deterministic authorization must be structured.
 
 If a material Claim cannot be represented by approved structured fields, P8-001 must fail closed with `unrepresentable_material_claim`.
+
+`claim_candidate_fingerprint` is the stable semantic identity of the persisted structured `ClaimCandidate`.
+
+Preserve:
+
+- `ClaimCandidate` unique ID != `claim_candidate_fingerprint`
+
+The `claim_candidate_fingerprint` must bind all material structured P8 meaning applicable to the candidate:
+
+- Claim type;
+- Metric ref;
+- Metric definition version;
+- proposition type;
+- claimed value or claimed Metric state;
+- undefined reason when applicable;
+- intended scope;
+- population ref and fingerprint;
+- period ref and role;
+- Revenue Change Baseline / Comparison refs and population fingerprints when applicable;
+- unit;
+- currency;
+- supporting Evidence refs;
+- supporting ValidatedResult refs; and
+- the exact governed material-use field retained by the implementation.
+
+The `claim_candidate_fingerprint` must exclude non-semantic, event, and presentation data:
+
+- generated ClaimCandidate ID;
+- persistence timestamp;
+- presentation prose; and
+- other explicitly non-authoritative metadata.
+
+Equivalent authoritative candidate semantics must produce the same `claim_candidate_fingerprint`.
+
+Distinct event/input identity must retain a distinct ClaimCandidate ID where applicable.
+
+Material semantic or provenance difference must produce a different `claim_candidate_fingerprint` or fail closed.
+
+Reuse existing canonical JSON fingerprint conventions where appropriate.
+
+Do not create a generic fingerprint framework.
 
 Do not create a generic natural-language truth engine.
 
@@ -309,10 +350,20 @@ The exact existing `ClaimState` domain must be preserved:
 
 P8-001 must not invent new qualification semantics merely to exercise `Qualified Admissible`.
 
-Because the current supported P8 descriptive cases do not introduce an already-governed non-blocking Claim qualification beyond existing evidence limitations, P8-001 must:
+For P8-001:
 
-- retain `Qualified Admissible` in the contract state domain; and
-- not newly authorize a positive Qualified Admissible case unless implementation discovers an already-governed qualification path in existing authority.
+- `Qualified Admissible` remains in the contract state domain;
+- no positive `Qualified Admissible` path is defined;
+- supported successful P8 descriptive cases produce `Admissible`; and
+- unsupported or failed P8 cases produce `Inadmissible`.
+
+If future implementation discovers an existing governed qualification that appears materially applicable to a supported P8 descriptive Claim:
+
+STOP.
+
+Return to Main Project Review.
+
+Do not authorize or implement that `Qualified Admissible` path without explicit approval.
 
 Required P8 fields:
 
@@ -436,6 +487,8 @@ P8-001 must reuse approved P6/P7 authority paths where appropriate.
 
 Do not duplicate Revenue, Orders, AOV, or Revenue Change formulas in Claim policy.
 
+P8-001 must not recompute, redefine, or separately encode the Revenue Change formula. The authoritative Revenue Change calculation remains exclusively governed by the approved Metric definition/version, P7 execution authority, and P7 deterministic validation authority. P8 validates Claim to Evidence semantic agreement against the already-authoritative Revenue Change chain.
+
 `ClaimDecision` is not a second Metric validator.
 
 ---
@@ -527,20 +580,20 @@ Current authority establishes:
 
 Therefore P8-001 must implement this deterministic behavior:
 
-- a structured descriptive `metric_state_is` ClaimCandidate for `aov` may be `Admissible` only when it claims `MetricState.UNDEFINED` with `undefined_reason=orders_equals_zero` and matches authentic persisted AOV `metric_state` AdmissibleEvidence;
-- a numeric `metric_value_equals` AOV ClaimCandidate must be `Inadmissible` when no numeric AOV exists;
+- a structured descriptive `metric_state_is` ClaimCandidate for `aov` may receive an `Admissible` `ClaimDecision` only when it claims `MetricState.UNDEFINED` with `undefined_reason=orders_equals_zero` and matches authentic persisted AOV `metric_state` AdmissibleEvidence;
+- a numeric `metric_value_equals` AOV ClaimCandidate must receive an `Inadmissible` `ClaimDecision` when no numeric AOV exists;
 - a caller must not convert AOV Undefined into numeric zero or any other placeholder value;
 - a non-AOV Undefined state Claim must fail closed; and
 - an AOV Undefined state Claim with the wrong reason, population, period, scope, evidence role, or evidence authority must fail closed.
 
 Required AOV Undefined tests:
 
-- authentic AOV Undefined `metric_state_is` descriptive Claim becomes `Admissible`;
-- numeric AOV value Claim against Undefined evidence becomes `Inadmissible`;
-- AOV Undefined with wrong `undefined_reason` becomes `Inadmissible`;
-- AOV Undefined using `metric_value` evidence role becomes `Inadmissible`;
-- non-AOV Undefined state Claim becomes `Inadmissible`;
-- AOV Undefined with wrong period, population, scope, dataset, ValidatedResult, or Evidence becomes `Inadmissible`.
+- authentic AOV Undefined `metric_state_is` descriptive Claim receives an `Admissible` `ClaimDecision`;
+- numeric AOV value Claim against Undefined evidence receives an `Inadmissible` `ClaimDecision`;
+- AOV Undefined with wrong `undefined_reason` receives an `Inadmissible` `ClaimDecision`;
+- AOV Undefined using `metric_value` evidence role receives an `Inadmissible` `ClaimDecision`;
+- non-AOV Undefined state Claim receives an `Inadmissible` `ClaimDecision`;
+- AOV Undefined with wrong period, population, scope, dataset, ValidatedResult, or Evidence receives an `Inadmissible` `ClaimDecision`.
 
 ---
 
@@ -552,30 +605,34 @@ MetadataStore schema v6 is required for P8-001.
 
 ClaimCandidate persistence decision:
 
-- `ClaimCandidate` must be persisted as authoritative runtime/run state before Claim evaluation.
-- The persisted candidate, not a caller-supplied object alone, is the authority evaluated by the deterministic policy.
-- The candidate must have an immutable JSON artifact and a MetadataStore index row.
+- `ClaimCandidate` must be persisted as the authentic evaluation input / interpretation artifact identity before Claim evaluation.
+- The persisted candidate establishes the exact structured input evaluated by deterministic policy, but it does not make the proposed meaning true, admissible, a Finding, or material Claim permission.
+- A caller-supplied object alone is not an authentic evaluation input.
+- The candidate must have an immutable JSON artifact and a MetadataStore index row / durable searchable metadata row.
+- The candidate artifact and metadata must persist `claim_candidate_fingerprint` and verify it against the structured candidate semantics.
 
 ClaimDecision persistence decision:
 
 - `ClaimDecision` must be persisted.
 - The persisted decision is the authoritative material Claim permission record.
-- The decision must have an immutable JSON artifact and a MetadataStore index row.
+- The decision must have an immutable JSON artifact and a MetadataStore index row / durable searchable metadata row.
 
 Immutable artifact decision:
 
 - Immutable artifacts are required for both `ClaimCandidate` and `ClaimDecision`.
-- SQLite rows may index searchable fields and contain cached JSON, but artifact references and fingerprints remain first-class authority.
+- MetadataStore index rows / durable searchable metadata rows may retain searchable fields and cached JSON, but artifact references and fingerprints remain first-class authority.
+- A MetadataStore index row is not the same requirement as a physical SQLite `CREATE INDEX` structure.
 
 Schema v6 justification:
 
 - schema v5 has no `claim_candidates` table;
 - schema v5 has no `claim_decisions` table;
-- schema v5 has no indexed candidate artifact reference;
-- schema v5 has no indexed decision artifact reference;
-- schema v5 has no durable policy ID/version index for Claim decisions;
-- schema v5 has no durable `ClaimState` index;
-- schema v5 has no durable decision fingerprint index; and
+- schema v5 has no durable ClaimCandidate artifact reference metadata;
+- schema v5 has no durable ClaimDecision artifact reference metadata;
+- schema v5 has no durable ClaimCandidate semantic fingerprint metadata;
+- schema v5 has no durable policy ID/version metadata for Claim decisions;
+- schema v5 has no durable `ClaimState` metadata;
+- schema v5 has no durable decision fingerprint metadata; and
 - Frozen Architecture requires MVP lineage through `Claim -> ClaimDecision -> Admissible Evidence`.
 
 Minimum schema v6 expectation:
@@ -587,8 +644,9 @@ Minimum schema v6 expectation:
 - preserve all v5 tables and migrations;
 - verify schema v6 column sets explicitly;
 - store full JSON payloads;
-- index stable IDs, request/evidence/result links, policy, state, fingerprint, artifact IDs, and timestamps needed for review;
+- persist and retrieve stable IDs, request/evidence/result links, policy, state, ClaimCandidate fingerprint, ClaimDecision fingerprint, artifact IDs, and timestamps needed for review;
 - add get/list helpers needed by the evaluator and tests;
+- add physical SQLite `CREATE INDEX` structures only when justified by current MetadataStore conventions or a concrete required lookup; and
 - do not design unrelated new tables.
 
 No schema v6 migration is implemented during task creation.
@@ -613,12 +671,13 @@ The policy must define:
 - supported Metrics: `revenue`, `orders`, `aov`, `revenue_change`;
 - supported proposition types: `metric_value_equals`, `metric_state_is`;
 - evidence-role requirements;
-- ClaimCandidate persistence requirements;
-- ClaimDecision persistence requirements;
+- ClaimCandidate authentic evaluation-input persistence requirements;
+- ClaimDecision authoritative permission persistence requirements;
 - evidence authenticity requirements;
 - deterministic semantic binding requirements;
 - fail-closed failure codes;
-- semantic decision fingerprint requirements.
+- ClaimCandidate semantic fingerprint requirements;
+- ClaimDecision semantic fingerprint requirements.
 
 Do not create:
 
@@ -724,7 +783,7 @@ Positive:
 3. Valid numeric AOV descriptive Claim -> `Admissible`.
 4. Revenue Change descriptive Claim -> `Admissible`.
 5. AOV Undefined structured state descriptive Claim -> `Admissible`.
-6. Semantically equivalent authoritative Claim evaluation repeated: unique decision/event IDs where required and stable semantic decision fingerprint.
+6. Semantically equivalent authoritative Claim evaluation repeated: unique decision/event IDs where required, stable `claim_candidate_fingerprint`, and stable semantic decision fingerprint.
 
 Negative / fail closed:
 
@@ -767,15 +826,17 @@ Negative / fail closed:
 
 Persistence / artifact integrity:
 
-43. ClaimCandidate must be persisted before evaluation.
+43. ClaimCandidate must be persisted as the authentic evaluation input before evaluation.
 44. caller-supplied ClaimCandidate differing from persisted candidate fails closed.
 45. missing ClaimCandidate artifact fails closed.
 46. tampered ClaimCandidate artifact fails closed.
-47. ClaimDecision is persisted with immutable artifact.
-48. tampered ClaimDecision artifact is detectable through verification helper.
-49. MetadataStore migrates v5 to v6 preserving v5 authority.
-50. MetadataStore rejects incompatible or unknown schema versions.
-51. schema v6 indexes policy ID/version, `ClaimState`, decision fingerprint, candidate artifact, and decision artifact.
+47. ClaimCandidate semantic fingerprint is stable across equivalent structured candidate semantics and changes across material semantic or provenance differences.
+48. ClaimDecision is persisted with immutable artifact.
+49. tampered ClaimDecision artifact is detectable through verification helper.
+50. MetadataStore migrates v5 to v6 preserving v5 authority.
+51. MetadataStore rejects incompatible or unknown schema versions.
+52. schema v6 deterministically persists and retrieves policy ID/version, `ClaimState`, ClaimCandidate fingerprint, ClaimDecision fingerprint, ClaimCandidate artifact reference, ClaimDecision artifact reference, and required Claim/Evidence/ValidatedResult lineage refs.
+53. physical SQLite indexes are not required for evidence correctness unless justified by current MetadataStore conventions or actual lookup needs.
 
 No test may create Findings, Recommendations, later Metrics, fixture runner behavior, or LLM orchestration.
 
@@ -791,9 +852,10 @@ P8-001 implementation is successful only if:
 - unsupported material semantics are `Inadmissible`;
 - numerical equality cannot bypass provenance;
 - caller-created Evidence cannot create Claim authority;
-- caller-created ClaimCandidate cannot bypass persisted candidate authority;
+- caller-created ClaimCandidate cannot bypass the persisted authentic evaluation input;
+- ClaimCandidate persistence does not make its proposed meaning true or admissible;
 - evidence artifacts are re-authenticated;
-- ClaimCandidate artifacts are re-authenticated;
+- ClaimCandidate artifacts and `claim_candidate_fingerprint` are re-authenticated;
 - ClaimDecision artifacts are persisted and verifiable;
 - Claim to Evidence semantic mismatch fails closed;
 - AOV Undefined behavior follows the governed `metric_state_is` decision in this task;
@@ -802,7 +864,8 @@ P8-001 implementation is successful only if:
 - failure creates no material Claim permission;
 - unrelated authentic evidence chains remain valid;
 - no downstream Finding is created;
-- MetadataStore schema advances to v6 for the narrow ClaimCandidate/ClaimDecision authority indexes; and
+- MetadataStore schema advances to v6 for narrow ClaimCandidate/ClaimDecision durable metadata rows and immutable artifact references;
+- physical SQLite indexes are not treated as material evidence-correctness authority; and
 - all required future tests pass.
 
 ---
@@ -835,6 +898,7 @@ STOP and request Main Project review if future implementation discovers:
 - the structured ClaimCandidate fields cannot represent a supported P8 descriptive Claim without inventing unapproved semantics;
 - AOV Undefined behavior differs from the authority summarized here;
 - schema v6 is insufficient for required Claim lineage without broader architecture changes;
+- implementing P8 appears to require a physical SQLite index for evidence correctness rather than a concrete lookup/performance need;
 - implementing P8 requires changing Metric formulas;
 - implementing P8 requires changing Evidence admissibility semantics;
 - implementing P8 requires a generic policy framework;
@@ -857,8 +921,13 @@ Before P8-001 implementation can be submitted for review, verify:
 - no ambiguity remains about schema v5 vs v6;
 - `ClaimDecision` is not conflated with Finding;
 - Claim policy is not a second Metric validation layer;
+- Revenue Change formula exists in no P8 Claim policy or ClaimCandidate-owned semantics;
 - caller-supplied Evidence is not treated as authority;
-- caller-supplied ClaimCandidate is not treated as authority;
+- caller-supplied ClaimCandidate is not treated as authentic evaluation input;
+- ClaimCandidate persistence does not make it Claim truth or permission authority;
+- `ClaimDecision` remains the only authoritative material Claim permission record;
+- `claim_candidate_fingerprint` is explicitly defined and excludes event/presentation data;
+- physical SQLite indexes are not falsely treated as evidence-correctness authority;
 - cross-run equal-value substitution is covered;
 - cross-request substitution is covered;
 - no later-phase functionality has entered P8;
