@@ -2,26 +2,52 @@
 
 ## Status
 
-APPROVED FOR IMPLEMENTATION / NOT FROZEN
+APPROVED / FROZEN
 
 Implementation:
-NOT STARTED
+COMPLETE
 
 Relationship:
-BLOCKING PREREQUISITE FOR P9-001
+SATISFIED PREREQUISITE FOR FUTURE P9-001 AUTHORIZATION DECISION
 
 Main Project Review:
-APPROVED FOR IMPLEMENTATION
+APPROVED / FROZEN
 
-This task records Main Project implementation authorization only.
+Approved implementation HEAD:
 
-No implementation has started.
+`2ac5d1cf114ffc28c8019440b3e460f60459bc1a`
 
-This task authorizes future implementation only within the boundaries recorded
-here.
+Approved implementation commits:
 
-P9-001 must not be implemented until this prerequisite is separately specified,
-reviewed, implemented, verified, and approved by Main Project Review.
+- `fc0de54ebc0273475b058680cd321efe5294ab38` -
+  Implement P9 public application service foundation
+- `2ac5d1cf114ffc28c8019440b3e460f60459bc1a` -
+  Close P9 application service authority gaps
+
+Independent verification evidence:
+
+- focused application suite: 21 passed
+- relevant P1-P8 regression suite: 417 passed in 28.36s
+- complete repository suite: 476 passed in 31.94s
+- failures: NONE
+- material warnings: NONE
+- git diff --check: clean
+- independent verdict: APPROVE
+
+Post-fast-forward verification:
+
+- focused application suite: 21 passed
+- complete repository suite: 476 passed
+
+`P9_PREREQUISITE_PUBLIC_APPLICATION_SERVICE_MISSING`:
+RESOLVED
+
+This task records the approved and Frozen public application service foundation
+for P9 planning dependency clearance.
+
+P9-001 remains PROPOSED / NOT AUTHORIZED.
+
+P9-001 implementation has NOT STARTED.
 
 This task is not:
 
@@ -35,6 +61,9 @@ This task is not:
 Do not modify Frozen specifications, `PROJECT_STATE.md`, roadmap, `README.md`,
 production code, tests, dependencies, physical fixtures, fixture runner code,
 CLI code, or `SKILL.md` under this task-creation scope.
+
+This governance freeze record modifies only the approved task state and
+`PROJECT_STATE.md`.
 
 ---
 
@@ -142,21 +171,29 @@ substitute for the public application service.
 ## 4. Current Service Status
 
 Current public application service exists:
-NO
+YES
 
 Current `src/commerce_lens/application/__init__.py` status:
-placeholder only; no public application service callable.
+exports the public application service boundary.
 
 Current `AnalysisResult` status:
-`src/commerce_lens/contracts/results.py` defines `AnalysisResult`, but no
-current public application service constructs it across the required P1-P8 path.
+`src/commerce_lens/contracts/results.py` defines `AnalysisResult`, and the
+public application service constructs it across the required P1-P8 path.
+
+Current public application service operations:
+
+- `run_analysis(...)`
+- `evaluate_claim(...)`
 
 Blocking prerequisite:
 
 `P9_PREREQUISITE_PUBLIC_APPLICATION_SERVICE_MISSING`
 
-P9-001 remains blocked until this prerequisite is implemented, verified, and
-approved.
+Status:
+RESOLVED
+
+P9-001 remains PROPOSED / NOT AUTHORIZED, with implementation NOT STARTED, until
+a separate Main Project decision authorizes it.
 
 ---
 
@@ -935,7 +972,62 @@ request Main Project Review.
 - full repository regression passes; and
 - Main Project independently reviews and approves the implementation.
 
-Only after this prerequisite is APPROVED / FROZEN may P9-001 be authorized.
+Current status:
+RESOLVED
+
+This prerequisite is APPROVED / FROZEN.
+
+The Frozen implementation provides one public application service boundary.
+
+Analysis operation:
+
+```text
+AnalysisRequest
+-> AnalysisResult
+```
+
+Claim evaluation operation:
+
+```text
+caller-supplied complete ClaimCandidate
+-> P8 deterministic evaluation
+-> authoritative ClaimDecision
+```
+
+Supported Metrics remain exactly:
+
+- `revenue`
+- `orders`
+- `aov`
+- `revenue_change`
+
+Positive Claim permission remains:
+
+- `ClaimType.DESCRIPTIVE` only
+
+The application service:
+
+- does not own Metric arithmetic;
+- does not own validation semantics;
+- does not own Evidence admissibility semantics;
+- does not construct ClaimCandidate;
+- does not own Claim permission policy; and
+- does not parse natural-language intent.
+
+MetadataStore remains:
+
+`v6`
+
+New dependencies:
+
+NONE
+
+Contracts changed:
+
+NO
+
+Only after this prerequisite is APPROVED / FROZEN may P9-001 be separately
+authorized by Main Project decision.
 
 ---
 

@@ -344,6 +344,84 @@ P8-001 must not be reopened without a specific implementation defect or governin
 
 ---
 
+### P9-PRE-001 — Public Application Service Foundation
+
+Status:
+
+APPROVED / FROZEN
+
+Implementation status:
+
+COMPLETE
+
+Approved implementation HEAD:
+
+2ac5d1cf114ffc28c8019440b3e460f60459bc1a
+
+Approved implementation commits:
+
+- fc0de54ebc0273475b058680cd321efe5294ab38 -
+  Implement P9 public application service foundation
+- 2ac5d1cf114ffc28c8019440b3e460f60459bc1a -
+  Close P9 application service authority gaps
+
+Final verification:
+
+PASSED
+
+Final verified focused application suite:
+
+21 passed
+
+Final verified full suite:
+
+476 passed
+
+Public Application Service prerequisite:
+
+SATISFIED
+
+P9_PREREQUISITE_PUBLIC_APPLICATION_SERVICE_MISSING:
+
+RESOLVED
+
+Public Application Service now exists with:
+
+- run_analysis(...)
+- evaluate_claim(...)
+
+Supported Metrics remain:
+
+- revenue
+- orders
+- aov
+- revenue_change
+
+Current positive Claim permission remains:
+
+ClaimType.DESCRIPTIVE only
+
+MetadataStore schema:
+
+6
+
+P9-PRE-001 does not implement P9-001.
+
+P9-001 remains:
+
+PROPOSED / NOT AUTHORIZED
+
+P9-001 implementation:
+
+NOT STARTED
+
+The next Main Project decision is whether to authorize P9-001 implementation.
+
+P9-PRE-001 must not be reopened without a specific implementation defect or
+governing conflict.
+
+---
+
 ## Current Production Execution Foundation
 
 The currently Frozen Architecture specifies:
@@ -357,6 +435,8 @@ This remains the authoritative production architecture unless a formally approve
 Current deterministic reliability chain:
 
 AnalysisRequest
+→
+Public Application Service
 →
 DataSufficiencyResult
 →
@@ -566,17 +646,20 @@ Research must remain isolated from production implementation.
 
 ## Current Main-Branch Production State
 
-The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, P5-001 deterministic result validation, P6-001 deterministic Evidence admissibility for Revenue, Orders, and AOV, P7-001 Revenue Change vertical metric slice, and P8-001 ClaimDecision Foundation.
+The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, P5-001 deterministic result validation, P6-001 deterministic Evidence admissibility for Revenue, Orders, and AOV, P7-001 Revenue Change vertical metric slice, P8-001 ClaimDecision Foundation, and P9-PRE-001 Public Application Service Foundation.
 
 R-001 must not silently modify production execution architecture.
 
 Any Wren experiment should be isolated in a research boundary or separate worktree/task.
 
-Deterministic result validation, ValidatedResult persistence, Evidence admissibility, EvidenceAdmissibilityRecord persistence, AdmissibleEvidence artifact verification, ClaimCandidate persistence, and ClaimDecision authority are implemented for Revenue, Orders, AOV, and Revenue Change.
+Deterministic result validation, ValidatedResult persistence, Evidence admissibility, EvidenceAdmissibilityRecord persistence, AdmissibleEvidence artifact verification, ClaimCandidate persistence, ClaimDecision authority, and the public application service boundary are implemented for Revenue, Orders, AOV, and Revenue Change.
 
 ClaimDecision is implemented through P8-001 for ClaimType.DESCRIPTIVE only.
 
 Revenue Change is implemented through P7-001.
+
+Public Application Service is implemented through P9-PRE-001 with run_analysis(...)
+and evaluate_claim(...).
 
 ---
 
@@ -594,13 +677,23 @@ Wren may be reconsidered later if material capabilities or project requirements 
 
 ## Next Authorized Work
 
-P8-001 is Approved / Frozen.
+P9-PRE-001 is Approved / Frozen.
 
-Next authorized planning target:
+Public Application Service prerequisite:
 
-P9 Minimum Physical Fixture Runner
+SATISFIED
 
-P9 implementation is not authorized.
+P9_PREREQUISITE_PUBLIC_APPLICATION_SERVICE_MISSING:
+
+RESOLVED
+
+Next Main Project decision:
+
+whether to authorize P9-001 Minimum Physical Fixture Runner implementation
+
+P9-001 remains PROPOSED / NOT AUTHORIZED.
+
+P9-001 implementation is NOT STARTED.
 
 Do not begin:
 
@@ -734,12 +827,40 @@ fff3229d03e5e122cb62aa8105f1c0d8f28021b2
 P8-001 final verified full suite:
 455 passed
 
+P9-PRE-001:
+APPROVED / FROZEN
+
+P9-PRE-001 implementation status:
+COMPLETE
+
+P9-PRE-001 approved implementation HEAD:
+2ac5d1cf114ffc28c8019440b3e460f60459bc1a
+
+P9-PRE-001 final verified focused application suite:
+21 passed
+
+P9-PRE-001 final verified full suite:
+476 passed
+
+Public Application Service prerequisite:
+SATISFIED
+
+P9_PREREQUISITE_PUBLIC_APPLICATION_SERVICE_MISSING:
+RESOLVED
+
+Public Application Service operations:
+
+- run_analysis(...)
+- evaluate_claim(...)
+
 MetadataStore schema:
 6
 
 Current deterministic reliability chain:
 
 AnalysisRequest
+→
+Public Application Service
 →
 DataSufficiencyResult
 →
@@ -844,10 +965,13 @@ Revenue Change:
 APPROVED / FROZEN
 
 Next authorized planning target:
-P9 Minimum Physical Fixture Runner
+P9-001 authorization decision
 
-P9 implementation:
-NOT AUTHORIZED / NOT BEGUN
+P9-001:
+PROPOSED / NOT AUTHORIZED
+
+P9-001 implementation:
+NOT STARTED
 
 Current approved executor:
 DuckDB direct reference path
