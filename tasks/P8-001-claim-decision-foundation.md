@@ -2,10 +2,23 @@
 
 ## Status
 
-PROPOSED / NOT AUTHORIZED FOR IMPLEMENTATION
+APPROVED FOR IMPLEMENTATION / NOT FROZEN
 
 Implementation:
-NOT STARTED
+AUTHORIZED / NOT STARTED
+
+Formal Main Project decision:
+P8-001 TASK APPROVED FOR IMPLEMENTATION
+
+Main Project Review:
+
+- task specification reviewed;
+- five narrow corrections applied;
+- corrected task commit: `457fa8a1ab0c588ef69e89f602de914423af11a4`;
+- implementation authorized;
+- task is NOT implemented;
+- task is NOT approved/frozen as an implementation; and
+- P9 is not authorized.
 
 This task specification defines the next proposed CommerceLens implementation slice after:
 
