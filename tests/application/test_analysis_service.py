@@ -26,6 +26,7 @@ from commerce_lens.contracts.evidence import (
     ClaimPropositionType,
 )
 from commerce_lens.contracts.sufficiency import SufficiencyState
+from commerce_lens.evidence.admissibility import EvidenceAdmissibilityStatus
 from commerce_lens.contracts.validation import ValidationStatus
 from commerce_lens.evidence.claim_admissibility import ClaimAdmissibilityError
 from commerce_lens.evidence.identifiers import sha256_file
@@ -144,10 +145,15 @@ def test_validation_failure_cannot_become_validated_result_or_evidence(tmp_path,
         if record.status is ValidationStatus.FAILED
     ]
 
-    assert failed
-    assert fixture.result.run_status is RunStatus.PARTIALLY_COMPLETED
-    assert metric.metric_state is MetricState.VALID
+    failed_ids = {record.validation_id for record in failed}
     evidence_records = fixture.metadata_store.list_evidence_admissibility_records()
+
+    assert failed
+    assert fixture.result.run_status is RunStatus.VALIDATION_FAILED
+    assert metric.metric_state is MetricState.INADMISSIBLE
+    assert failed_ids <= set(metric.validation_record_refs)
+    assert failed[0].failure_details[0] in metric.failure_details
+    assert failed[0].failure_details[0] in fixture.result.failure_details
     assert all(record.validated_result_ref is None for record in failed)
     assert all(record.target_result_ref not in metric.validated_result_refs for record in failed)
     assert all(
@@ -155,6 +161,165 @@ def test_validation_failure_cannot_become_validated_result_or_evidence(tmp_path,
         for evidence in evidence_records
         for record in failed
     )
+
+
+def test_supplied_dataset_same_id_durable_conflict_fails_closed_before_execution(tmp_path) -> None:
+    dataset, artifact_store = _registered_source(tmp_path, [_row()], filename="orders.csv", source_type="csv")
+    metadata_store = MetadataStore(tmp_path / "metadata.sqlite")
+    metadata_store.initialize()
+    metadata_store.insert_dataset(dataset)
+    conflicting = dataset.model_copy(update={"content_fingerprint": "f" * 64})
+    request = _request(("revenue",), dataset.dataset_id, scope=ScopeDefinition(scope_id="all_eligible"))
+    request = request.model_copy(update={"required_evidence": _requirements(("revenue",))})
+
+    with pytest.raises(ApplicationServiceError, match="durable authority conflicts"):
+        run_analysis(
+            request,
+            canonicalization_request=_canonicalization_request(dataset),
+            artifact_store=artifact_store,
+            metadata_store=metadata_store,
+            dataset=conflicting,
+            period_coverage_evidence=_coverage(dataset.dataset_id),
+            available_evidence=_available_evidence(request),
+        )
+
+    assert metadata_store.list_execution_records() == []
+
+
+def test_supplied_dataset_absent_after_ignored_insert_fails_closed(tmp_path, monkeypatch) -> None:
+    dataset, artifact_store = _registered_source(tmp_path, [_row()], filename="orders.csv", source_type="csv")
+    metadata_store = MetadataStore(tmp_path / "metadata.sqlite")
+    metadata_store.initialize()
+    monkeypatch.setattr(metadata_store, "insert_dataset", lambda supplied: supplied)
+    request = _request(("revenue",), dataset.dataset_id, scope=ScopeDefinition(scope_id="all_eligible"))
+    request = request.model_copy(update={"required_evidence": _requirements(("revenue",))})
+
+    with pytest.raises(ApplicationServiceError, match="durable authority is absent"):
+        run_analysis(
+            request,
+            canonicalization_request=_canonicalization_request(dataset),
+            artifact_store=artifact_store,
+            metadata_store=metadata_store,
+            dataset=dataset,
+            period_coverage_evidence=_coverage(dataset.dataset_id),
+            available_evidence=_available_evidence(request),
+        )
+
+
+def test_request_absent_dataset_selection_injection_fails_closed(tmp_path) -> None:
+    dataset, artifact_store = _registered_source(tmp_path, [_row()], filename="orders.csv", source_type="csv")
+    injected = dataset.model_copy(update={"selected_table": "orders_injected"})
+    request = _request(("revenue",), dataset.dataset_id, scope=ScopeDefinition(scope_id="all_eligible"))
+    request = request.model_copy(update={"required_evidence": _requirements(("revenue",))})
+
+    with pytest.raises(ApplicationServiceError, match="DatasetReference selected_table"):
+        run_analysis(
+            request,
+            canonicalization_request=_canonicalization_request(dataset),
+            artifact_store=artifact_store,
+            metadata_store=MetadataStore(tmp_path / "metadata.sqlite"),
+            dataset=injected,
+            period_coverage_evidence=_coverage(dataset.dataset_id),
+            available_evidence=_available_evidence(request),
+        )
+
+
+def test_request_absent_canonicalization_selection_injection_fails_closed(tmp_path) -> None:
+    dataset, artifact_store = _registered_source(tmp_path, [_row()], filename="orders.csv", source_type="csv")
+    request = _request(("revenue",), dataset.dataset_id, scope=ScopeDefinition(scope_id="all_eligible"))
+    request = request.model_copy(update={"required_evidence": _requirements(("revenue",))})
+    injected = _canonicalization_request(dataset).model_copy(update={"selected_table": "orders_injected"})
+
+    with pytest.raises(ApplicationServiceError, match="CanonicalizationRequest selected_table"):
+        run_analysis(
+            request,
+            canonicalization_request=injected,
+            artifact_store=artifact_store,
+            metadata_store=MetadataStore(tmp_path / "metadata.sqlite"),
+            dataset=dataset,
+            period_coverage_evidence=_coverage(dataset.dataset_id),
+            available_evidence=_available_evidence(request),
+        )
+
+
+def test_orphan_executed_result_fails_closed_instead_of_becoming_valid(tmp_path, monkeypatch) -> None:
+    import commerce_lens.application.analysis_service as service
+
+    original_execute_plan = service.execute_plan
+
+    def orphan_result(plan, canonical_dataset, artifact_store, metadata_store):
+        outcome = original_execute_plan(plan, canonical_dataset, artifact_store, metadata_store)
+        return outcome.__class__(execution_records=(), executed_results=outcome.executed_results)
+
+    monkeypatch.setattr(service, "execute_plan", orphan_result)
+
+    with pytest.raises(ApplicationServiceError, match="ExecutionRecord lineage"):
+        _run(tmp_path, ("revenue",), [_row()])
+
+
+def test_revenue_change_validation_uses_plan_order_not_executed_result_tuple_order(tmp_path, monkeypatch) -> None:
+    import commerce_lens.application.analysis_service as service
+
+    original_execute_plan = service.execute_plan
+
+    def reversed_results(plan, canonical_dataset, artifact_store, metadata_store):
+        outcome = original_execute_plan(plan, canonical_dataset, artifact_store, metadata_store)
+        return outcome.__class__(
+            execution_records=outcome.execution_records,
+            executed_results=tuple(reversed(outcome.executed_results)),
+        )
+
+    monkeypatch.setattr(service, "execute_plan", reversed_results)
+    fixture = _run(
+        tmp_path,
+        ("revenue_change",),
+        [
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
+        ],
+    )
+
+    metric = _metric(fixture.result, "revenue_change")
+
+    assert metric.metric_state is MetricState.VALID
+    assert metric.validated_result_refs
+    assert metric.admissible_evidence_refs
+    assert Decimal("20.00") in _validated_values_for_analysis(fixture, fixture.result, "revenue_change")
+
+
+def test_analysis_result_artifacts_include_existing_material_traceability(tmp_path) -> None:
+    fixture = _run(tmp_path, ("revenue",), [_row()])
+    artifact_ids = {artifact.artifact_id for artifact in fixture.result.artifacts}
+    dataset = fixture.metadata_store.get_dataset(fixture.request.dataset_ref_id)
+    canonical = fixture.metadata_store.get_canonical_dataset(
+        fixture.metadata_store.get_data_sufficiency_result(fixture.result.data_sufficiency_ref, fixture.artifact_store).canonical_dataset_ref_id
+    )
+    execution_artifacts = {
+        artifact.artifact_id
+        for record in fixture.metadata_store.list_execution_records()
+        for artifact in record.output_artifacts
+    }
+    validated_artifacts = {
+        record.validated_result_artifact_ref.artifact_id
+        for record in fixture.metadata_store.list_validation_records()
+        if record.validated_result_artifact_ref is not None
+    }
+    evidence_artifacts = {
+        record.admissible_evidence_artifact_ref.artifact_id
+        for record in fixture.metadata_store.list_evidence_admissibility_records()
+        if record.status is EvidenceAdmissibilityStatus.PASSED
+    }
+
+    assert fixture.result.artifacts
+    assert dataset.snapshot_artifact.artifact_id in artifact_ids
+    assert canonical.artifact.artifact_id in artifact_ids
+    assert execution_artifacts <= artifact_ids
+    assert validated_artifacts <= artifact_ids
+    assert evidence_artifacts <= artifact_ids
+    for artifact in fixture.result.artifacts:
+        artifact_path = fixture.artifact_store.safe_path(artifact.path)
+        assert artifact_path.is_file()
+        assert artifact.fingerprint == sha256_file(artifact_path)
 
 
 def test_local_source_registration_path_uses_intake_and_preserves_request_dataset_authority(tmp_path) -> None:
