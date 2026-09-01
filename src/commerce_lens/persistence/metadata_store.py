@@ -12,6 +12,10 @@ from commerce_lens.contracts.evidence import (
     CanonicalizationRecord,
     DatasetReference,
     EvidenceAdmissibilityRecord,
+    ClaimCandidate,
+    ClaimDecision,
+    claim_candidate_semantic_fingerprint,
+    claim_decision_semantic_fingerprint,
 )
 from commerce_lens.contracts.execution import ExecutionRecord
 from commerce_lens.contracts.requests import AnalysisRequest
@@ -21,10 +25,11 @@ from commerce_lens.evidence.identifiers import canonical_json_fingerprint, sha25
 from commerce_lens.persistence.artifact_store import ArtifactStore
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 PHASE2_SCHEMA_VERSION = 2
 PHASE3_SCHEMA_VERSION = 3
 PHASE4_SCHEMA_VERSION = 4
+PHASE5_SCHEMA_VERSION = 5
 
 _PHASE1_TABLE_COLUMNS = {
     "dataset_registrations": {
@@ -147,6 +152,44 @@ _PHASE5_TABLE_COLUMNS = {
 }
 
 
+_PHASE6_TABLE_COLUMNS = {
+    "claim_candidates": {
+        "claim_candidate_id",
+        "claim_id",
+        "request_id",
+        "claim_type",
+        "metric_ref",
+        "metric_definition_version",
+        "dataset_ref_id",
+        "canonical_dataset_ref_id",
+        "canonical_dataset_fingerprint",
+        "claim_candidate_fingerprint",
+        "claim_candidate_artifact_id",
+        "supporting_evidence_refs_json",
+        "supporting_validated_result_refs_json",
+        "created_at",
+        "record_fingerprint",
+        "record_json",
+    },
+    "claim_decisions": {
+        "claim_decision_id",
+        "decision_id",
+        "claim_candidate_ref",
+        "claim_state",
+        "policy_id",
+        "policy_version",
+        "decision_fingerprint",
+        "claim_decision_artifact_id",
+        "supporting_evidence_refs_json",
+        "supporting_validated_result_refs_json",
+        "decided_at",
+        "failure_code",
+        "record_fingerprint",
+        "record_json",
+    },
+}
+
+
 class MetadataStore:
     """Small SQLite registry for Phase 1 and Phase 2 metadata."""
 
@@ -172,7 +215,8 @@ class MetadataStore:
                 self._create_phase3_tables(conn)
                 self._create_phase4_tables(conn)
                 self._create_phase5_tables(conn)
-                self._verify_phase5_schema(conn)
+                self._create_phase6_tables(conn)
+                self._verify_phase6_schema(conn)
                 conn.execute("INSERT INTO schema_version (id, version) VALUES (1, ?)", (SCHEMA_VERSION,))
                 return
 
@@ -182,21 +226,28 @@ class MetadataStore:
                 self._migrate_v2_to_v3(conn)
                 self._migrate_v3_to_v4(conn)
                 self._migrate_v4_to_v5(conn)
+                self._migrate_v5_to_v6(conn)
                 return
             if stored_version == PHASE2_SCHEMA_VERSION:
                 self._migrate_v2_to_v3(conn)
                 self._migrate_v3_to_v4(conn)
                 self._migrate_v4_to_v5(conn)
+                self._migrate_v5_to_v6(conn)
                 return
             if stored_version == PHASE3_SCHEMA_VERSION:
                 self._migrate_v3_to_v4(conn)
                 self._migrate_v4_to_v5(conn)
+                self._migrate_v5_to_v6(conn)
                 return
             if stored_version == PHASE4_SCHEMA_VERSION:
                 self._migrate_v4_to_v5(conn)
+                self._migrate_v5_to_v6(conn)
+                return
+            if stored_version == PHASE5_SCHEMA_VERSION:
+                self._migrate_v5_to_v6(conn)
                 return
             if stored_version == SCHEMA_VERSION:
-                self._verify_phase5_schema(conn)
+                self._verify_phase6_schema(conn)
                 return
             raise RuntimeError(
                 f"metadata schema version mismatch: stored={stored_version} expected={SCHEMA_VERSION}"
@@ -698,6 +749,240 @@ class MetadataStore:
             ).fetchall()
         return [EvidenceAdmissibilityRecord.model_validate(json.loads(row["record_json"])) for row in rows]
 
+    def insert_claim_candidate(
+        self,
+        candidate: ClaimCandidate,
+        artifact_store: ArtifactStore | None = None,
+    ) -> ClaimCandidate:
+        artifact_store = self._authority_artifact_store(artifact_store)
+        expected_fingerprint = claim_candidate_semantic_fingerprint(candidate)
+        if candidate.claim_candidate_fingerprint not in (None, expected_fingerprint):
+            raise RuntimeError(f"ClaimCandidate semantic fingerprint mismatch for {candidate.claim_candidate_id}")
+        persisted = candidate.model_copy(update={"claim_candidate_fingerprint": expected_fingerprint})
+        payload = persisted.model_dump_json()
+        payload_obj = json.loads(payload)
+        record_fingerprint = canonical_json_fingerprint(payload_obj)
+        request_id = persisted.request_id
+        with self._connect() as conn:
+            if not self._stable_record_needs_insert(
+                conn,
+                table="claim_candidates",
+                id_column="claim_candidate_id",
+                stable_id=persisted.claim_candidate_id,
+                payload=payload,
+            ):
+                return persisted
+        artifact = artifact_store.write_json_artifact(
+            Path("runs") / str(request_id or persisted.claim_candidate_id) / "claim_candidates" / f"{persisted.claim_candidate_id}.json",
+            payload_obj,
+        )
+        self.insert_artifact_reference(artifact)
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO claim_candidates (
+                    claim_candidate_id, claim_id, request_id, claim_type, metric_ref,
+                    metric_definition_version, dataset_ref_id, canonical_dataset_ref_id,
+                    canonical_dataset_fingerprint, claim_candidate_fingerprint,
+                    claim_candidate_artifact_id, supporting_evidence_refs_json,
+                    supporting_validated_result_refs_json, created_at, record_fingerprint, record_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    persisted.claim_candidate_id,
+                    persisted.claim_id,
+                    request_id,
+                    persisted.claim_type.value,
+                    persisted.metric_ref,
+                    persisted.metric_definition_version,
+                    persisted.dataset_ref_id,
+                    persisted.canonical_dataset_ref_id,
+                    persisted.canonical_dataset_fingerprint,
+                    persisted.claim_candidate_fingerprint,
+                    artifact.artifact_id,
+                    json.dumps(list(persisted.supporting_evidence_refs), sort_keys=True),
+                    json.dumps(list(persisted.supporting_validated_result_refs), sort_keys=True),
+                    persisted.metadata.get("created_at"),
+                    record_fingerprint,
+                    payload,
+                ),
+            )
+        return self.get_claim_candidate(persisted.claim_candidate_id, artifact_store) or persisted
+
+    def get_claim_candidate(
+        self,
+        claim_candidate_id: str,
+        artifact_store: ArtifactStore | None = None,
+    ) -> ClaimCandidate | None:
+        artifact_store = self._authority_artifact_store(artifact_store)
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT claim_candidate_id, claim_id, request_id, claim_type, metric_ref,
+                       metric_definition_version, dataset_ref_id, canonical_dataset_ref_id,
+                       canonical_dataset_fingerprint, claim_candidate_fingerprint,
+                       claim_candidate_artifact_id, supporting_evidence_refs_json,
+                       supporting_validated_result_refs_json, created_at, record_fingerprint, record_json
+                FROM claim_candidates
+                WHERE claim_candidate_id = ?
+                """,
+                (claim_candidate_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = self._verified_authority_payload(
+            row,
+            artifact_store,
+            id_column="claim_candidate_id",
+            expected_id=claim_candidate_id,
+            artifact_id_column="claim_candidate_artifact_id",
+            record_type="claim candidate",
+        )
+        candidate = ClaimCandidate.model_validate(payload)
+        expected_fingerprint = claim_candidate_semantic_fingerprint(candidate)
+        indexed = {
+            "claim_id": candidate.claim_id,
+            "claim_type": candidate.claim_type.value,
+            "metric_ref": candidate.metric_ref,
+            "metric_definition_version": candidate.metric_definition_version,
+            "request_id": candidate.request_id,
+            "dataset_ref_id": candidate.dataset_ref_id,
+            "canonical_dataset_ref_id": candidate.canonical_dataset_ref_id,
+            "canonical_dataset_fingerprint": candidate.canonical_dataset_fingerprint,
+            "claim_candidate_fingerprint": expected_fingerprint,
+            "supporting_evidence_refs_json": json.dumps(list(candidate.supporting_evidence_refs), sort_keys=True),
+            "supporting_validated_result_refs_json": json.dumps(list(candidate.supporting_validated_result_refs), sort_keys=True),
+        }
+        for key, expected in indexed.items():
+            if row[key] != expected:
+                raise RuntimeError(f"claim candidate indexed authority mismatch for {claim_candidate_id}")
+        if candidate.claim_candidate_fingerprint != expected_fingerprint:
+            raise RuntimeError(f"claim candidate semantic fingerprint mismatch for {claim_candidate_id}")
+        return candidate
+
+    def list_claim_candidates(self) -> list[ClaimCandidate]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT claim_candidate_id FROM claim_candidates ORDER BY claim_candidate_id").fetchall()
+        return [item for row in rows if (item := self.get_claim_candidate(row["claim_candidate_id"])) is not None]
+
+    def insert_claim_decision(
+        self,
+        decision: ClaimDecision,
+        artifact_store: ArtifactStore | None = None,
+        *,
+        claim_candidate_fingerprint: str | None = None,
+    ) -> ClaimDecision:
+        artifact_store = self._authority_artifact_store(artifact_store)
+        decision_id = decision.decision_id or decision.claim_decision_id
+        prepared = decision.model_copy(update={"decision_id": decision_id})
+        expected_fingerprint = claim_decision_semantic_fingerprint(
+            prepared,
+            claim_candidate_fingerprint=claim_candidate_fingerprint,
+        )
+        if prepared.decision_fingerprint not in (None, expected_fingerprint):
+            raise RuntimeError(f"ClaimDecision semantic fingerprint mismatch for {prepared.claim_decision_id}")
+        persisted = prepared.model_copy(update={"decision_fingerprint": expected_fingerprint})
+        payload = persisted.model_dump_json()
+        payload_obj = json.loads(payload)
+        record_fingerprint = canonical_json_fingerprint(payload_obj)
+        run_ref = persisted.claim_candidate_ref or persisted.claim_decision_id
+        artifact = artifact_store.write_json_artifact(
+            Path("runs") / run_ref / "claim_decisions" / f"{persisted.claim_decision_id}.json",
+            payload_obj,
+        )
+        self.insert_artifact_reference(artifact)
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO claim_decisions (
+                    claim_decision_id, decision_id, claim_candidate_ref, claim_state,
+                    policy_id, policy_version, decision_fingerprint,
+                    claim_decision_artifact_id, supporting_evidence_refs_json,
+                    supporting_validated_result_refs_json, decided_at, failure_code,
+                    record_fingerprint, record_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    persisted.claim_decision_id,
+                    persisted.decision_id,
+                    persisted.claim_candidate_ref,
+                    persisted.claim_state.value,
+                    persisted.policy_id,
+                    persisted.policy_version,
+                    persisted.decision_fingerprint,
+                    artifact.artifact_id,
+                    json.dumps(list(persisted.supporting_evidence_refs), sort_keys=True),
+                    json.dumps(list(persisted.supporting_validated_result_refs), sort_keys=True),
+                    persisted.decided_at.isoformat(),
+                    persisted.failure_code,
+                    record_fingerprint,
+                    payload,
+                ),
+            )
+        return self.get_claim_decision(persisted.claim_decision_id, artifact_store, claim_candidate_fingerprint=claim_candidate_fingerprint) or persisted
+
+    def get_claim_decision(
+        self,
+        claim_decision_id: str,
+        artifact_store: ArtifactStore | None = None,
+        *,
+        claim_candidate_fingerprint: str | None = None,
+    ) -> ClaimDecision | None:
+        artifact_store = self._authority_artifact_store(artifact_store)
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT claim_decision_id, decision_id, claim_candidate_ref, claim_state,
+                       policy_id, policy_version, decision_fingerprint,
+                       claim_decision_artifact_id, supporting_evidence_refs_json,
+                       supporting_validated_result_refs_json, decided_at, failure_code,
+                       record_fingerprint, record_json
+                FROM claim_decisions
+                WHERE claim_decision_id = ?
+                """,
+                (claim_decision_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = self._verified_authority_payload(
+            row,
+            artifact_store,
+            id_column="claim_decision_id",
+            expected_id=claim_decision_id,
+            artifact_id_column="claim_decision_artifact_id",
+            record_type="claim decision",
+        )
+        decision = ClaimDecision.model_validate(payload)
+        expected_fingerprint = claim_decision_semantic_fingerprint(
+            decision,
+            claim_candidate_fingerprint=claim_candidate_fingerprint,
+        )
+        indexed = {
+            "decision_id": decision.decision_id,
+            "claim_candidate_ref": decision.claim_candidate_ref,
+            "claim_state": decision.claim_state.value,
+            "policy_id": decision.policy_id,
+            "policy_version": decision.policy_version,
+            "decision_fingerprint": expected_fingerprint,
+            "supporting_evidence_refs_json": json.dumps(list(decision.supporting_evidence_refs), sort_keys=True),
+            "supporting_validated_result_refs_json": json.dumps(list(decision.supporting_validated_result_refs), sort_keys=True),
+            "decided_at": decision.decided_at.isoformat(),
+            "failure_code": decision.failure_code,
+        }
+        for key, expected in indexed.items():
+            if row[key] != expected:
+                raise RuntimeError(f"claim decision indexed authority mismatch for {claim_decision_id}")
+        if decision.decision_fingerprint != expected_fingerprint:
+            raise RuntimeError(f"claim decision semantic fingerprint mismatch for {claim_decision_id}")
+        return decision
+
+    def list_claim_decisions(self) -> list[ClaimDecision]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT record_json FROM claim_decisions ORDER BY decided_at, claim_decision_id").fetchall()
+        return [ClaimDecision.model_validate(json.loads(row["record_json"])) for row in rows]
+
     def _migrate_v1_to_v2(self, conn: sqlite3.Connection) -> None:
         self._verify_phase1_schema(conn)
         self._create_phase2_tables(conn)
@@ -720,6 +1005,12 @@ class MetadataStore:
         self._verify_phase4_schema(conn)
         self._create_phase5_tables(conn)
         self._verify_phase5_schema(conn)
+        conn.execute("UPDATE schema_version SET version = ? WHERE id = 1", (PHASE5_SCHEMA_VERSION,))
+
+    def _migrate_v5_to_v6(self, conn: sqlite3.Connection) -> None:
+        self._verify_phase5_schema(conn)
+        self._create_phase6_tables(conn)
+        self._verify_phase6_schema(conn)
         conn.execute("UPDATE schema_version SET version = ? WHERE id = 1", (SCHEMA_VERSION,))
 
     def _create_phase1_tables(self, conn: sqlite3.Connection) -> None:
@@ -878,6 +1169,50 @@ class MetadataStore:
             """
         )
 
+    def _create_phase6_tables(self, conn: sqlite3.Connection) -> None:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS claim_candidates (
+                claim_candidate_id TEXT PRIMARY KEY,
+                claim_id TEXT,
+                request_id TEXT,
+                claim_type TEXT NOT NULL,
+                metric_ref TEXT,
+                metric_definition_version TEXT,
+                dataset_ref_id TEXT,
+                canonical_dataset_ref_id TEXT,
+                canonical_dataset_fingerprint TEXT,
+                claim_candidate_fingerprint TEXT NOT NULL,
+                claim_candidate_artifact_id TEXT NOT NULL,
+                supporting_evidence_refs_json TEXT NOT NULL,
+                supporting_validated_result_refs_json TEXT NOT NULL,
+                created_at TEXT,
+                record_fingerprint TEXT NOT NULL,
+                record_json TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS claim_decisions (
+                claim_decision_id TEXT PRIMARY KEY,
+                decision_id TEXT,
+                claim_candidate_ref TEXT,
+                claim_state TEXT NOT NULL,
+                policy_id TEXT NOT NULL,
+                policy_version TEXT NOT NULL,
+                decision_fingerprint TEXT NOT NULL,
+                claim_decision_artifact_id TEXT NOT NULL,
+                supporting_evidence_refs_json TEXT NOT NULL,
+                supporting_validated_result_refs_json TEXT NOT NULL,
+                decided_at TEXT NOT NULL,
+                failure_code TEXT,
+                record_fingerprint TEXT NOT NULL,
+                record_json TEXT NOT NULL
+            )
+            """
+        )
+
     def _verify_phase1_schema(self, conn: sqlite3.Connection) -> None:
         for table, expected_columns in _PHASE1_TABLE_COLUMNS.items():
             actual_columns = self._table_columns(conn, table)
@@ -911,6 +1246,13 @@ class MetadataStore:
             actual_columns = self._table_columns(conn, table)
             if actual_columns != expected_columns:
                 raise RuntimeError(f"metadata schema version 5 is incompatible: {table}")
+
+    def _verify_phase6_schema(self, conn: sqlite3.Connection) -> None:
+        self._verify_phase5_schema(conn)
+        for table, expected_columns in _PHASE6_TABLE_COLUMNS.items():
+            actual_columns = self._table_columns(conn, table)
+            if actual_columns != expected_columns:
+                raise RuntimeError(f"metadata schema version 6 is incompatible: {table}")
 
     def _table_columns(self, conn: sqlite3.Connection, table: str) -> set[str]:
         rows = conn.execute(f"PRAGMA table_info({self._quote_literal(table)})").fetchall()
@@ -975,3 +1317,10 @@ class MetadataStore:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
+
+
+def _first_non_empty(*values):
+    for value in values:
+        if value:
+            return value
+    return None

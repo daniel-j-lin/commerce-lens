@@ -666,10 +666,10 @@ def test_repeated_equivalent_evaluation_fails_closed_on_existing_admissible_evid
     assert records[-1].status is EvidenceAdmissibilityStatus.FAILED
 
 
-def test_metadata_store_v5_persistence_and_migrations(tmp_path) -> None:
+def test_metadata_store_v6_persistence_and_migrations(tmp_path) -> None:
     store = MetadataStore(tmp_path / "new.sqlite")
     store.initialize()
-    assert store.schema_version() == 5 == SCHEMA_VERSION
+    assert store.schema_version() == 6 == SCHEMA_VERSION
     _assert_v5_tables(store)
 
     fixture = _fixture(tmp_path / "roundtrip", ("revenue",), [_row()])

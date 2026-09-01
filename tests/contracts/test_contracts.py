@@ -112,6 +112,7 @@ def test_claim_decision_state_validation() -> None:
         policy_version="v1",
         claim_state=ClaimState.INADMISSIBLE,
         reason="policy not implemented",
+        failure_code="unsupported_claim_type",
     )
     assert decision.claim_state is ClaimState.INADMISSIBLE
     assert decision.model_dump(mode="json")["claim_state"] == "Inadmissible"
