@@ -8,18 +8,18 @@ Implementation:
 NOT STARTED
 
 Main Project Review:
-REQUIRED BEFORE IMPLEMENTATION
+CORRECTION REQUIRED APPLIED; RE-REVIEW REQUIRED BEFORE IMPLEMENTATION
 
-This task is task creation only. It does not authorize implementation.
+This task is task specification only. It does not authorize implementation.
 
 P9-001 must not be implemented until a separate Main Project Review approves
-this specification and explicitly authorizes implementation.
+this corrected specification and explicitly authorizes implementation.
 
-Current required baseline:
+Current required correction baseline:
 
 - branch: `main`
-- starting HEAD: `6117b07303daa60f06a8786dc58a8fee62494861`
-- starting HEAD message: `Accelerate roadmap toward public v0.1 Skill`
+- starting HEAD: `84ab96227ea58353217d50b15a23a2051499f4bb`
+- starting HEAD message: `Define P9-001 minimum physical fixture runner`
 - MetadataStore schema: `v6`
 
 Current approved implementation state ends at:
@@ -54,15 +54,84 @@ P8-001 is APPROVED / FROZEN. Do not reopen P1-P8.
 
 ---
 
-## 1. Purpose
+## 1. Read-Only Feasibility Audit
 
-P9-001 defines the smallest physical fixture runner that converts a deliberately
-small, currently executable subset of the Frozen Evaluation Fixture Specification
-and current P1-P8 conformance cases into reproducible physical evaluation assets.
+This correction inspected current repository state read-only before modifying
+this task specification.
+
+Inspected files and areas:
+
+- `pyproject.toml`
+- `src/commerce_lens/application/`
+- current public/in-process application interfaces
+- current P1-P8 production entry points under `src/commerce_lens/`
+- `tests/intake/test_csv_adapter.py`
+- `tests/intake/test_excel_adapter.py`
+- `tests/intake/test_sqlite_adapter.py`
+- `tests/canonical/test_canonicalization.py`
+- `tests/sufficiency/test_evaluator.py`
+- `tests/validation/test_validator.py`
+- `tests/evidence/test_admissibility.py`
+- `tests/evidence/test_claim_admissibility.py`
+
+Factual audit findings:
+
+- PyYAML is already present in approved dependencies as `PyYAML>=6,<7`.
+- `src/commerce_lens/application/__init__.py` is a placeholder containing no
+  public application service callable.
+- `src/commerce_lens/contracts/results.py` defines `AnalysisResult`, but no
+  current public service constructs it across the required P1-P8 path.
+- Current lower-level production entry points include
+  `DatasetRegistry.register_source`, `canonicalize_dataset`,
+  `evaluate_data_sufficiency`, `build_execution_plan`, `execute_plan`,
+  `validate_executed_result`, `evaluate_evidence_admissibility`,
+  `persist_claim_candidate`, `evaluate_claim_admissibility`,
+  `get_authoritative_claim_decision`, `list_authoritative_claim_decisions`, and
+  `verify_claim_decision_artifact`.
+- These lower-level entry points are not the Frozen Architecture public
+  application service used by the Skill.
+- Current CSV adapter conformance coverage is SATISFIED for controlled physical
+  inspection and source preservation.
+- Current XLSX adapter conformance coverage is SATISFIED for controlled physical
+  inspection, governed sheet selection, source preservation, and formula
+  fail-closed behavior.
+- Current SQLite adapter conformance coverage is SATISFIED for controlled
+  physical inspection, governed table selection, read-only access, and no SQL
+  execution from table-name input.
+- Current canonicalization tests also prove material CSV/XLSX/SQLite convergence
+  for canonical monetary values.
+- Current lower-level authority supports missing `line_revenue`
+  (`canonical.line_revenue.invalid`), mixed currency (`canonical.currency.mixed`),
+  duplicate order-line identity (`canonical.identity.duplicate`), and incomplete
+  comparison coverage (`SufficiencyState.INSUFFICIENT_EVIDENCE`) as fail-closed
+  semantics.
+- Because the required public application service is missing, no Frozen Fixture
+  variant is selected for `PHYSICALIZE NOW` in this corrected P9 inventory.
+
+Explicit prerequisite blocker:
+
+`P9_PREREQUISITE_PUBLIC_APPLICATION_SERVICE_MISSING`
+
+P9 implementation must STOP until Main Project separately resolves the public
+application-service prerequisite.
+
+No PyYAML blocker is present because PyYAML is already an approved current
+dependency.
+
+---
+
+## 2. Purpose
+
+P9-001 defines the minimum deterministic semantic and evidence-governance
+physical proof layer before the Public v0.1 Integration Gate.
 
 The purpose is to prove that the implemented CommerceLens reliability chain can
 be exercised against physical structured inputs and deterministic expected
-outcomes.
+outcomes through the same public application-service boundary the Skill uses.
+
+P9-001 does not prove every Public v0.1 release requirement by itself. Source
+adapter release readiness remains a separate release prerequisite recorded in
+this task.
 
 P9-001 is not:
 
@@ -75,15 +144,15 @@ P9-001 is not:
 - a Skill;
 - a CLI product;
 - a UI;
-- a synthetic data generator framework; or
+- a synthetic data generator framework;
+- source-adapter portability productization; or
 - the Public v0.1 Integration Gate.
 
-P9-001 is the final deterministic behavioral proof layer immediately before the
-approved Public v0.1 Integration Gate, but it does not begin that gate.
+P9-001 does not begin the Public v0.1 Integration Gate.
 
 ---
 
-## 2. Governing Authority
+## 3. Governing Authority
 
 P9-001 is subordinate to all Approved / Frozen project authority under
 `docs/frozen/`, especially:
@@ -114,13 +183,61 @@ Do not modify Frozen specifications during P9-001.
 
 ---
 
-## 3. Critical Scope Rule
+## 4. Public Application-Service Authority
+
+Frozen Architecture requires the P9 fixture runner to invoke the same public
+application service used by the Skill.
+
+The required conceptual path is:
+
+```text
+Physical Fixture
+-> Declared AnalysisRequest
+-> Public Engine Application Service
+-> production deterministic pipeline
+-> AnalysisResult / governed structured result
+-> deterministic expected-outcome comparison
+```
+
+Current factual service status:
+
+- Public application service currently exists: NO.
+- Exact module/callable: NONE.
+- Can the current public application service execute the required P1-P8 P9 path:
+  NO.
+
+The future runner must not independently orchestrate production internals by
+directly stitching together:
+
+```text
+intake
+-> canonicalization
+-> sufficiency
+-> executor
+-> validator
+-> evidence
+-> Claim evaluator
+```
+
+as a runner-owned alternative application flow.
+
+P9 implementation must STOP under
+`P9_PREREQUISITE_PUBLIC_APPLICATION_SERVICE_MISSING` until Main Project provides
+or authorizes the public application-service prerequisite.
+
+Do not silently treat private production functions as the public application
+service.
+
+---
+
+## 5. Critical Scope Rule
 
 Do not physicalize a Frozen Fixture merely because it exists in
 `EVALUATION_FIXTURES_SPECIFICATION.md`.
 
 A P9 physical case is eligible only when every material expected behavior that
-P9 claims to evaluate is already supported by current P1-P8 authority.
+P9 claims to evaluate is already supported by current P1-P8 authority and can be
+run through the required public application service.
 
 Current implementation does not yet govern:
 
@@ -143,21 +260,21 @@ No fixture projection may silently remove a material expected outcome and still
 call itself complete conformance to that Frozen Fixture ID.
 
 If only part of a Frozen Fixture is currently executable, implementation must
-either:
-
-1. exclude it from P9; or
-2. define a clearly non-authoritative implementation conformance case that
-   references the governing semantic but does not falsely claim full conformance
-   to the Frozen Fixture ID.
+exclude it from Frozen Fixture physicalization and use a clearly identified
+current-authority P9 conformance case instead.
 
 Do not invent new Frozen Fixture IDs.
 
 ---
 
-## 4. Authorized Physical Asset Shape
+## 6. Physical Fixture Format
+
+Frozen Architecture authority requires YAML metadata plus tiny CSV inputs as the
+primary physical fixture representation.
 
 P9-001 may introduce the smallest repository-local physical asset layout needed
-to exercise current authority. The preferred future shape is:
+to exercise current authority after the public application service prerequisite
+is resolved. The preferred future shape is:
 
 ```text
 tests/
@@ -166,12 +283,17 @@ tests/
       cases/
         <case-id>/
           input.csv
-          manifest.json
+          manifest.yaml
 ```
 
-An equivalent small layout under an existing test fixture convention is
-acceptable if repository inspection during implementation shows a better current
-pattern.
+An equivalent repository layout is acceptable only when it preserves YAML
+metadata plus tiny CSV input as the primary representation.
+
+The runner must load YAML with safe YAML loading. Because `PyYAML>=6,<7` already
+exists in approved dependencies, P9 must reuse that dependency and must not add a
+new dependency for manifest parsing.
+
+JSON is not the primary P9 fixture metadata format.
 
 Physical assets must be:
 
@@ -184,31 +306,49 @@ Physical assets must be:
 - reproducible from a clean checkout; and
 - free of external network dependencies.
 
-CSV should be the default first physical source format unless implementation
-inspection proves another existing path is materially smaller and more
-consistent. JSON is acceptable for fixture metadata because it requires no new
-runtime dependency.
-
 Do not require:
 
-- SQLite fixture databases;
-- XLSX fixture generation;
+- SQLite fixture databases for the semantic P9 suite;
+- XLSX fixture generation for the semantic P9 suite;
 - physical customer, production, private, or scraped proprietary data;
 - a new runtime dependency; or
 - MetadataStore schema v7.
 
-Existing intake unit tests may continue to cover format-specific CSV, XLSX, and
-SQLite inspection behavior. P9 is about integrated physical behavioral
-conformance, not duplicating every intake-format test.
+Existing intake and canonicalization tests may continue to cover format-specific
+CSV, XLSX, and SQLite behavior. P9 is about integrated semantic and
+evidence-governance conformance, not duplicating every source-adapter test.
 
 Expected MetadataStore schema remains `v6`.
 
 ---
 
-## 5. Physical Case Contract
+## 7. Source-Adapter Release Boundary
 
-Every P9 physical or harness-level conformance case must bind the following
-machine-readable fields:
+P9 semantic fixture suite is not the source-adapter conformance suite.
+
+Do not duplicate the semantic fixture inventory across CSV, XLSX, and SQLite.
+
+Current source-adapter conformance audit:
+
+- CSV adapter physical conformance: SATISFIED.
+- XLSX adapter physical conformance: SATISFIED.
+- SQLite adapter physical conformance: SATISFIED.
+
+Unsatisfied source-adapter coverage recorded as Public v0.1 release
+prerequisite:
+
+- NONE.
+
+P9 completion must not be represented as the only Public v0.1 release
+requirement. It covers the minimum semantic and evidence-governance physical
+proof layer.
+
+---
+
+## 8. Physical Case Contract
+
+Every P9 physical, runner-level, or harness-level conformance case must bind the
+following machine-readable fields:
 
 - stable case identity;
 - governing Frozen Fixture ID when fully applicable;
@@ -220,7 +360,7 @@ machine-readable fields:
 - applicable Metric or Metrics;
 - expected Data Sufficiency state;
 - expected execution disposition;
-- expected deterministic result or governed Metric state where applicable;
+- expected deterministic result or governed Metric state;
 - expected validation disposition;
 - expected Metric state;
 - expected Evidence disposition;
@@ -240,8 +380,8 @@ fixture rows.
 One case variant must encode exactly one authoritative expected material outcome.
 The runner must not accept:
 
-- PASS or PASS WITH QUALIFICATION;
-- one of several failure codes;
+- PASS with qualification as an alternative to PASS;
+- multiple allowable failure codes;
 - `if material`;
 - `as applicable`;
 - fuzzy numerical tolerances that replace governed Decimal semantics; or
@@ -249,13 +389,14 @@ The runner must not accept:
 
 ---
 
-## 6. Minimum Behavioral Coverage
+## 9. Minimum Behavioral Coverage
 
-The approved P9 implementation must target approximately 6-8 cases total. It
-must not exceed 10 physical/conformance cases without a documented Main Project
-reason.
+The approved P9 implementation must target exactly 8 cases in its initial
+inventory. It must not exceed 10 physical/conformance cases without a documented
+Main Project reason.
 
-The minimum suite must prove the following currently implemented behaviors.
+The minimum suite must prove the following currently implemented behaviors after
+the public application service prerequisite is resolved.
 
 ### A. Supported Positive Chain
 
@@ -266,6 +407,7 @@ physical structured input
 -> intake
 -> canonicalization
 -> Data Sufficiency
+-> Public Engine Application Service
 -> ExecutionPlan
 -> deterministic execution
 -> deterministic validation
@@ -274,9 +416,8 @@ physical structured input
 -> authoritative Admissible ClaimDecision
 ```
 
-This positive chain may use Revenue, Orders, numeric AOV, Revenue Change, or a
-minimal combination of those Metrics. It must use only currently governed Metrics
-and `ClaimType.DESCRIPTIVE`.
+This positive chain must use only currently governed Metrics and
+`ClaimType.DESCRIPTIVE`.
 
 Do not require Revenue Change Percentage.
 
@@ -285,15 +426,12 @@ Do not require Revenue Change Percentage.
 At least one physical case must prove materially missing or invalid Required
 Evidence causes the affected chain to stop without fabricated result.
 
-Preferred currently executable semantics include:
+The exact initial fail-closed cases are:
 
-- missing `line_revenue`;
-- invalid or mixed currency;
-- incomplete comparison period; or
-- unresolved duplicate identity.
+- missing `line_revenue`, failure code `canonical.line_revenue.invalid`; and
+- mixed currency, failure code `canonical.currency.mixed`.
 
-The selected case must be fully supported by current implementation. Required
-outcome must preserve:
+Each required outcome must preserve:
 
 ```text
 Insufficient evidence to conclude.
@@ -301,31 +439,53 @@ Insufficient evidence to conclude.
 
 ### C. Deterministic Validation Failure
 
-At least one case must prove:
+One harness-level case must prove:
 
 ```text
 ExecutedResult != ValidatedResult
 ```
 
-and that a deterministic validation failure cannot produce `AdmissibleEvidence`
-or an admissible material Claim.
+The exact validation attack is:
 
-Use an already implemented P5/P6 validation behavior. Do not invent a new
-validator. If production execution cannot naturally produce the invalid
-candidate, the implementation may use a harness-level case that persists or
-substitutes an intentionally invalid `ExecutedResult` artifact and then invokes
-the existing production validator and evidence APIs.
+- persist a `revenue_change` `ExecutedResult` with value `21.00` when authentic
+  Baseline Revenue is `100.00` and authentic Comparison Revenue is `120.00`,
+  recompute that artifact fingerprint, and invoke the existing production
+  validator.
+
+The exact validation rule is:
+
+- `validation:revenue_change_from_validated_revenues`
+
+The exact validation failure code is:
+
+- `value_mismatch`
+
+The case must produce no authoritative `ValidatedResult`, no
+`AdmissibleEvidence`, and no admissible material Claim permission for the failed
+chain.
+
+Do not invent a new validator.
 
 ### D. Claim Refusal
 
-At least one P8 conformance case must prove that authentic descriptive Evidence
-cannot authorize an unsupported stronger Claim.
+One P8 conformance case must prove that authentic descriptive Evidence cannot
+authorize an unsupported stronger Claim.
 
-The minimum public-v0.1-oriented scenario is:
+The exact unsupported stronger Claim type is:
 
-- Revenue decline is supported descriptively; and
-- a Claim about why Revenue declined is rejected because current Evidence does
-  not support diagnostic, causal, predictive, or prescriptive authority.
+- `ClaimType.DIAGNOSTIC`
+
+The exact public-v0.1-oriented question class is:
+
+- `why_did_revenue_decline`
+
+The exact expected `ClaimDecision` is:
+
+- `ClaimState.INADMISSIBLE`
+
+The exact failure code is:
+
+- `unsupported_claim_type`
 
 This case must end at `ClaimDecision`.
 
@@ -349,9 +509,9 @@ The case must explicitly prove:
 AOV Undefined != numeric zero
 ```
 
-This behavior is governed by Approved / Frozen P6/P8 task authority even if the
-older Frozen Evaluation Fixture inventory does not contain a directly matching
-dedicated physical Fixture ID.
+This behavior is governed by Approved / Frozen P6/P8 task authority even though
+the older Frozen Evaluation Fixture inventory does not contain a directly
+matching dedicated physical Fixture ID.
 
 Do not invent a Frozen FX ID for this case.
 
@@ -373,45 +533,215 @@ with:
 - descriptive Admissible `ClaimDecision`; and
 - no formula duplication in the fixture runner.
 
-The runner must consume production authority. It must not implement Revenue
-Change arithmetic itself.
+The runner must consume production authority through the public application
+service. It must not implement Revenue Change arithmetic itself.
 
 ### G. Provenance / Tamper Fail-Closed
 
-At least one runner-level or harness-level case must demonstrate that a
-tampered/substituted authoritative artifact or lineage cannot become an
-authoritative material Claim.
+One harness-level case must demonstrate that substituted authoritative lineage
+cannot become authoritative material Claim permission.
 
-Do not build a security framework. Reuse current P6-P8 artifact verification,
-lineage, and ClaimDecision APIs.
+The exact attack is:
 
----
+- create an authentic Revenue descriptive candidate for one request, substitute
+  same-valued Revenue `AdmissibleEvidence` and `ValidatedResult` references from
+  a foreign request, persist the substituted candidate in the foreign authority
+  context, and invoke `evaluate_claim_admissibility`.
 
-## 7. Initial Case Plan
+The exact expected failure code is:
 
-The following case plan is intentionally small. Final implementation may adjust
-case IDs and exact row values during Main Project-approved implementation, but it
-must preserve the coverage and boundary rules above.
+- `cross_request_substitution`
 
-| Case ID | Class | Frozen Fixture ID | Purpose | Metrics | Expected final disposition |
-|---|---|---:|---|---|---|
-| `P9-CONF-POS-001` | Current-authority conformance | None | Physical positive same-period chain through descriptive ClaimDecision | `revenue`, `orders`, `aov` | Admissible descriptive ClaimDecision |
-| `P9-CONF-REVCHG-001` | Current-authority conformance | None | Physical Revenue Change vertical slice with authentic period Revenue dependencies | `revenue_change` | Admissible descriptive ClaimDecision |
-| `P9-FX-SUFF-003-001` | Physicalize now if implementation confirms full current support | `FX-SUFF-003` | Missing `line_revenue` fails Data Sufficiency closed | `revenue` | Insufficient evidence to conclude |
-| `P9-FX-SUFF-001A-001` | Physicalize now if implementation confirms full current support | `FX-SUFF-001` variant A | Mixed unnormalized currency fails closed without conversion | `revenue` or `revenue_change` | Insufficient evidence to conclude |
-| `P9-CONF-VAL-AOV-001` | Harness-level current-authority conformance | None | Existing AOV validation rejects wrong executed value/formula | `aov` | Validation failure, no AdmissibleEvidence, no admissible Claim |
-| `P9-CONF-CLAIM-REFUSAL-001` | Current-authority conformance | None | Descriptive Revenue decline evidence cannot authorize why/diagnostic Claim | `revenue_change` or `revenue` | Inadmissible ClaimDecision |
-| `P9-CONF-AOV-UNDEFINED-001` | Current-authority conformance | None | Orders zero makes AOV Undefined with `orders_equals_zero`, not numeric zero | `orders`, `aov` | Admissible descriptive metric-state ClaimDecision |
-| `P9-CONF-TAMPER-001` | Runner/harness-level current-authority conformance | None | Tampered or substituted lineage fails closed before material Claim permission | Any current governed Metric | Inadmissible ClaimDecision or fail-closed verification outcome |
+The exact expected `ClaimDecision` is:
 
-The implementation must not treat this table as authorization to overclaim full
-Frozen Fixture conformance. For each Frozen Fixture row, implementation must
-first prove every material expected behavior for the selected fixture variant is
-currently executable without omitting unimplemented scope.
+- `ClaimState.INADMISSIBLE`
+
+Do not build a security framework. Reuse current P8 ClaimDecision authority.
 
 ---
 
-## 8. Frozen Fixture Compatibility Matrix
+## 10. Exact Initial Case Inventory
+
+The initial P9 inventory contains exactly 8 cases. Every case has one exact
+material outcome.
+
+| Field | `P9-CONF-POS-001` |
+|---|---|
+| Case class | Current-authority conformance |
+| Frozen Fixture ID | NONE |
+| Authority reference | P4/P5/P6/P8 Revenue, Orders, and AOV descriptive chain |
+| Case level | physical-input |
+| Source input path | `tests/fixtures/p9/cases/P9-CONF-POS-001/input.csv` |
+| Metrics | `revenue`, `orders`, `aov` |
+| Analytical request class | `describe_total_revenue_orders_aov_single_period` |
+| Expected Data Sufficiency state | `SufficiencyState.SUFFICIENT` |
+| Expected execution disposition | completed |
+| Expected deterministic value / state | Revenue `10.00`; Orders `1`; AOV `10.00` |
+| Expected validation disposition | passed |
+| Expected Metric state | `MetricState.VALID` for all three Metrics |
+| Expected Evidence disposition | `EvidenceAdmissibilityStatus.PASSED`, `EvidenceRole.METRIC_VALUE` |
+| Expected ClaimType | `ClaimType.DESCRIPTIVE` |
+| Expected ClaimState | `ClaimState.ADMISSIBLE` |
+| Expected failure code | NONE |
+| Expected final disposition | completed with authoritative descriptive ClaimDecision |
+| Prohibited material output | diagnostic, causal, predictive, prescriptive, Finding, Recommendation |
+| Governing authority | P4-001, P5-001, P6-001, P8-001 |
+
+| Field | `P9-CONF-REVCHG-001` |
+|---|---|
+| Case class | Current-authority conformance |
+| Frozen Fixture ID | NONE |
+| Authority reference | P7/P8 Revenue Change descriptive authority |
+| Case level | physical-input |
+| Source input path | `tests/fixtures/p9/cases/P9-CONF-REVCHG-001/input.csv` |
+| Metrics | `revenue_change` |
+| Analytical request class | `describe_total_revenue_change_baseline_to_comparison` |
+| Expected Data Sufficiency state | `SufficiencyState.SUFFICIENT` |
+| Expected execution disposition | completed |
+| Expected deterministic value / state | Baseline Revenue `100.00`; Comparison Revenue `120.00`; Revenue Change `20.00` |
+| Expected validation disposition | passed |
+| Expected Metric state | `MetricState.VALID` |
+| Expected Evidence disposition | `EvidenceAdmissibilityStatus.PASSED`, `EvidenceRole.METRIC_VALUE` |
+| Expected ClaimType | `ClaimType.DESCRIPTIVE` |
+| Expected ClaimState | `ClaimState.ADMISSIBLE` |
+| Expected failure code | NONE |
+| Expected final disposition | completed with authoritative descriptive Revenue Change ClaimDecision |
+| Prohibited material output | Revenue Change %, why/driver/cause, contribution, ranking, Finding, Recommendation |
+| Governing authority | P7-001, P8-001 |
+
+| Field | `P9-CONF-SUFF-MISSING-REVENUE-001` |
+|---|---|
+| Case class | Current-authority conformance |
+| Frozen Fixture ID | NONE |
+| Authority reference | Frozen `FX-SUFF-003` semantic reference without Frozen ID claim; Phase 2/P3 fail-closed authority |
+| Case level | physical-input |
+| Source input path | `tests/fixtures/p9/cases/P9-CONF-SUFF-MISSING-REVENUE-001/input.csv` |
+| Metrics | `revenue` |
+| Analytical request class | `describe_total_revenue_single_period` |
+| Expected Data Sufficiency state | `SufficiencyState.DATA_QUALITY_FAILURE` |
+| Expected execution disposition | not started |
+| Expected deterministic value / state | no value; `MetricState.INADMISSIBLE` |
+| Expected validation disposition | not started |
+| Expected Evidence disposition | not started |
+| Expected ClaimType | `ClaimType.DESCRIPTIVE` |
+| Expected ClaimState | `NO_CLAIM_DECISION_AUTHORIZED` |
+| Expected failure code | `canonical.line_revenue.invalid` |
+| Expected final disposition | Insufficient evidence to conclude; fail closed |
+| Prohibited material output | derived `quantity * unit_price`, zero-imputed Revenue, ExecutedResult, ValidatedResult, AdmissibleEvidence, ClaimDecision |
+| Governing authority | Canonical Dataset and Metric Dictionary, Phase 2, P3-001 |
+
+| Field | `P9-CONF-SUFF-MIXED-CURRENCY-001` |
+|---|---|
+| Case class | Current-authority conformance |
+| Frozen Fixture ID | NONE |
+| Authority reference | Frozen `FX-SUFF-001` mixed-currency semantic reference without Frozen ID claim; Phase 2/P3 fail-closed authority |
+| Case level | physical-input |
+| Source input path | `tests/fixtures/p9/cases/P9-CONF-SUFF-MIXED-CURRENCY-001/input.csv` |
+| Metrics | `revenue` |
+| Analytical request class | `describe_total_revenue_single_period` |
+| Expected Data Sufficiency state | `SufficiencyState.DATA_QUALITY_FAILURE` |
+| Expected execution disposition | not started |
+| Expected deterministic value / state | no value; `MetricState.INADMISSIBLE` |
+| Expected validation disposition | not started |
+| Expected Evidence disposition | not started |
+| Expected ClaimType | `ClaimType.DESCRIPTIVE` |
+| Expected ClaimState | `NO_CLAIM_DECISION_AUTHORIZED` |
+| Expected failure code | `canonical.currency.mixed` |
+| Expected final disposition | Insufficient evidence to conclude; fail closed |
+| Prohibited material output | FX conversion, inferred currency basis, aggregated monetary result, ExecutedResult, ValidatedResult, AdmissibleEvidence, ClaimDecision |
+| Governing authority | Canonical Dataset and Metric Dictionary, Phase 2, P3-001 |
+
+| Field | `P9-CONF-AOV-UNDEFINED-001` |
+|---|---|
+| Case class | Current-authority conformance |
+| Frozen Fixture ID | NONE |
+| Authority reference | P6/P8 AOV Undefined authority |
+| Case level | physical-input |
+| Source input path | `tests/fixtures/p9/cases/P9-CONF-AOV-UNDEFINED-001/input.csv` |
+| Metrics | `orders`, `aov` |
+| Analytical request class | `describe_aov_state_single_period_zero_orders` |
+| Expected Data Sufficiency state | `SufficiencyState.SUFFICIENT` |
+| Expected execution disposition | completed |
+| Expected deterministic value / state | Orders `0`; AOV `MetricState.UNDEFINED`; `undefined_reason=orders_equals_zero`; AOV value `None` |
+| Expected validation disposition | passed |
+| Expected Metric state | Orders `MetricState.VALID`; AOV `MetricState.UNDEFINED` |
+| Expected Evidence disposition | `EvidenceAdmissibilityStatus.PASSED`, `EvidenceRole.METRIC_STATE` |
+| Expected ClaimType | `ClaimType.DESCRIPTIVE` |
+| Expected ClaimState | `ClaimState.ADMISSIBLE` |
+| Expected failure code | NONE |
+| Expected final disposition | completed with authoritative descriptive AOV state ClaimDecision |
+| Prohibited material output | numeric AOV zero, AOV metric-value Evidence, stronger Claim, Finding, Recommendation |
+| Governing authority | P6-001, P8-001 |
+
+| Field | `P9-CONF-VAL-REVCHG-WRONG-VALUE-001` |
+|---|---|
+| Case class | Current-authority conformance |
+| Frozen Fixture ID | NONE |
+| Authority reference | P5/P7 Revenue Change validation authority |
+| Case level | harness-level |
+| Source input path | NONE |
+| Metrics | `revenue_change` |
+| Analytical request class | `validate_total_revenue_change_baseline_to_comparison` |
+| Expected Data Sufficiency state | `SufficiencyState.SUFFICIENT` |
+| Expected execution disposition | tampered ExecutedResult exists with value `21.00` |
+| Expected deterministic value / state | authoritative expected Revenue Change `20.00`; submitted value `21.00` |
+| Expected validation disposition | failed by `validation:revenue_change_from_validated_revenues` |
+| Expected Metric state | `MetricState.INADMISSIBLE` for the failed chain |
+| Expected Evidence disposition | no AdmissibleEvidence authorized |
+| Expected ClaimType | `ClaimType.DESCRIPTIVE` |
+| Expected ClaimState | `NO_CLAIM_DECISION_AUTHORIZED` for the failed chain |
+| Expected failure code | `value_mismatch` |
+| Expected final disposition | validation failure; fail closed |
+| Prohibited material output | ValidatedResult, AdmissibleEvidence, admissible ClaimDecision, narrative repair |
+| Governing authority | P5-001, P7-001 |
+
+| Field | `P9-CONF-CLAIM-DIAGNOSTIC-REFUSAL-001` |
+|---|---|
+| Case class | Current-authority conformance |
+| Frozen Fixture ID | NONE |
+| Authority reference | P8 unsupported stronger Claim authority |
+| Case level | harness-level |
+| Source input path | NONE |
+| Metrics | `revenue_change` |
+| Analytical request class | `why_did_revenue_decline` |
+| Expected Data Sufficiency state | `SufficiencyState.SUFFICIENT` |
+| Expected execution disposition | completed |
+| Expected deterministic value / state | Revenue Change `-20.00` |
+| Expected validation disposition | passed |
+| Expected Metric state | `MetricState.VALID` |
+| Expected Evidence disposition | `EvidenceAdmissibilityStatus.PASSED`, `EvidenceRole.METRIC_VALUE` |
+| Expected ClaimType | `ClaimType.DIAGNOSTIC` |
+| Expected ClaimState | `ClaimState.INADMISSIBLE` |
+| Expected failure code | `unsupported_claim_type` |
+| Expected final disposition | Inadmissible ClaimDecision |
+| Prohibited material output | diagnostic answer, causal explanation, Finding, AlternativeExplanation artifact, Recommendation |
+| Governing authority | P8-001 |
+
+| Field | `P9-CONF-TAMPER-CROSS-REQUEST-001` |
+|---|---|
+| Case class | Current-authority conformance |
+| Frozen Fixture ID | NONE |
+| Authority reference | P8 cross-request substitution authority |
+| Case level | harness-level |
+| Source input path | NONE |
+| Metrics | `revenue` |
+| Analytical request class | `describe_total_revenue_single_period_with_foreign_evidence_substitution` |
+| Expected Data Sufficiency state | `SufficiencyState.SUFFICIENT` |
+| Expected execution disposition | completed for original and foreign contexts |
+| Expected deterministic value / state | original Revenue `10.00`; foreign Revenue `10.00`; substituted foreign Evidence refs |
+| Expected validation disposition | passed for original and foreign contexts |
+| Expected Metric state | `MetricState.VALID` |
+| Expected Evidence disposition | foreign Evidence rejected for original Claim authority |
+| Expected ClaimType | `ClaimType.DESCRIPTIVE` |
+| Expected ClaimState | `ClaimState.INADMISSIBLE` |
+| Expected failure code | `cross_request_substitution` |
+| Expected final disposition | Inadmissible ClaimDecision; fail closed |
+| Prohibited material output | authoritative admissible ClaimDecision from substituted Evidence, equal-value provenance bypass |
+| Governing authority | P8-001 |
+
+---
+
+## 11. Frozen Fixture Compatibility Matrix
 
 This planning matrix establishes how P9 distinguishes full Frozen Fixture
 physicalization from implementation-level conformance cases. It is not a full
@@ -419,24 +749,26 @@ physicalization from implementation-level conformance cases. It is not a full
 
 | Class | Examples | P9 treatment |
 |---|---|---|
-| PHYSICALIZE NOW | `FX-SUFF-003 Missing Revenue Input`; `FX-SUFF-001` mixed-currency variant; possibly `FX-DQ-002 Exact Duplicate Identity` or `FX-SUFF-004 Incomplete Period` if implementation inspection confirms full current support | May use the Frozen Fixture ID only when the complete material expected outcome is executable with P1-P8 authority |
-| CURRENT-AUTHORITY CONFORMANCE CASE | supported physical positive descriptive chain; Revenue Change descriptive ClaimDecision; AOV Undefined because Orders = 0; descriptive Evidence refusing diagnostic/causal/predictive/prescriptive Claim; P6-P8 tamper/substitution fail-closed cases | Use stable P9 conformance IDs; do not invent or reuse Frozen FX IDs |
-| DEFER | `FX-VALID-001` complete canonical workflow; `FX-METRIC-001` when evaluating Revenue Change %; `FX-CLAIM-002`; `FX-CLAIM-003`; `FX-CLAIM-004`; contribution, ranking, product/category, Finding, Alternative Explanation, Recommendation, or positive Qualified Admissible fixtures | Do not physicalize in P9 unless a later Main Project-approved task implements the missing authority |
+| PHYSICALIZE NOW | NONE | No Frozen Fixture ID is selected while `P9_PREREQUISITE_PUBLIC_APPLICATION_SERVICE_MISSING` remains unresolved |
+| CURRENT-AUTHORITY CONFORMANCE CASE | `P9-CONF-POS-001`; `P9-CONF-REVCHG-001`; `P9-CONF-SUFF-MISSING-REVENUE-001`; `P9-CONF-SUFF-MIXED-CURRENCY-001`; `P9-CONF-AOV-UNDEFINED-001`; `P9-CONF-VAL-REVCHG-WRONG-VALUE-001`; `P9-CONF-CLAIM-DIAGNOSTIC-REFUSAL-001`; `P9-CONF-TAMPER-CROSS-REQUEST-001` | Use stable P9 conformance IDs; do not invent Frozen FX IDs |
+| DEFER | `FX-VALID-001` complete canonical workflow; `FX-SUFF-003`; `FX-SUFF-001`; `FX-DQ-002`; `FX-SUFF-004`; `FX-METRIC-001` when evaluating Revenue Change %; `FX-CLAIM-002`; `FX-CLAIM-003`; `FX-CLAIM-004`; contribution, ranking, product/category, Finding, Alternative Explanation, Recommendation, positive Qualified Admissible fixtures | Defer Frozen Fixture ID physicalization until the public application service exists and Main Project confirms complete material conformance for each selected Frozen Fixture |
 
 The full Frozen fixture suite is not required for P9.
 
 ---
 
-## 9. Runner Responsibility
+## 12. Runner Responsibility
 
-The future P9 runner must be thin.
+The future P9 runner must be thin and must invoke the public application service
+once the service prerequisite is resolved.
 
 It may:
 
 - discover approved P9 case manifests;
 - load physical fixture data;
-- invoke existing production CommerceLens interfaces;
-- collect deterministic artifacts and results;
+- load `manifest.yaml` with safe YAML loading;
+- submit the declared `AnalysisRequest` to the public application service;
+- collect the governed structured `AnalysisResult`;
 - compare actual material outputs against expected contracts;
 - emit deterministic per-case PASS/FAIL; and
 - emit failure detail useful for review.
@@ -445,6 +777,8 @@ It must not:
 
 - calculate Metrics independently;
 - reproduce Metric formulas;
+- independently orchestrate production internals as an alternative application
+  flow;
 - repair production results;
 - synthesize missing Evidence;
 - use LLM judgment;
@@ -459,17 +793,17 @@ It must not:
 - create leaderboards; or
 - create confidence scores.
 
-The production engine remains authoritative. The runner is an evaluator, not a
-second analytics implementation.
+The production engine remains authoritative through the public application
+service. The runner is an evaluator, not a second analytics implementation.
 
 Physical Fixture Runner is not the Decision Reliability Benchmark.
 
 ---
 
-## 10. Public v0.1 Relationship
+## 13. Public v0.1 Relationship
 
-P9-001 must make it possible for the later Public v0.1 Integration Gate to
-demonstrate:
+P9-001 must provide the deterministic physical evidence layer that allows the
+later Public v0.1 Integration Gate to demonstrate:
 
 ```text
 supported descriptive answer
@@ -496,13 +830,13 @@ P9-001 itself must not create:
 
 ---
 
-## 11. Test Strategy
+## 14. Test Strategy
 
 Future P9 implementation tests must cover at least:
 
-- manifest/case schema validation;
+- safe YAML manifest/case schema validation;
 - case discovery;
-- independent case execution;
+- independent case execution through the public application service;
 - deterministic expected-vs-actual comparison;
 - one-case-one-outcome enforcement;
 - unknown fixture/conformance type rejection;
@@ -514,44 +848,49 @@ Future P9 implementation tests must cover at least:
 - prohibited material output detection where structurally representable;
 - fixture order independence;
 - repeat-run deterministic result identity where semantics require it;
-- runner behavior without duplicating Metric formulas; and
-- rejection of benchmark scoring output.
+- runner behavior without duplicating Metric formulas;
+- rejection of benchmark scoring output; and
+- hard failure when the public application service callable is unavailable.
 
 Do not duplicate every P1-P8 unit test. P9 tests must focus on integrated
 physical behavior and runner contract behavior.
 
 ---
 
-## 12. Acceptance Criteria
+## 15. Acceptance Criteria
 
 P9-001 implementation is successful only if:
 
-1. the approved minimum physical/conformance suite exists;
-2. every case is synthetic and public-safe;
-3. every case has one deterministic expected outcome;
-4. the runner invokes production CommerceLens authority rather than duplicating
-   Metric logic;
-5. a supported positive chain reaches authoritative `ClaimDecision`;
-6. insufficiency fails closed;
-7. deterministic validation failure remains distinct from execution failure;
-8. AOV Undefined remains Undefined and not zero;
-9. an unsupported stronger Claim becomes `Inadmissible`;
-10. Revenue Change reaches authoritative descriptive `ClaimDecision`;
-11. tampered/substituted provenance cannot create authoritative Claim
+1. `P9_PREREQUISITE_PUBLIC_APPLICATION_SERVICE_MISSING` has been resolved by
+   Main Project before implementation authorization;
+2. the approved minimum physical/conformance suite exists;
+3. every case is synthetic and public-safe;
+4. every case has one deterministic expected outcome;
+5. every manifest uses YAML metadata loaded safely;
+6. every semantic physical fixture input uses tiny CSV;
+7. the runner invokes the public application service rather than duplicating
+   Metric logic or stitching private internals;
+8. a supported positive chain reaches authoritative `ClaimDecision`;
+9. insufficiency fails closed;
+10. deterministic validation failure remains distinct from execution failure;
+11. AOV Undefined remains Undefined and not zero;
+12. an unsupported diagnostic Claim becomes `Inadmissible`;
+13. Revenue Change reaches authoritative descriptive `ClaimDecision`;
+14. cross-request substituted provenance cannot create authoritative Claim
     permission;
-12. cases are isolated and order-independent;
-13. no scoring or benchmark productization exists;
-14. no future Metric, Finding, Alternative Explanation, Recommendation, or
+15. cases are isolated and order-independent;
+16. no scoring or benchmark productization exists;
+17. no future Metric, Finding, Alternative Explanation, Recommendation, or
     positive Qualified Admissible behavior is introduced;
-15. MetadataStore schema remains `v6`;
-16. no new dependency is added unless a Main Project STOP review authorizes it;
-17. no Frozen file is modified;
-18. no P1-P8 task semantics are reopened; and
-19. the full repository regression suite passes.
+18. MetadataStore schema remains `v6`;
+19. no new dependency is added;
+20. no Frozen file is modified;
+21. no P1-P8 task semantics are reopened; and
+22. the full repository regression suite passes.
 
 ---
 
-## 13. Protected Boundaries
+## 16. Protected Boundaries
 
 Future P9 implementation must not modify unless separately reviewed:
 
@@ -574,17 +913,21 @@ request Main Project Review.
 
 ---
 
-## 14. Stop Conditions
+## 17. Stop Conditions
 
 Implementation must STOP if:
 
+- `P9_PREREQUISITE_PUBLIC_APPLICATION_SERVICE_MISSING` remains unresolved;
+- PyYAML is removed from approved dependencies before P9 implementation, in
+  which case record `P9_PREREQUISITE_PYYAML_MISSING` and request Main Project
+  review;
 - a selected Frozen Fixture cannot be fully represented without omitting a
   material expected behavior;
 - a physical case would require inventing new analytical semantics;
 - the runner needs to duplicate Metric formulas;
 - the runner needs LLM judgment;
-- current production interfaces cannot execute a required P9 case without
-  architecture redesign;
+- the runner needs to orchestrate private production internals instead of the
+  public application service;
 - P9 requires Revenue Change %;
 - P9 requires Product/Category Metrics;
 - P9 requires Contribution/ranking;
@@ -600,13 +943,14 @@ Do not silently solve a STOP condition.
 
 ---
 
-## 15. Non-Authorization
+## 18. Non-Authorization
 
 This task specification does not authorize:
 
 - creating fixture directories;
-- creating physical CSV/JSON fixture assets;
+- creating physical CSV/YAML fixture assets;
 - writing a fixture runner;
+- writing a public application service;
 - writing production code;
 - modifying tests;
 - modifying Frozen specifications;
@@ -619,25 +963,38 @@ This task specification does not authorize:
 - creating benchmark scoring; or
 - pushing commits.
 
-After this task specification is created and committed, STOP.
+After this task specification is corrected and committed, STOP.
 
 ---
 
-## 16. Self-Review Checklist
+## 19. Self-Review Checklist
 
 Before implementation authorization, Main Project Review must verify:
 
-- P9 is minimum physical proof, not full benchmark;
+- primary metadata format is YAML, not JSON;
+- tiny CSV remains the primary semantic fixture input;
+- no new dependency was added;
+- current PyYAML status is factual;
+- runner authority explicitly requires the public application service;
+- missing application service is a STOP prerequisite;
+- exact case inventory contains no conditional case selection;
+- every case has one exact material outcome;
+- no outcome contains multiple acceptable alternatives;
+- Frozen FX IDs are not used while the public application service prerequisite is
+  unresolved;
+- AOV Undefined uses a P9 current-authority identity;
+- tamper case has one exact attack and failure result;
+- Claim refusal has one exact unsupported Claim type;
+- validation failure has one exact validator/failure;
+- adapter release prerequisite status is recorded;
+- P9 is not Benchmark;
+- P9 does not begin Skill integration;
 - no requirement says all 40 Frozen fixture families must be implemented;
 - no unimplemented Metric is required;
-- no Frozen Fixture ID is reused for a materially partial outcome;
-- AOV Undefined is represented through current authority without inventing a
-  Frozen FX ID;
 - supported Claim permission is descriptive only;
 - no positive Qualified Admissible path is invented;
 - Revenue Change formula is not duplicated;
 - the runner is thin;
 - expected outcomes are deterministic;
-- physical cases are synthetic/public-safe;
-- P9 ends before Skill integration; and
-- Public v0.1 Integration Gate remains next after P9.
+- physical cases are synthetic/public-safe; and
+- Public v0.1 Integration Gate remains after P9.
