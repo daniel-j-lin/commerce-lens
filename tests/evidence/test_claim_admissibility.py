@@ -15,8 +15,10 @@ from commerce_lens.evidence.claim_admissibility import (
     evaluate_claim_admissibility,
     persist_claim_candidate,
     verify_claim_decision_artifact,
+    _decision_from_candidate,
 )
 from commerce_lens.evidence.identifiers import canonical_json_fingerprint, canonical_json_bytes, sha256_file, stable_content_id
+from commerce_lens.engine import execute_plan
 from commerce_lens.persistence.metadata_store import MetadataStore, SCHEMA_VERSION
 from commerce_lens.contracts.common import ArtifactReference
 from tests.evidence.test_admissibility import (
@@ -56,7 +58,7 @@ def test_revenue_orders_and_numeric_aov_descriptive_claims_are_admissible(tmp_pa
         assert decision.policy_id == CLAIM_POLICY_ID
         assert decision.policy_version == CLAIM_POLICY_VERSION
         assert decision.supporting_evidence_refs == (evidence.evidence_id,)
-        assert not fixture.metadata_store.list_claim_decisions()[-1].required_qualifications
+        assert not fixture.metadata_store.list_claim_decisions(fixture.artifact_store)[-1].required_qualifications
 
 
 def test_revenue_change_descriptive_claim_is_admissible_without_recomputing_formula(tmp_path) -> None:
@@ -115,7 +117,6 @@ def test_claim_decision_persists_immutable_verifiable_artifact(tmp_path) -> None
         artifact_store=fixture.artifact_store,
         metadata_store=fixture.metadata_store,
         expected_decision=decision,
-        claim_candidate_fingerprint=fixture.metadata_store.get_claim_candidate(decision.claim_candidate_ref, fixture.artifact_store).claim_candidate_fingerprint,
     )
 
     assert restored == decision
@@ -123,6 +124,97 @@ def test_claim_decision_persists_immutable_verifiable_artifact(tmp_path) -> None
     with pytest.raises(ClaimAdmissibilityError) as exc_info:
         verify_claim_decision_artifact(artifact, artifact_store=fixture.artifact_store, metadata_store=fixture.metadata_store)
     assert exc_info.value.failure_code == "claim_decision_artifact_hash_mismatch"
+
+
+def test_forged_admissible_claim_decision_direct_persistence_fails_closed(tmp_path) -> None:
+    fixture, result, evidence = _evidence_chain(tmp_path, "revenue")
+    candidate = persist_claim_candidate(
+        _candidate_from_evidence(fixture, result, evidence),
+        artifact_store=fixture.artifact_store,
+        metadata_store=fixture.metadata_store,
+    )
+    forged = _decision_from_candidate(
+        candidate,
+        claim_state=ClaimState.ADMISSIBLE,
+        reason="caller-created Admissible decision bypassing deterministic evaluation",
+        failure_code=None,
+    )
+
+    with pytest.raises(RuntimeError, match="deterministic Claim admissibility evaluator"):
+        fixture.metadata_store.insert_claim_decision(forged, fixture.artifact_store)
+    with pytest.raises(TypeError):
+        fixture.metadata_store.insert_claim_decision(
+            forged,
+            fixture.artifact_store,
+            claim_candidate_fingerprint=candidate.claim_candidate_fingerprint,
+        )
+
+    fabricated_candidate = forged.model_copy(
+        update={
+            "claim_decision_id": "clmdec_fabricated",
+            "decision_id": "clmdec_fabricated",
+            "claim_candidate_ref": "clmcand_fabricated",
+        }
+    )
+    with pytest.raises(RuntimeError, match="deterministic Claim admissibility evaluator"):
+        fixture.metadata_store.insert_claim_decision(fabricated_candidate, fixture.artifact_store)
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    [
+        "row_record_json_only",
+        "indexed_claim_state",
+        "indexed_policy_id",
+        "indexed_policy_version",
+        "indexed_decision_fingerprint",
+        "artifact_content",
+        "missing_artifact",
+        "candidate_ref_substitution",
+        "evidence_ref_substitution",
+        "validated_result_ref_substitution",
+    ],
+)
+def test_claim_decision_authoritative_verification_tamper_failures(tmp_path, tamper) -> None:
+    fixture, result, evidence = _evidence_chain(tmp_path, "revenue")
+    decision = _persist_and_decide(fixture, _candidate_from_evidence(fixture, result, evidence))
+    artifact = _decision_artifact(fixture, decision.claim_decision_id)
+
+    if tamper == "row_record_json_only":
+        _tamper_decision_record_json_only(fixture, decision.claim_decision_id, {"reason": "row-only tamper"})
+    elif tamper == "indexed_claim_state":
+        _set_claim_decision_index(fixture, decision.claim_decision_id, "claim_state", ClaimState.INADMISSIBLE.value)
+    elif tamper == "indexed_policy_id":
+        _set_claim_decision_index(fixture, decision.claim_decision_id, "policy_id", "forged_policy")
+    elif tamper == "indexed_policy_version":
+        _set_claim_decision_index(fixture, decision.claim_decision_id, "policy_version", "forged_version")
+    elif tamper == "indexed_decision_fingerprint":
+        _set_claim_decision_index(fixture, decision.claim_decision_id, "decision_fingerprint", "f" * 64)
+    elif tamper == "artifact_content":
+        _tamper_artifact(fixture, artifact, {"reason": "artifact tamper"})
+    elif tamper == "missing_artifact":
+        fixture.artifact_store.safe_path(artifact.path).unlink()
+    elif tamper == "candidate_ref_substitution":
+        _tamper_decision_record_json_only(fixture, decision.claim_decision_id, {"claim_candidate_ref": "clmcand_substitute"})
+    elif tamper == "evidence_ref_substitution":
+        _tamper_decision_record_json_only(fixture, decision.claim_decision_id, {"supporting_evidence_refs": ["ev_substitute"]})
+    elif tamper == "validated_result_ref_substitution":
+        _tamper_decision_record_json_only(fixture, decision.claim_decision_id, {"supporting_validated_result_refs": ["valres_substitute"]})
+
+    with pytest.raises(ClaimAdmissibilityError) as exc_info:
+        verify_claim_decision_artifact(artifact, artifact_store=fixture.artifact_store, metadata_store=fixture.metadata_store)
+    assert exc_info.value.failure_code == "claim_decision_artifact_hash_mismatch"
+
+
+def test_verified_list_claim_decisions_does_not_surface_row_only_tamper(tmp_path) -> None:
+    fixture, result, evidence = _evidence_chain(tmp_path, "orders")
+    decision = _persist_and_decide(fixture, _candidate_from_evidence(fixture, result, evidence))
+
+    assert fixture.metadata_store.list_claim_decisions(fixture.artifact_store) == [decision]
+
+    _tamper_decision_record_json_only(fixture, decision.claim_decision_id, {"reason": "row-only tamper"})
+    with pytest.raises(RuntimeError, match="claim decision"):
+        fixture.metadata_store.list_claim_decisions(fixture.artifact_store)
 
 
 @pytest.mark.parametrize("claim_type", [ClaimType.DIAGNOSTIC, ClaimType.PREDICTIVE, ClaimType.CAUSAL, ClaimType.PRESCRIPTIVE])
@@ -294,6 +386,59 @@ def test_cross_request_and_cross_run_equal_value_substitution_fail_closed(tmp_pa
     assert decision.failure_code == "cross_request_substitution"
 
 
+def test_pure_cross_run_same_context_equal_value_substitution_fails_closed(tmp_path) -> None:
+    fixture, result, evidence = _evidence_chain(tmp_path, "revenue")
+    authoritative_candidate = persist_claim_candidate(
+        _candidate_from_evidence(fixture, result, evidence),
+        artifact_store=fixture.artifact_store,
+        metadata_store=fixture.metadata_store,
+    )
+
+    original_outcome = fixture.outcome
+    second_outcome = execute_plan(fixture.plan, fixture.canonical, fixture.artifact_store, fixture.metadata_store)
+    fixture.outcome = second_outcome
+    second_result = _validate(fixture, "revenue").validated_result
+    second_admission = _admit(fixture, second_result)
+    fixture.outcome = original_outcome
+    substituted_evidence_object = evidence.model_copy(
+        update={
+            "validated_result_ids": (second_result.validated_result_id,),
+            "validation_record_ids": tuple(second_result.required_validation_record_ids),
+            "executed_result_id": second_result.executed_result_id,
+            "execution_id": second_result.execution_id,
+        }
+    )
+
+    substituted_evidence = evaluate_claim_admissibility(
+        claim_candidate_id=authoritative_candidate.claim_candidate_id,
+        artifact_store=fixture.artifact_store,
+        metadata_store=fixture.metadata_store,
+        supplied_evidence=substituted_evidence_object,
+    ).claim_decision
+    substituted_validated_result = _persist_and_decide(
+        fixture,
+        _candidate_from_evidence(fixture, result, evidence).model_copy(
+            update={
+                "claim_candidate_id": "clmcand_cross_run_validated_substitution",
+                "supporting_validated_result_refs": (second_result.validated_result_id,),
+            }
+        ),
+    )
+
+    assert result.value == second_result.value == Decimal("10.00")
+    assert evidence.request_id == substituted_evidence_object.request_id
+    assert evidence.dataset_ref_id == substituted_evidence_object.dataset_ref_id
+    assert evidence.canonical_dataset_ref_id == substituted_evidence_object.canonical_dataset_ref_id
+    assert result.execution_id != second_result.execution_id
+    assert result.validated_result_id != second_result.validated_result_id
+    assert second_admission.admissible_evidence is None
+    assert second_admission.admissibility_record.failure_code == "admissible_evidence_artifact_integrity_failure"
+    assert substituted_evidence.claim_state is ClaimState.INADMISSIBLE
+    assert substituted_evidence.failure_code == "forged_evidence_object"
+    assert substituted_validated_result.claim_state is ClaimState.INADMISSIBLE
+    assert substituted_validated_result.failure_code == "wrong_validated_result"
+
+
 def test_candidate_persistence_and_tamper_failures(tmp_path) -> None:
     fixture, result, evidence = _evidence_chain(tmp_path, "revenue")
     candidate = _candidate_from_evidence(fixture, result, evidence)
@@ -410,7 +555,7 @@ def test_schema_v5_to_v6_migration_and_claim_rows_round_trip(tmp_path) -> None:
     fixture, result, evidence = _evidence_chain(tmp_path / "rows", "revenue")
     decision = _persist_and_decide(fixture, _candidate_from_evidence(fixture, result, evidence))
     candidate = fixture.metadata_store.get_claim_candidate(decision.claim_candidate_ref, fixture.artifact_store)
-    restored = fixture.metadata_store.get_claim_decision(decision.claim_decision_id, fixture.artifact_store, claim_candidate_fingerprint=candidate.claim_candidate_fingerprint)
+    restored = fixture.metadata_store.get_claim_decision(decision.claim_decision_id, fixture.artifact_store)
 
     assert candidate.claim_candidate_fingerprint
     assert restored.policy_id == CLAIM_POLICY_ID
@@ -557,3 +702,28 @@ def _rewrite_candidate_authority(fixture, claim_candidate_id: str, updates: dict
                 claim_candidate_id,
             ),
         )
+
+
+def _tamper_decision_record_json_only(fixture, claim_decision_id: str, updates: dict) -> None:
+    with sqlite3.connect(fixture.metadata_store.db_path) as conn:
+        payload = json.loads(
+            conn.execute(
+                "SELECT record_json FROM claim_decisions WHERE claim_decision_id = ?",
+                (claim_decision_id,),
+            ).fetchone()[0]
+        )
+        payload.update(updates)
+        conn.execute(
+            "UPDATE claim_decisions SET record_json = ? WHERE claim_decision_id = ?",
+            (json.dumps(payload, sort_keys=True), claim_decision_id),
+        )
+        conn.commit()
+
+
+def _set_claim_decision_index(fixture, claim_decision_id: str, column: str, value) -> None:
+    allowed = {"claim_state", "policy_id", "policy_version", "decision_fingerprint"}
+    if column not in allowed:
+        raise ValueError(f"unsupported ClaimDecision index column tamper: {column}")
+    with sqlite3.connect(fixture.metadata_store.db_path) as conn:
+        conn.execute(f"UPDATE claim_decisions SET {column} = ? WHERE claim_decision_id = ?", (value, claim_decision_id))
+        conn.commit()

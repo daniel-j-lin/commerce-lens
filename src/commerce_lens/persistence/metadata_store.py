@@ -6,7 +6,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from commerce_lens.contracts.common import ArtifactReference
+from commerce_lens.contracts.common import ArtifactReference, ClaimState
 from commerce_lens.contracts.evidence import (
     CanonicalDatasetReference,
     CanonicalizationRecord,
@@ -870,6 +870,40 @@ class MetadataStore:
         self,
         decision: ClaimDecision,
         artifact_store: ArtifactStore | None = None,
+    ) -> ClaimDecision:
+        if decision.claim_state is ClaimState.ADMISSIBLE:
+            raise RuntimeError(
+                "Admissible ClaimDecision must be persisted by the deterministic Claim admissibility evaluator"
+            )
+        derived_fingerprint = self._claim_candidate_fingerprint_for_decision(decision, artifact_store)
+        return self._insert_claim_decision_record(
+            decision,
+            artifact_store,
+            claim_candidate_fingerprint=derived_fingerprint,
+        )
+
+    def _insert_evaluated_claim_decision(
+        self,
+        decision: ClaimDecision,
+        artifact_store: ArtifactStore | None = None,
+        *,
+        claim_candidate_fingerprint: str | None = None,
+    ) -> ClaimDecision:
+        derived_fingerprint = self._claim_candidate_fingerprint_for_decision(decision, artifact_store)
+        if claim_candidate_fingerprint is not None and claim_candidate_fingerprint != derived_fingerprint:
+            raise RuntimeError(f"ClaimDecision candidate authority mismatch for {decision.claim_decision_id}")
+        if decision.claim_state is ClaimState.ADMISSIBLE and derived_fingerprint is None:
+            raise RuntimeError(f"Admissible ClaimDecision lacks authentic ClaimCandidate authority for {decision.claim_decision_id}")
+        return self._insert_claim_decision_record(
+            decision,
+            artifact_store,
+            claim_candidate_fingerprint=derived_fingerprint,
+        )
+
+    def _insert_claim_decision_record(
+        self,
+        decision: ClaimDecision,
+        artifact_store: ArtifactStore | None = None,
         *,
         claim_candidate_fingerprint: str | None = None,
     ) -> ClaimDecision:
@@ -921,14 +955,12 @@ class MetadataStore:
                     payload,
                 ),
             )
-        return self.get_claim_decision(persisted.claim_decision_id, artifact_store, claim_candidate_fingerprint=claim_candidate_fingerprint) or persisted
+        return self.get_claim_decision(persisted.claim_decision_id, artifact_store) or persisted
 
     def get_claim_decision(
         self,
         claim_decision_id: str,
         artifact_store: ArtifactStore | None = None,
-        *,
-        claim_candidate_fingerprint: str | None = None,
     ) -> ClaimDecision | None:
         artifact_store = self._authority_artifact_store(artifact_store)
         with self._connect() as conn:
@@ -955,6 +987,7 @@ class MetadataStore:
             record_type="claim decision",
         )
         decision = ClaimDecision.model_validate(payload)
+        claim_candidate_fingerprint = self._claim_candidate_fingerprint_for_decision(decision, artifact_store)
         expected_fingerprint = claim_decision_semantic_fingerprint(
             decision,
             claim_candidate_fingerprint=claim_candidate_fingerprint,
@@ -978,10 +1011,40 @@ class MetadataStore:
             raise RuntimeError(f"claim decision semantic fingerprint mismatch for {claim_decision_id}")
         return decision
 
-    def list_claim_decisions(self) -> list[ClaimDecision]:
+    def list_claim_decisions(self, artifact_store: ArtifactStore | None = None) -> list[ClaimDecision]:
+        artifact_store = self._authority_artifact_store(artifact_store)
         with self._connect() as conn:
-            rows = conn.execute("SELECT record_json FROM claim_decisions ORDER BY decided_at, claim_decision_id").fetchall()
-        return [ClaimDecision.model_validate(json.loads(row["record_json"])) for row in rows]
+            rows = conn.execute(
+                "SELECT claim_decision_id FROM claim_decisions ORDER BY decided_at, claim_decision_id"
+            ).fetchall()
+        return [
+            item
+            for row in rows
+            if (item := self.get_claim_decision(row["claim_decision_id"], artifact_store)) is not None
+        ]
+
+    def _claim_candidate_fingerprint_for_decision(
+        self,
+        decision: ClaimDecision,
+        artifact_store: ArtifactStore | None = None,
+    ) -> str | None:
+        if not decision.claim_candidate_ref:
+            if decision.claim_state is ClaimState.ADMISSIBLE:
+                raise RuntimeError(f"Admissible ClaimDecision lacks ClaimCandidate reference for {decision.claim_decision_id}")
+            return None
+        try:
+            candidate = self.get_claim_candidate(decision.claim_candidate_ref, artifact_store)
+        except RuntimeError:
+            if decision.claim_state is ClaimState.ADMISSIBLE:
+                raise
+            return None
+        if candidate is None:
+            if decision.claim_state is ClaimState.ADMISSIBLE:
+                raise RuntimeError(
+                    f"Admissible ClaimDecision lacks authentic ClaimCandidate authority for {decision.claim_decision_id}"
+                )
+            return None
+        return candidate.claim_candidate_fingerprint
 
     def _migrate_v1_to_v2(self, conn: sqlite3.Connection) -> None:
         self._verify_phase1_schema(conn)

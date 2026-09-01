@@ -134,7 +134,7 @@ def evaluate_claim_admissibility(
             failure_code=exc.failure_code,
             fallback_candidate_ref=claim_candidate_id,
         )
-    persisted = metadata_store.insert_claim_decision(
+    persisted = metadata_store._insert_evaluated_claim_decision(
         decision,
         artifact_store,
         claim_candidate_fingerprint=claim_candidate_fingerprint,
@@ -148,7 +148,6 @@ def verify_claim_decision_artifact(
     artifact_store: ArtifactStore,
     metadata_store: MetadataStore,
     expected_decision: ClaimDecision | None = None,
-    claim_candidate_fingerprint: str | None = None,
 ) -> ClaimDecision:
     persisted = metadata_store.get_artifact_reference(artifact.artifact_id)
     if persisted != artifact:
@@ -176,17 +175,79 @@ def verify_claim_decision_artifact(
             "claim_decision_artifact_hash_mismatch",
             "ClaimDecision artifact content differs from expected decision",
         )
-    restored = metadata_store.get_claim_decision(
-        decision.claim_decision_id,
-        artifact_store,
-        claim_candidate_fingerprint=claim_candidate_fingerprint,
-    )
+    try:
+        restored = metadata_store.get_claim_decision(decision.claim_decision_id, artifact_store)
+    except RuntimeError as exc:
+        raise ClaimAdmissibilityError(
+            "claim_decision_artifact_hash_mismatch",
+            "ClaimDecision durable metadata authority is invalid",
+        ) from exc
     if restored != decision:
         raise ClaimAdmissibilityError(
             "claim_decision_artifact_hash_mismatch",
             "ClaimDecision artifact does not match durable metadata authority",
         )
+    if decision.claim_state is ClaimState.ADMISSIBLE:
+        _verify_admissible_decision_policy(decision, artifact_store=artifact_store, metadata_store=metadata_store)
     return decision
+
+
+def _verify_admissible_decision_policy(
+    decision: ClaimDecision,
+    *,
+    artifact_store: ArtifactStore,
+    metadata_store: MetadataStore,
+) -> None:
+    if decision.policy_id != CLAIM_POLICY_ID or decision.policy_version != CLAIM_POLICY_VERSION:
+        raise ClaimAdmissibilityError(
+            "claim_decision_policy_mismatch",
+            "Admissible ClaimDecision policy identity does not match the deterministic P8 policy",
+        )
+    if not decision.claim_candidate_ref:
+        raise ClaimAdmissibilityError(
+            "claim_decision_policy_mismatch",
+            "Admissible ClaimDecision lacks an authentic ClaimCandidate reference",
+        )
+    context = _authenticate_claim_context(
+        claim_candidate_id=decision.claim_candidate_ref,
+        artifact_store=artifact_store,
+        metadata_store=metadata_store,
+        supplied_candidate=None,
+        supplied_evidence=None,
+    )
+    _evaluate_supported_claim(context, artifact_store=artifact_store, metadata_store=metadata_store)
+    _assert_admissible_decision_matches_candidate(decision, context.candidate)
+
+
+def _assert_admissible_decision_matches_candidate(decision: ClaimDecision, candidate: ClaimCandidate) -> None:
+    expected = {
+        "claim_candidate_ref": candidate.claim_candidate_id,
+        "claim_id": candidate.claim_id,
+        "policy_id": CLAIM_POLICY_ID,
+        "policy_version": CLAIM_POLICY_VERSION,
+        "claim_state": ClaimState.ADMISSIBLE,
+        "failure_code": None,
+        "supporting_evidence_refs": candidate.supporting_evidence_refs,
+        "supporting_validated_result_refs": candidate.supporting_validated_result_refs,
+        "scope": candidate.intended_scope,
+        "population_ref": candidate.population_ref,
+        "population_fingerprint": candidate.population_fingerprint,
+        "period_ref": candidate.period_ref,
+        "period_role": candidate.period_role,
+        "baseline_period_ref": candidate.baseline_period_ref,
+        "comparison_period_ref": candidate.comparison_period_ref,
+        "baseline_population_ref": candidate.baseline_population_ref,
+        "comparison_population_ref": candidate.comparison_population_ref,
+        "baseline_population_fingerprint": candidate.baseline_population_fingerprint,
+        "comparison_population_fingerprint": candidate.comparison_population_fingerprint,
+        "required_qualifications": (),
+    }
+    for field, expected_value in expected.items():
+        if getattr(decision, field) != expected_value:
+            raise ClaimAdmissibilityError(
+                "claim_decision_policy_mismatch",
+                f"Admissible ClaimDecision material field mismatches deterministic P8 policy: {field}",
+            )
 
 
 def _authenticate_claim_context(
