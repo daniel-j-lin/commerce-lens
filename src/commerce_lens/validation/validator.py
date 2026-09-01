@@ -20,12 +20,14 @@ from commerce_lens.engine.execution import (
     AOV_DECIMAL_CALCULATION_POLICY_ID,
     AOV_DECIMAL_PRECISION,
     AOV_DECIMAL_ROUNDING,
+    MetricExecutionError,
     REVENUE_CHANGE_DECIMAL_CALCULATION_POLICY_ID,
     REVENUE_CHANGE_DECIMAL_PRECISION,
     REVENUE_CHANGE_DECIMAL_ROUNDING,
     _result_fingerprint,
     _revenue_change_calculation_policy_metadata,
     _revenue_change_result_fingerprint,
+    _validate_revenue_change_dependency_lineage,
 )
 from commerce_lens.engine.populations import material_scope_payload, population_fingerprint, population_id_for_fingerprint
 from commerce_lens.evidence.identifiers import canonical_json_fingerprint, generate_id, sha256_file
@@ -909,7 +911,16 @@ def _revenue_change_dependencies(
         if dependency.period_ref != governed_population.period.period_id or dependency.period_role != role:
             raise MetricValidationError("dependency_period_mismatch", "Revenue Change dependency period role does not match governed dependency node", checks_performed=checks, operation=operation)
         _verify_dependency_validation_bundle(context, dependency, checks, operation)
-        _verify_dependency_executed_artifact(context, dependency, checks, operation)
+        executed_result = _verify_dependency_executed_artifact(context, dependency, checks, operation)
+        _verify_revenue_change_dependency_execution_lineage(
+            context,
+            dependency,
+            governed_node,
+            governed_population,
+            executed_result,
+            checks,
+            operation,
+        )
     return dependencies
 
 
@@ -954,7 +965,7 @@ def _verify_dependency_executed_artifact(
     dependency: ValidatedResult,
     checks: tuple[str, ...],
     operation: dict[str, Any],
-) -> None:
+) -> ExecutedResult:
     execution_record = context.metadata_store.get_execution_record(dependency.execution_id)
     if execution_record is None:
         raise MetricValidationError("dependency_execution_record_missing", "Revenue dependency ExecutionRecord is missing", checks_performed=checks, operation=operation)
@@ -964,7 +975,7 @@ def _verify_dependency_executed_artifact(
         raise MetricValidationError("dependency_plan_mismatch", "Revenue dependency ExecutionRecord plan does not match Revenue Change", checks_performed=checks, operation=operation)
     if execution_record.status is not ExecutionStatus.COMPLETED:
         raise MetricValidationError("dependency_execution_record_missing", "Revenue dependency ExecutionRecord is not completed", checks_performed=checks, operation=operation)
-    if not execution_record.output_artifacts or execution_record.output_artifacts[0] != dependency.source_result_artifact_ref:
+    if len(execution_record.output_artifacts) != 1 or execution_record.output_artifacts[0] != dependency.source_result_artifact_ref:
         raise MetricValidationError("dependency_executed_result_artifact_missing", "Revenue dependency ExecutedResult artifact authority is missing", checks_performed=checks, operation=operation)
     artifact = dependency.source_result_artifact_ref
     persisted = context.metadata_store.get_artifact_reference(artifact.artifact_id)
@@ -976,6 +987,68 @@ def _verify_dependency_executed_artifact(
     restored = ExecutedResult.model_validate_json(path.read_text(encoding="utf-8"))
     if restored.result_id != dependency.executed_result_id or restored.result_fingerprint != dependency.result_fingerprint:
         raise MetricValidationError("dependency_executed_result_artifact_mismatch", "Revenue dependency ExecutedResult artifact content mismatches ValidatedResult", checks_performed=checks, operation=operation)
+    return restored
+
+
+def _verify_revenue_change_dependency_execution_lineage(
+    context: _ValidationContext,
+    dependency: ValidatedResult,
+    governed_node: PlanMetricNode,
+    governed_population: PopulationDefinition,
+    executed_result: ExecutedResult,
+    checks: tuple[str, ...],
+    operation: dict[str, Any],
+) -> None:
+    record = context.metadata_store.get_execution_record(dependency.execution_id)
+    if record is None:
+        raise MetricValidationError("dependency_execution_record_missing", "Revenue dependency ExecutionRecord is missing", checks_performed=checks, operation=operation)
+    if record.request_id != context.plan.request_id:
+        raise MetricValidationError("dependency_lineage_mismatch", "Revenue dependency ExecutionRecord request lineage does not match governed plan", checks_performed=checks, operation=operation)
+    if record.plan_id != context.plan.plan_id or record.plan_fingerprint != context.plan.plan_fingerprint:
+        raise MetricValidationError("dependency_lineage_mismatch", "Revenue dependency ExecutionRecord plan lineage does not match governed plan", checks_performed=checks, operation=operation)
+    if record.plan_node_id != governed_node.node_id:
+        raise MetricValidationError("dependency_lineage_mismatch", "Revenue dependency ExecutionRecord node lineage does not match governed dependency node", checks_performed=checks, operation=operation)
+    try:
+        _validate_revenue_change_dependency_lineage(
+            dependency_node=governed_node,
+            result=executed_result,
+            record=record,
+            population=governed_population,
+            canonical_dataset=context.canonical_dataset,
+        )
+    except MetricExecutionError as exc:
+        raise MetricValidationError("dependency_lineage_mismatch", str(exc), checks_performed=checks, operation=operation) from exc
+    expected_fields = {
+        "execution_id": record.execution_id,
+        "executed_result_id": record.result_ref,
+        "metric_ref": executed_result.metric_ref,
+        "metric_definition_version": record.metric_definition_version,
+        "plan_id": record.plan_id,
+        "plan_node_id": record.plan_node_id,
+        "canonical_dataset_ref_id": context.canonical_dataset.canonical_dataset_id,
+        "canonical_dataset_fingerprint": context.canonical_dataset.content_fingerprint,
+        "population_ref": governed_population.population_id,
+        "population_fingerprint": governed_population.population_fingerprint,
+        "period_ref": governed_population.period.period_id,
+        "period_role": governed_population.period_role.value,
+        "result_fingerprint": executed_result.result_fingerprint,
+        "value": executed_result.value,
+        "metric_state": executed_result.metric_state,
+        "undefined_reason": executed_result.undefined_reason,
+        "precision": executed_result.precision,
+        "precision_metadata": executed_result.precision_metadata,
+        "unit": executed_result.unit,
+        "currency": executed_result.currency,
+        "source_result_artifact_ref": record.output_artifacts[0],
+    }
+    for field_name, expected in expected_fields.items():
+        if getattr(dependency, field_name) != expected:
+            raise MetricValidationError(
+                "dependency_lineage_mismatch",
+                "Revenue dependency ValidatedResult lineage contradicts current persisted ExecutionRecord or ExecutedResult",
+                checks_performed=checks,
+                operation=operation,
+            )
 
 
 def _verify_dependency_validation_bundle(

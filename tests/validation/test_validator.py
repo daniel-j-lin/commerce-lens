@@ -518,6 +518,100 @@ def test_revenue_change_validates_from_authentic_baseline_and_comparison_revenue
     assert len(validation.validated_result.required_validation_record_ids) == 3
 
 
+def test_revenue_change_validation_rejects_current_dependency_execution_record_dataset_tamper(tmp_path) -> None:
+    context = _revenue_change_validation_context(tmp_path)
+    _tamper_dependency_execution_record(
+        context["metadata_store"],
+        context["baseline"].execution_id,
+        {"dataset_ref_ids": ("ds_substituted",)},
+    )
+
+    validation = _validate_revenue_change_context(context)
+
+    assert validation.validation_record.status is ValidationStatus.FAILED
+    assert validation.validation_record.failure_code == "dependency_lineage_mismatch"
+    assert validation.validated_result is None
+
+
+@pytest.mark.parametrize("period_role", ("baseline", "comparison"))
+@pytest.mark.parametrize(
+    "field_name",
+    (
+        "dataset_ref_ids",
+        "canonical_dataset_ref_ids",
+        "canonical_dataset_fingerprints",
+        "population_refs",
+        "population_fingerprints",
+        "plan_node_id",
+        "period_refs",
+        "period_role",
+        "scope_filters",
+        "grouping",
+        "metric_refs",
+        "metric_definition_version",
+        "metric_implementation_ref",
+        "resolved_currency",
+    ),
+)
+def test_revenue_change_validation_rejects_current_dependency_execution_record_lineage_tamper(
+    tmp_path,
+    field_name: str,
+    period_role: str,
+) -> None:
+    context = _revenue_change_validation_context(tmp_path)
+    dependency = context[period_role]
+    update = {field_name: _tampered_dependency_execution_record_value(field_name, period_role)}
+
+    _tamper_dependency_execution_record(context["metadata_store"], dependency.execution_id, update)
+    validation = _validate_revenue_change_context(context)
+
+    assert validation.validation_record.status is ValidationStatus.FAILED
+    assert validation.validation_record.failure_code == "dependency_lineage_mismatch"
+    assert validation.validated_result is None
+
+
+def test_revenue_change_validation_rejects_cross_run_equal_value_dependency_record_substitution(tmp_path) -> None:
+    context = _revenue_change_validation_context(tmp_path, filename="original.csv")
+    foreign = _revenue_change_validation_context(
+        tmp_path,
+        filename="foreign.csv",
+        rows=[
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
+            _row(order_id="o3", order_date="2026-01-04", line_revenue="999.00", eligibility_status="cancelled"),
+        ],
+    )
+    original_record = context["metadata_store"].get_execution_record(context["baseline"].execution_id)
+    foreign_record = foreign["metadata_store"].get_execution_record(foreign["baseline"].execution_id)
+    assert original_record is not None
+    assert foreign_record is not None
+    assert context["baseline"].value == foreign["baseline"].value == Decimal("100.00")
+
+    _replace_execution_record(
+        context["metadata_store"],
+        original_record.model_copy(
+            update={
+                "request_id": foreign_record.request_id,
+                "plan_id": foreign_record.plan_id,
+                "plan_fingerprint": foreign_record.plan_fingerprint,
+                "dataset_ref_ids": foreign_record.dataset_ref_ids,
+                "canonical_dataset_ref_ids": foreign_record.canonical_dataset_ref_ids,
+                "canonical_dataset_fingerprints": foreign_record.canonical_dataset_fingerprints,
+                "population_refs": foreign_record.population_refs,
+                "population_fingerprints": foreign_record.population_fingerprints,
+                "period_refs": foreign_record.period_refs,
+                "period_role": foreign_record.period_role,
+            }
+        ),
+    )
+
+    validation = _validate_revenue_change_context(context)
+
+    assert validation.validation_record.status is ValidationStatus.FAILED
+    assert validation.validation_record.failure_code == "dependency_request_mismatch"
+    assert validation.validated_result is None
+
+
 @pytest.mark.parametrize(
     ("tamper", "expected_code"),
     [
@@ -917,6 +1011,108 @@ def _plan_with_node_rule_refs(plan, metric_ref: str, period_ref: str, refs: tupl
             )
         }
     )
+
+
+def _revenue_change_validation_context(
+    tmp_path: Path,
+    *,
+    filename: str = "orders.csv",
+    rows: list[dict[str, str]] | None = None,
+):
+    outcome, plan, canonical, store, metadata_store = _executed(
+        tmp_path,
+        ("revenue_change",),
+        rows
+        or [
+            _row(order_id="o1", order_date="2026-01-01", line_revenue="100.00"),
+            _row(order_id="o2", order_date="2026-01-03", line_revenue="120.00"),
+        ],
+        filename=filename,
+    )
+    baseline = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "baseline").validated_result
+    comparison = _validate_metric(outcome, plan, canonical, store, metadata_store, "revenue", "comparison").validated_result
+    return {
+        "outcome": outcome,
+        "plan": plan,
+        "canonical": canonical,
+        "store": store,
+        "metadata_store": metadata_store,
+        "baseline": baseline,
+        "comparison": comparison,
+    }
+
+
+def _validate_revenue_change_context(context):
+    return _validate_metric(
+        context["outcome"],
+        context["plan"],
+        context["canonical"],
+        context["store"],
+        context["metadata_store"],
+        "revenue_change",
+        "comparison",
+        dependencies=(context["baseline"], context["comparison"]),
+    )
+
+
+def _tamper_dependency_execution_record(metadata_store: MetadataStore, execution_id: str, update: dict) -> None:
+    record = metadata_store.get_execution_record(execution_id)
+    assert record is not None
+    _replace_execution_record(metadata_store, record.model_copy(update=update))
+
+
+def _tampered_dependency_execution_record_value(field_name: str, period_role: str):
+    other_period = "comparison" if period_role == "baseline" else "baseline"
+    return {
+        "dataset_ref_ids": ("ds_substituted",),
+        "canonical_dataset_ref_ids": ("cds_substituted",),
+        "canonical_dataset_fingerprints": ("0" * 64,),
+        "population_refs": ("pop_substituted",),
+        "population_fingerprints": ("0" * 64,),
+        "plan_node_id": "node_substituted",
+        "period_refs": (other_period,),
+        "period_role": other_period,
+        "scope_filters": ({"field": "currency", "operator": "equals", "value": "EUR"},),
+        "grouping": "product",
+        "metric_refs": ("orders",),
+        "metric_definition_version": "metric_dictionary_v0",
+        "metric_implementation_ref": "p4_001:duckdb_reference:orders_v1",
+        "resolved_currency": "EUR",
+    }[field_name]
+
+
+def _replace_execution_record(metadata_store: MetadataStore, record) -> None:
+    result_artifact_id = record.output_artifacts[0].artifact_id if record.output_artifacts else None
+    with sqlite3.connect(metadata_store.db_path) as conn:
+        conn.execute(
+            """
+            UPDATE execution_records
+            SET request_id = ?,
+                plan_id = ?,
+                plan_node_id = ?,
+                metric_ref = ?,
+                status = ?,
+                result_ref = ?,
+                result_artifact_id = ?,
+                started_at = ?,
+                ended_at = ?,
+                record_json = ?
+            WHERE execution_id = ?
+            """,
+            (
+                record.request_id,
+                record.plan_id,
+                record.plan_node_id,
+                record.metric_refs[0] if record.metric_refs else None,
+                record.status.value,
+                record.result_ref,
+                result_artifact_id,
+                record.started_at.isoformat(),
+                record.ended_at.isoformat() if record.ended_at is not None else None,
+                record.model_dump_json(),
+                record.execution_id,
+            ),
+        )
 
 
 def _delete_validation_record(metadata_store: MetadataStore, validation_id: str) -> None:
