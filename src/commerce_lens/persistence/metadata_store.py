@@ -955,9 +955,9 @@ class MetadataStore:
                     payload,
                 ),
             )
-        return self.get_claim_decision(persisted.claim_decision_id, artifact_store) or persisted
+        return self.get_claim_decision_record(persisted.claim_decision_id, artifact_store) or persisted
 
-    def get_claim_decision(
+    def get_claim_decision_record(
         self,
         claim_decision_id: str,
         artifact_store: ArtifactStore | None = None,
@@ -1011,7 +1011,7 @@ class MetadataStore:
             raise RuntimeError(f"claim decision semantic fingerprint mismatch for {claim_decision_id}")
         return decision
 
-    def list_claim_decisions(self, artifact_store: ArtifactStore | None = None) -> list[ClaimDecision]:
+    def list_claim_decision_records(self, artifact_store: ArtifactStore | None = None) -> list[ClaimDecision]:
         artifact_store = self._authority_artifact_store(artifact_store)
         with self._connect() as conn:
             rows = conn.execute(
@@ -1020,8 +1020,40 @@ class MetadataStore:
         return [
             item
             for row in rows
-            if (item := self.get_claim_decision(row["claim_decision_id"], artifact_store)) is not None
+            if (item := self.get_claim_decision_record(row["claim_decision_id"], artifact_store)) is not None
         ]
+
+    def get_claim_decision_artifact_reference(self, claim_decision_id: str) -> ArtifactReference | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT claim_decision_artifact_id FROM claim_decisions WHERE claim_decision_id = ?",
+                (claim_decision_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return self.get_artifact_reference(row["claim_decision_artifact_id"])
+
+    def get_claim_decision(
+        self,
+        claim_decision_id: str,
+        artifact_store: ArtifactStore | None = None,
+    ) -> ClaimDecision | None:
+        decision = self.get_claim_decision_record(claim_decision_id, artifact_store)
+        if decision is not None and decision.claim_state is ClaimState.ADMISSIBLE:
+            raise RuntimeError(
+                "get_claim_decision returns persistence records only; use the P8 authoritative "
+                "ClaimDecision retrieval API for Admissible material permission"
+            )
+        return decision
+
+    def list_claim_decisions(self, artifact_store: ArtifactStore | None = None) -> list[ClaimDecision]:
+        decisions = self.list_claim_decision_records(artifact_store)
+        if any(decision.claim_state is ClaimState.ADMISSIBLE for decision in decisions):
+            raise RuntimeError(
+                "list_claim_decisions returns persistence records only; use the P8 authoritative "
+                "ClaimDecision list API for Admissible material permission"
+            )
+        return decisions
 
     def _claim_candidate_fingerprint_for_decision(
         self,

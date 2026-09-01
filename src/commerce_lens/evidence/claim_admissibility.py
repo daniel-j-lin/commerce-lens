@@ -176,7 +176,7 @@ def verify_claim_decision_artifact(
             "ClaimDecision artifact content differs from expected decision",
         )
     try:
-        restored = metadata_store.get_claim_decision(decision.claim_decision_id, artifact_store)
+        restored = metadata_store.get_claim_decision_record(decision.claim_decision_id, artifact_store)
     except RuntimeError as exc:
         raise ClaimAdmissibilityError(
             "claim_decision_artifact_hash_mismatch",
@@ -190,6 +190,66 @@ def verify_claim_decision_artifact(
     if decision.claim_state is ClaimState.ADMISSIBLE:
         _verify_admissible_decision_policy(decision, artifact_store=artifact_store, metadata_store=metadata_store)
     return decision
+
+
+def get_authoritative_claim_decision(
+    claim_decision_id: str,
+    *,
+    artifact_store: ArtifactStore,
+    metadata_store: MetadataStore,
+) -> ClaimDecision | None:
+    try:
+        decision = metadata_store.get_claim_decision_record(claim_decision_id, artifact_store)
+    except RuntimeError as exc:
+        raise ClaimAdmissibilityError(
+            "claim_decision_artifact_hash_mismatch",
+            "ClaimDecision durable metadata authority is invalid",
+        ) from exc
+    if decision is None:
+        return None
+    artifact = metadata_store.get_claim_decision_artifact_reference(claim_decision_id)
+    if artifact is None:
+        raise ClaimAdmissibilityError(
+            "claim_decision_artifact_hash_mismatch",
+            "ClaimDecision artifact reference is missing",
+        )
+    return verify_claim_decision_artifact(
+        artifact,
+        artifact_store=artifact_store,
+        metadata_store=metadata_store,
+        expected_decision=decision,
+    )
+
+
+def list_authoritative_claim_decisions(
+    *,
+    artifact_store: ArtifactStore,
+    metadata_store: MetadataStore,
+) -> list[ClaimDecision]:
+    try:
+        decisions = metadata_store.list_claim_decision_records(artifact_store)
+    except RuntimeError as exc:
+        raise ClaimAdmissibilityError(
+            "claim_decision_artifact_hash_mismatch",
+            "ClaimDecision durable metadata authority is invalid",
+        ) from exc
+    verified = []
+    for decision in decisions:
+        artifact = metadata_store.get_claim_decision_artifact_reference(decision.claim_decision_id)
+        if artifact is None:
+            raise ClaimAdmissibilityError(
+                "claim_decision_artifact_hash_mismatch",
+                "ClaimDecision artifact reference is missing",
+            )
+        verified.append(
+            verify_claim_decision_artifact(
+                artifact,
+                artifact_store=artifact_store,
+                metadata_store=metadata_store,
+                expected_decision=decision,
+            )
+        )
+    return verified
 
 
 def _verify_admissible_decision_policy(

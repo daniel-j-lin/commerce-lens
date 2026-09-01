@@ -13,6 +13,8 @@ from commerce_lens.evidence.claim_admissibility import (
     CLAIM_POLICY_VERSION,
     ClaimAdmissibilityError,
     evaluate_claim_admissibility,
+    get_authoritative_claim_decision,
+    list_authoritative_claim_decisions,
     persist_claim_candidate,
     verify_claim_decision_artifact,
     _decision_from_candidate,
@@ -58,7 +60,7 @@ def test_revenue_orders_and_numeric_aov_descriptive_claims_are_admissible(tmp_pa
         assert decision.policy_id == CLAIM_POLICY_ID
         assert decision.policy_version == CLAIM_POLICY_VERSION
         assert decision.supporting_evidence_refs == (evidence.evidence_id,)
-        assert not fixture.metadata_store.list_claim_decisions(fixture.artifact_store)[-1].required_qualifications
+        assert not list_authoritative_claim_decisions(artifact_store=fixture.artifact_store, metadata_store=fixture.metadata_store)[-1].required_qualifications
 
 
 def test_revenue_change_descriptive_claim_is_admissible_without_recomputing_formula(tmp_path) -> None:
@@ -210,11 +212,69 @@ def test_verified_list_claim_decisions_does_not_surface_row_only_tamper(tmp_path
     fixture, result, evidence = _evidence_chain(tmp_path, "orders")
     decision = _persist_and_decide(fixture, _candidate_from_evidence(fixture, result, evidence))
 
-    assert fixture.metadata_store.list_claim_decisions(fixture.artifact_store) == [decision]
+    assert list_authoritative_claim_decisions(
+        artifact_store=fixture.artifact_store,
+        metadata_store=fixture.metadata_store,
+    ) == [decision]
 
     _tamper_decision_record_json_only(fixture, decision.claim_decision_id, {"reason": "row-only tamper"})
-    with pytest.raises(RuntimeError, match="claim decision"):
+    with pytest.raises(ClaimAdmissibilityError) as exc_info:
+        list_authoritative_claim_decisions(
+            artifact_store=fixture.artifact_store,
+            metadata_store=fixture.metadata_store,
+        )
+    assert exc_info.value.failure_code == "claim_decision_artifact_hash_mismatch"
+
+
+def test_self_consistent_forged_admissible_record_fails_authoritative_retrieval(tmp_path) -> None:
+    fixture, result, evidence = _evidence_chain(tmp_path, "revenue")
+    candidate = persist_claim_candidate(
+        _candidate_from_evidence(fixture, result, evidence),
+        artifact_store=fixture.artifact_store,
+        metadata_store=fixture.metadata_store,
+    )
+    forged = _decision_from_candidate(
+        candidate,
+        claim_state=ClaimState.ADMISSIBLE,
+        reason="storage-valid but policy-invalid forged decision",
+        failure_code=None,
+    ).model_copy(update={"period_ref": "comparison"})
+
+    persisted = fixture.metadata_store._insert_claim_decision_record(
+        forged,
+        fixture.artifact_store,
+        claim_candidate_fingerprint=candidate.claim_candidate_fingerprint,
+    )
+    record = fixture.metadata_store.get_claim_decision_record(persisted.claim_decision_id, fixture.artifact_store)
+    listed_records = fixture.metadata_store.list_claim_decision_records(fixture.artifact_store)
+    artifact = _decision_artifact(fixture, persisted.claim_decision_id)
+
+    assert record == persisted
+    assert listed_records == [persisted]
+    assert record.claim_state is ClaimState.ADMISSIBLE
+    assert record.period_ref == "comparison"
+    assert record.decision_fingerprint
+    with pytest.raises(RuntimeError, match="authoritative ClaimDecision retrieval API"):
+        fixture.metadata_store.get_claim_decision(persisted.claim_decision_id, fixture.artifact_store)
+    with pytest.raises(RuntimeError, match="authoritative ClaimDecision list API"):
         fixture.metadata_store.list_claim_decisions(fixture.artifact_store)
+
+    with pytest.raises(ClaimAdmissibilityError) as verified_exc:
+        verify_claim_decision_artifact(artifact, artifact_store=fixture.artifact_store, metadata_store=fixture.metadata_store)
+    with pytest.raises(ClaimAdmissibilityError) as get_exc:
+        get_authoritative_claim_decision(
+            persisted.claim_decision_id,
+            artifact_store=fixture.artifact_store,
+            metadata_store=fixture.metadata_store,
+        )
+    with pytest.raises(ClaimAdmissibilityError) as list_exc:
+        list_authoritative_claim_decisions(
+            artifact_store=fixture.artifact_store,
+            metadata_store=fixture.metadata_store,
+        )
+    assert verified_exc.value.failure_code == "claim_decision_policy_mismatch"
+    assert get_exc.value.failure_code == "claim_decision_policy_mismatch"
+    assert list_exc.value.failure_code == "claim_decision_policy_mismatch"
 
 
 @pytest.mark.parametrize("claim_type", [ClaimType.DIAGNOSTIC, ClaimType.PREDICTIVE, ClaimType.CAUSAL, ClaimType.PRESCRIPTIVE])
@@ -555,7 +615,11 @@ def test_schema_v5_to_v6_migration_and_claim_rows_round_trip(tmp_path) -> None:
     fixture, result, evidence = _evidence_chain(tmp_path / "rows", "revenue")
     decision = _persist_and_decide(fixture, _candidate_from_evidence(fixture, result, evidence))
     candidate = fixture.metadata_store.get_claim_candidate(decision.claim_candidate_ref, fixture.artifact_store)
-    restored = fixture.metadata_store.get_claim_decision(decision.claim_decision_id, fixture.artifact_store)
+    restored = get_authoritative_claim_decision(
+        decision.claim_decision_id,
+        artifact_store=fixture.artifact_store,
+        metadata_store=fixture.metadata_store,
+    )
 
     assert candidate.claim_candidate_fingerprint
     assert restored.policy_id == CLAIM_POLICY_ID
