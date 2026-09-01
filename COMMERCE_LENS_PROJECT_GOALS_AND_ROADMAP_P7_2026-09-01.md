@@ -1,11 +1,11 @@
 # CommerceLens 專案目標、成果與 Roadmap
 
 **基準日期：** 2026-09-01
-**目前基線：** P7-001 **APPROVED / FROZEN**
-**核准實作 HEAD：** `f48b75eb0f67f5b14675886e6ce1749835d2dc16`
-**最終 main 治理 HEAD：** `35a170e322fe64a576c764a0c99abb9714b367d9`
-**驗證紀錄：** Python 3.11.9；DuckDB 1.5.5；pytest 8.4.2；MetadataStore schema v5；完整測試套件 398 passed；獨立 final verification 通過；Main Project final source review 通過；三類已知 P7 blocker 已關閉；治理整合完成；無 Frozen 或 dependency drift
-**本文件用途：** 統一說明專案目標、已完成成果、固定流程、成功準則、OSS reuse 邊界，以及 P7 之後的建議 roadmap。
+**目前基線：** P8-001 **APPROVED / FROZEN**
+**核准實作 HEAD：** `fff3229d03e5e122cb62aa8105f1c0d8f28021b2`
+**最終 main 治理 HEAD：** `9af5b7b8534b5fbab46c5bcc812316839d400051`
+**驗證紀錄：** Python 3.11.9；DuckDB 1.5.5；pytest 8.4.2；MetadataStore schema v6；完整測試套件 455 passed；P8 final Main Project hostile source review 通過；P8 ClaimDecision Foundation **APPROVED / FROZEN**；治理整合完成；無 Frozen 或 dependency drift
+**本文件用途：** 統一說明專案目標、已完成成果、固定流程、成功準則、OSS reuse 邊界，以及 P8 之後為最快 evidence-governed public v0.1 Skill 所做的 narrow roadmap amendment。
 
 ---
 
@@ -18,15 +18,27 @@ CommerceLens 的目標不是再做一個「把資料丟給 LLM、產生圖表與
 > **No material claim without traceable evidence.**
 > 任何會影響商業決策的重要主張，都必須有可追溯、可驗證、可重現的證據。
 
-截至 P7，CommerceLens 已完成第一個可運作的 **Evidence Reliability Kernel（證據可靠性核心）**：從資料註冊、canonicalization、metric authority、資料充分性、deterministic execution、validation，一直到 evidence admissibility，已針對 Revenue、Orders、AOV、Revenue Change 四個指標形成完整且 fail-closed 的垂直鏈路。
+截至 P8，CommerceLens 已完成第一個可運作的 **Evidence Reliability Kernel（證據可靠性核心）**，並補上 deterministic ClaimDecision Foundation：從資料註冊、canonicalization、metric authority、資料充分性、deterministic execution、validation、evidence admissibility，到受治理的 descriptive Claim permission，已針對 Revenue、Orders、AOV、Revenue Change 四個指標形成完整且 fail-closed 的窄垂直鏈路。
 
-但目前完成的是「可靠性核心」，還不是完整終端產品。ClaimDecision、Findings、Alternative Explanations、Recommendations、實體 fixture runner、Skill/host adapter、API/CLI、UI，以及 Decision Reliability Benchmark 尚未完成。
+但目前完成的是「可靠性核心 + ClaimDecision governance」，還不是完整終端產品。Findings、Alternative Explanations、Recommendations、實體 fixture runner、Skill/host adapter、API/CLI、UI，以及 Decision Reliability Benchmark 尚未完成。Public v0.1 的目的因此調整為最快交付一個 evidence-governed analytical Skill，而不是等待所有後續分析廣度與完整 decision product layer 都成熟後才首次釋出。
+
+新增 roadmap principle：
+
+> **Input may be domain-light; analytical behavior must remain governed.**
+> Public v0.1 可以接受受支援的 structured business-data input，不必先建立完整電商產品表面；但 public v0.1 只能暴露已被 deterministic authority 支持的分析行為，不得宣稱 arbitrary tabular analytics。
+
+Public v0.1 positioning：
+
+> **CommerceLens v0.1 is an evidence-governed analytical Skill for structured business data, designed to produce traceable descriptive and comparison Claims while refusing conclusions that exceed available Evidence.**
+
+較短 tagline 可記錄為：**Evidence-governed analytics for structured data.** 這必須立即被限定為 narrow governed Metric 與 Claim set，而不是任意分析、通用 Chat-with-CSV、autonomous causal analyst、dashboard product、或完整 e-commerce platform。
 
 因此，最準確的專案狀態是：
 
 - **規格與治理基線：完成。**
-- **資料到 admissible evidence 的第一版核心：完成，範圍限四個指標。**
+- **資料到 ClaimDecision 的第一版核心：完成，範圍限四個 metrics 與 descriptive Claim permission。**
 - **從 evidence 到可交付商業決策的產品層：尚未完成。**
+- **第一個 public v0.1 Skill surface：應在 P9 後經 Public v0.1 Integration Gate 組裝，不再被 P10+ 分析廣度預設阻擋。**
 - **WrenAI 等 OSS：持續評估 execution infrastructure reuse，但不取代 CommerceLens 的 evidence governance。**
 
 ---
@@ -55,13 +67,13 @@ CommerceLens 的目標不是再做一個「把資料丟給 LLM、產生圖表與
 
 | 層級 | 目標完成品 | 主要價值 | 目前狀態 |
 |---|---|---|---|
-| 1 | **CommerceLens Skill / Evidence-first Agent** | 將商業問題轉成受治理的分析流程，產生 findings、限制、替代解釋與建議 | 尚未完成 |
-| 2 | **Reusable Deterministic Analytics Engine / Evidence Reliability Kernel** | 將資料、metric、execution、validation、evidence 串成可重現且 fail-closed 的核心 | P7 已完成第一版垂直切片 |
+| 1 | **CommerceLens Skill / Evidence-first Agent** | 將商業問題轉成受治理的分析流程，產生 answer、evidence、claim status、limitations 與 unsupported-conclusion boundaries；完整 findings / recommendations 為後續成熟層 | public v0.1 surface 尚未完成，P9 後進 Integration Gate |
+| 2 | **Reusable Deterministic Analytics Engine / Evidence Reliability Kernel** | 將資料、metric、execution、validation、evidence、ClaimDecision 串成可重現且 fail-closed 的核心 | P8 已完成第一版垂直切片 |
 | 3 | **Decision Reliability Benchmark** | 系統化比較不同 AI/分析流程在正確性、過度主張、證據完整性與重現性上的表現 | 後期目標，尚未開始 |
 
-目前 implementation sequence 則是：Evidence Reliability Kernel foundation first → Claim governance → product / Skill layer → benchmark productization。這個順序合法地反映工程風險與 maturity，但不改寫 Frozen canonical layer order。
+目前 implementation sequence 則是：Evidence Reliability Kernel foundation first → Claim governance → minimum physical behavioral proof → public v0.1 Skill integration gate → broader governed analytics → benchmark productization。這個順序合法地反映工程風險、maturity 與 public v0.1 acceleration，但不改寫 Frozen canonical layer order。
 
-最終使用者體驗應是：使用者提供 CSV、Excel 或 SQLite 資料並提出電商問題，CommerceLens 先判定 metric 與 required evidence，再檢查資料是否足夠；只有通過 execution、validation 和 admissibility 的結果才能成為 finding，最後才生成受到證據約束的建議與清楚的 limitations。
+最終使用者體驗應是：使用者提供 CSV、Excel 或 SQLite 資料並提出電商問題，CommerceLens 先判定 metric 與 required evidence，再檢查資料是否足夠；只有通過 execution、validation、admissibility 和 ClaimDecision 的結果才能成為後續 finding，最後才生成受到證據約束的建議與清楚的 limitations。Public v0.1 可先支援 CSV / XLSX 的 domain-light structured business data；SQLite 保持 internal supported intake path，但不必在第一個公開 demo 中強調。
 
 ---
 
@@ -92,7 +104,7 @@ flowchart TD
     P --> Q["Limitations / Evidence Contract"]
 ```
 
-P7 已實作到 `AdmissibleEvidence`；圖中的 `ClaimCandidate`、`ClaimDecision`、`Finding`、`Alternative Explanations`、`Recommendation` 與 `Limitations / Evidence Contract` 是後續產品治理層。責任邊界必須保留：engine 產生 deterministic execution、validation 與 admissible evidence；claim governance 決定 material claim permission；product / Skill layer 組織可交付敘事與互動，但不得繞過 deterministic gates。
+P8 已實作到 deterministic `ClaimDecision`。圖中的 `Finding`、`Alternative Explanations`、formal `Recommendation` 與完整 `Limitations / Evidence Contract` artifact 是後續產品治理層；它們不再是第一個 public v0.1 的預設前置條件。責任邊界必須保留：engine 產生 deterministic execution、validation 與 admissible evidence；claim governance 決定 material claim permission；product / Skill layer 組織可交付敘事與互動，但不得繞過 deterministic gates。
 
 ### 3.1 狀態必須分離
 
@@ -139,7 +151,7 @@ CommerceLens 不允許以下狀態被混為一談：
 
 ---
 
-## 5. P1–P7 已完成成果
+## 5. P1–P8 已完成成果
 
 ### 5.1 進度總表
 
@@ -151,6 +163,7 @@ CommerceLens 不允許以下狀態被混為一談：
 | P5-001 | Revenue、Orders、AOV deterministic validation | 每個 required rule 都有紀錄，並形成 ValidatedResult；可偵測 tamper | 227 passed；Approved / Frozen |
 | P6-001 | Revenue、Orders、AOV evidence admissibility | 形成 EvidenceAdmissibilityRecord 與 immutable AdmissibleEvidence | 301 passed；Approved / Frozen |
 | P7-001 | Revenue Change 完整垂直切片 | period dependency、Decimal arithmetic、validation、admissibility 與 lineage 全部打通 | **398 passed；獨立 final verification 通過；Main Project final source review 通過；APPROVED / FROZEN** |
+| P8-001 | ClaimDecision Foundation | deterministic material Claim permission、structured ClaimCandidate binding、authentic persisted evidence retrieval、fail-closed claim policy | **455 passed；final Main Project hostile source review 通過；APPROVED / FROZEN** |
 
 ### 5.2 P1–P2：資料與合約基礎
 
@@ -165,7 +178,7 @@ CommerceLens 不允許以下狀態被混為一談：
 - Order-line identity 與 product authority。
 - 無法分類的資料落入明確的 `Unclassified`，不得私自猜測。
 - Eligibility、currency、period、coverage、data quality 與 per-chain Data Sufficiency。
-- MetadataStore foundation、persistence foundation 與 migration discipline；目前專案狀態在後續階段完成到 schema v5。
+- MetadataStore foundation、persistence foundation 與 migration discipline；目前專案狀態在後續階段完成到 schema v6。
 
 成果意義：在執行任何 metric 前，資料的來源、欄位映射、時間、幣別與適用範圍已能被機器判定與追蹤。
 
@@ -216,22 +229,41 @@ P7 將 `revenue_change` 從 metric registry 一路完成到 admissible evidence�
 
 P7 刻意不包含 Revenue Change %、ClaimDecision、Findings、Recommendations、Contribution、ranking、MCP、Wren 或外部 executor。這是受控範圍，不是遺漏。
 
+### 5.8 P8：ClaimDecision Foundation
+
+P8 將 `AdmissibleEvidence` 與 structured `ClaimCandidate` 綁定到 deterministic `ClaimDecision`，證明數值正確或 evidence admissible 仍不等於任意 material Claim 都被授權。
+
+已驗證內容包括：
+
+- `ClaimType.DESCRIPTIVE` 是目前唯一 positive Claim permission。
+- diagnostic、predictive、causal、prescriptive Claim 均 fail closed。
+- caller-created Admissible decisions 不會取得 authoritative permission。
+- caller-supplied candidate fingerprint 不成為 authority。
+- cross-request substitution 與 same-context cross-run equal-value substitution 均 fail closed。
+- authoritative ClaimDecision retrieval 會重新驗證 artifact、Candidate、Evidence / upstream lineage 與 deterministic P8 policy。
+- AOV Undefined behavior 與 Revenue Change authority 均被保留。
+- P8 明確停止於 ClaimDecision；沒有 Finding、Recommendation、narrative rendering 或 P9 fixture runner implementation。
+
 ---
 
 ## 6. 目前真正可用的能力
 
 目前 engine 能對核准資料與 scope 完成下列四個 authoritative metrics：
 
-| Metric | Execution | Validation | Evidence admissibility | 備註 |
-|---|---:|---:|---:|---|
-| Revenue | 已完成 | 已完成 | 已完成 | Decimal monetary semantics |
-| Orders | 已完成 | 已完成 | 已完成 | authoritative order population |
-| AOV | 已完成 | 已完成 | 已完成 | 支援 Undefined state |
-| Revenue Change | 已完成 | 已完成 | 已完成 | 具 period dependencies 與獨立 arithmetic validation |
+| Metric | Execution | Validation | Evidence admissibility | ClaimDecision | 備註 |
+|---|---:|---:|---:|---:|---|
+| Revenue | 已完成 | 已完成 | 已完成 | descriptive only | Decimal monetary semantics |
+| Orders | 已完成 | 已完成 | 已完成 | descriptive only | authoritative order population |
+| AOV | 已完成 | 已完成 | 已完成 | descriptive only | 支援 Undefined state；Orders = 0 時保持 Undefined，不轉成 zero |
+| Revenue Change | 已完成 | 已完成 | 已完成 | descriptive comparison only | 具 period dependencies 與獨立 arithmetic validation |
 
-目前能保證的是：在已支援的輸入、metric 與 scope 中，結果經過受治理的 deterministic chain，且 lineage 或語義遭竄改時會拒絕繼續。
+目前支援的 input foundation 包含 CSV、XLSX 與 SQLite。Public v0.1 應優先呈現 CSV / XLSX；SQLite 保持 internal supported intake path，不必在第一個公開 demo 強調。
 
-目前不能宣稱的是：系統已能對任何電商資料、任何商業問題，自動產生完整、正確的 root cause、finding 或 recommendation。
+目前 positive Claim permission 僅限 `ClaimType.DESCRIPTIVE`。unsupported diagnostic / predictive / causal / prescriptive Claims 必須 fail closed，不得因為 Revenue decline 或 Revenue Change evidence 存在就發明 promotion、seasonality、competition、demand、traffic、inventory 或其他外部原因。
+
+目前能保證的是：在已支援的輸入、metric、scope 與 descriptive Claim set 中，結果經過受治理的 deterministic chain，且 lineage、語義、Evidence 或 Claim authority 遭竄改時會拒絕繼續。
+
+目前不能宣稱的是：系統已能對任何表格、任何電商資料、任何商業問題，自動產生完整、正確的 root cause、finding、recommendation、anomaly detection、correlation、forecasting、causal inference、product/category performance、contribution 或 Revenue Change Percentage。
 
 ---
 
@@ -264,7 +296,39 @@ Technical MVP completion 評估的是產品能力是否已被建成並驗證，�
 - 所有 authoritative fixtures 在支援的 source formats 上通過。
 - 使用者能檢視「答案、證據、限制、替代解釋」而不只看到生成文字。
 
-### 7.3 Solution Validation 成功準則
+### 7.3 Public v0.1 Integration Gate 成功準則
+
+Public v0.1 是比完整 Technical MVP 更窄的 release gate。它的成功不是證明所有後續 product / decision artifacts 都完成，而是讓 clean user 能 reproducibly demonstrate 一條 evidence-governed analytical Skill loop：
+
+```text
+User installs / invokes CommerceLens Skill
+→ provides supported CSV / XLSX data
+→ asks a supported analytical question
+→ CommerceLens interprets the bounded question
+→ existing intake / canonicalization / Data Sufficiency
+→ ExecutionPlan
+→ deterministic DuckDB execution
+→ deterministic validation
+→ AdmissibleEvidence
+→ ClaimCandidate
+→ ClaimDecision
+→ safe evidence-governed response
+```
+
+Public v0.1 response surface 概念上限於：Answer / Supported Claim、Evidence、Claim Status、Limitations、Unsupported Conclusions、Additional Evidence Needed。Formal Recommendation 或 Alternative Explanation artifact implementation 不應是 public v0.1 prerequisite。
+
+Public v0.1 ready only when a clean user can demonstrate at least:
+
+1. **Supported Claim**：例如詢問 governed comparable periods 之間 Revenue 如何變動；系統必須定義 governed Metric / scope、建立 Data Sufficiency、deterministically execute、validate、create AdmissibleEvidence、produce an Admissible descriptive ClaimDecision，並以 traceable Evidence 呈現 supported answer。
+2. **Unsupported Explanation**：例如詢問 Why did Revenue decline? 當 available Evidence 只支持 decline 而不支持 reason 時，descriptive decline Claim 可以 Admissible；diagnostic / causal explanation 不得被授權；系統不得發明 promotion、seasonality、competition、demand、traffic、inventory 或其他 external causes；response 可列出需要哪些 additional Evidence 類別，但不得宣稱那些因素造成結果。
+3. **Governed Undefined State**：AOV with Orders = 0 必須保持 Undefined，不得轉成 zero。
+4. **Fail-closed Provenance**：substituted / tampered Evidence 或 Claim authority 不得產生 authoritative material Claim。
+
+Minimum public v0.1 deliverables are: `SKILL.md`、thin application / invocation boundary、reuse of existing deterministic CommerceLens engine、supported-question contract、synthetic / open example dataset(s)、minimum reproducible examples、physical fixtures / tests proving supported and refusal behavior、README public setup / limitations、Evidence traceability demonstration、GitHub-ready repository hygiene。
+
+Public v0.1 does not require frontend、dashboard、Shopify / Amazon connector、database connector framework、LangChain、LangGraph、RAG、MCP、Multi-Agent、Vector DB、Wren、external executor adapter、generic plugin framework、Product / Category metrics、Revenue Change Percentage、Contribution、anomaly detection、correlation、forecasting、causal inference、or Recommendations.
+
+### 7.4 Solution Validation 成功準則
 
 Solution Validation 是 Technical MVP 之外的市場與產品 thesis gate；目前尚未通過。現有市場結論保持 **CONDITIONAL GO**：問題值得解，但仍需證明使用者願意為 evidence governance 付出額外等待、限制或成本。
 
@@ -350,14 +414,13 @@ Solution Validation 是 Technical MVP 之外的市場與產品 thesis gate；目
 - 更完整的 period comparison 與 segment/entity union。
 - Refund、discount、gross margin 等未來 metrics；需先定義 authoritative semantics 與 required evidence。
 
-### 9.2 Evidence 到 Decision 的治理層
+### 9.2 Evidence 到完整 Decision Product 的治理層
 
-- ClaimDecision。
-- claim type 與支持強度判定。
 - Findings artifact。
 - Alternative Explanations governance。
 - Recommendations 與 limitations contract。
-- 從 descriptive evidence 到 diagnostic / prescriptive claim 的升級規則。
+- 從 descriptive ClaimDecision 到 diagnostic / prescriptive claim 的升級規則。
+- 超出 `ClaimType.DESCRIPTIVE` 的 Claim permission；目前 unsupported diagnostic / predictive / causal / prescriptive Claims 必須維持 fail-closed。
 
 ### 9.3 評估與可靠性
 
@@ -369,57 +432,66 @@ Solution Validation 是 Technical MVP 之外的市場與產品 thesis gate；目
 
 ### 9.4 產品與整合
 
-- 穩定的 in-process application API。
-- Thin CLI。
-- 正式 `SKILL.md`、host adapter 與 LLM orchestration。
-- 完整 end-to-end Skill workflow。
-- 最小 UI / demo：問題、資料充分性、結果、證據、限制、替代解釋與建議。
+- Public v0.1 `SKILL.md`。
+- thin application / invocation boundary。
+- supported-question contract。
+- synthetic / open example dataset(s)。
+- minimum reproducible examples。
+- physical fixtures / tests proving supported and refusal behavior。
+- README public setup / limitations。
+- Evidence traceability demonstration。
+- GitHub-ready repository hygiene。
+- 後續完整產品介面：穩定 in-process application API、Thin CLI、完整 end-to-end Skill workflow、以及 optional minimal UI / demo。
 - 可選的 connector expansion；目前不應以大量 connector 數量取代治理層工作。
 
-### 9.5 明確延後或不在 MVP
+### 9.5 明確延後或不在 public v0.1 prerequisite
 
+- Revenue Change Percentage。
+- Product / Category metrics。
+- Contribution / ranking。
+- Formal Recommendation artifact implementation。
+- Formal Alternative Explanation artifact implementation。
 - 自由形式 predictive forecasting。
+- anomaly detection 或 correlation support。
 - 自動因果推論。
 - 無治理的任意 Python execution。
 - A/B testing platform。
-- 大型 dashboard suite。
-- 在 evidence chain 尚未完成前建立華麗 UI。
+- frontend 或大型 dashboard suite。
+- Shopify / Amazon connector、database connector framework、LangChain、LangGraph、RAG、MCP、Multi-Agent、Vector DB、Wren、external executor adapter 或 generic plugin framework。
 
 ---
 
-## 10. P7 之後的建議 Roadmap
+## 10. P8 之後的建議 Roadmap
 
-下列是**建議順序，不是已核准的 task specification**。這些是 roadmap stage labels；每一階段仍需自己的 narrow task specification、authorization gate、acceptance criteria 與 fixture，才可進入實作。
+下列是**建議順序，不是已核准的 task specification**。這些是 roadmap stage labels；每一階段仍需自己的 narrow task specification、authorization gate、acceptance criteria 與 fixture，才可進入實作。P8 已 APPROVED / FROZEN；P9 remains the next implementation target。Public v0.1 Integration Gate 是插入於 P9 之後的 milestone / gate，不是 downstream phase renumbering。
 
 | 建議階段 | 目標 | 主要交付成果 | Exit / 成功準則 |
 |---|---|---|---|
-| R0-lite：Roadmap / README factual reconciliation | 修正 post-P7 文件事實落差 | Roadmap factual reconciliation；README factual reconciliation if required；narrowly identified stale non-Frozen project-status documentation | 文件一致反映 P7 APPROVED / FROZEN、四項 metrics、398 tests；PROJECT_STATE 不被修改；protected authority 不被未授權修改 |
-| P8：ClaimDecision Foundation | 從 admissible evidence 進入 deterministic material claim permission | ClaimDecision contract、claim type / strength classification、support mapping、refusal / downgrade rules、required qualifications | numerically correct 但 evidence 或 claim strength 不足的 material claim 被阻擋或降級 |
+| P8：ClaimDecision Foundation | 從 admissible evidence 進入 deterministic material claim permission | ClaimDecision contract、claim type / strength classification、support mapping、refusal / downgrade rules、required qualifications | **APPROVED / FROZEN**；455 passed；P9 not begun |
 | P9：Minimum Physical Fixture Runner | 建立最小 executable fixture layer | YAML / small CSV fixture loading、runner、expected-output comparator、source-format conformance skeleton | fixture 可同時驗證 numerical / evidence correctness 與 Claim admissibility / Claim strength correctness |
+| PUBLIC V0.1 INTEGRATION GATE | 組裝最快 evidence-governed public Skill release，不擴張 governed analytical breadth | `SKILL.md`、thin application / invocation boundary、supported-question contract、synthetic / open example dataset(s)、minimum reproducible examples、physical fixtures / tests proving supported and refusal behavior、README public setup / limitations、Evidence traceability demonstration、GitHub-ready repository hygiene | clean user 可用 CSV / XLSX reproducibly demonstrate supported descriptive comparison Claim、unsupported explanation refusal、AOV Undefined、fail-closed provenance；response surface 限於 Answer / Supported Claim、Evidence、Claim Status、Limitations、Unsupported Conclusions、Additional Evidence Needed |
 | P10：Revenue Change Percentage Vertical Slice | 完成 governed Revenue Change Percentage metric | Registry、plan、dependency execution、Decimal validation、Undefined semantics、admissibility | governed Baseline Revenue 與 Comparison Revenue 被正確引用；Baseline Revenue = 0 時產生 governed Undefined semantics |
 | P11：Entity Performance Foundation | 建立 Product / Category governed populations | Entity union、product/category Revenue、Orders、Change foundations | 不重複計算；Unclassified 與 scope semantics 一致 |
 | P12：Contribution and Ranking | 支援組合與排序分析 | Contribution absolute/share、ranking artifacts | 分母、ties、missing entity、scope 均有 deterministic rules |
 | P13：Findings and Alternative Explanations | 建立可交付分析結果 | Findings artifact、Alternative Explanations、limitations | 每個 finding 可追溯；observed fact、hypothesis 與 alternative explanation 明確分離 |
 | P14：Recommendation Governance | 建立受證據約束的行動建議 | Recommendation artifact、assumptions、risk、next evidence | recommendation 只引用核准 findings；不可把相關性說成因果 |
 | P15：Application Boundary | 提供穩定產品介面 | In-process API、thin CLI、artifact retrieval | 可用單一受控 workflow 重跑並取得相同 artifacts |
-| P16：CommerceLens Skill / Evidence-first Agent | 完成 evidence-first agent 體驗 | SKILL.md、host adapter、LLM orchestration、end-to-end flow | LLM 無法繞過 deterministic gates；使用者看得到拒絕原因與限制 |
+| P16：CommerceLens Skill / Evidence-first Agent | 完成更完整的 evidence-first agent 體驗 | expanded SKILL.md、host adapter、LLM orchestration、end-to-end flow | LLM 無法繞過 deterministic gates；使用者看得到拒絕原因與限制 |
 | P17：Minimal Demo / UI | 對外呈現完整價值 | 資料上傳、問題、evidence view、findings、recommendations | 端到端任務可由目標使用者完成，且 evidence lineage 可檢視 |
 | P18：Solution Validation | 驗證市場與差異化 | 三組 head-to-head study、錯誤/overclaim/信任/latency 結果 | 評估 CommerceLens 相對 baseline 的可量測增益，再決定擴張 |
 | Later：Decision Reliability Benchmark productization | 產品化評估能力 | 公開/私有 evaluation suites、scoring、comparison reports | protocol 穩定、可重現，且不與 MVP 核心爭奪資源 |
 
 ### 建議的近期優先順序
 
-1. 先完成 R0-lite 文件 factual reconciliation；PROJECT_STATE 已由 `35a170e322fe64a576c764a0c99abb9714b367d9` 完成治理整合，本階段不修改 PROJECT_STATE。
-2. P8 優先做 ClaimDecision Foundation，因為 CommerceLens 已有 Revenue、Orders、AOV、Revenue Change 的 deterministic Evidence chains，但還缺少從 `AdmissibleEvidence` 到 deterministic material Claim permission 的核心治理層。
-3. P9 立即建立 minimum physical fixture runner；一旦 ClaimDecision 存在，fixtures 就能同時驗證 numerical / evidence correctness 與 Claim admissibility / Claim strength correctness。
-4. P10 再做 Revenue Change Percentage vertical slice。Revenue Change Percentage 增加 metric breadth，但其語義依賴 governed Baseline Revenue 與 Comparison Revenue；Baseline Revenue = 0 必須產生 governed Undefined semantics。
+1. P9 立即建立 minimum physical fixture runner；ClaimDecision 已存在，fixtures 應同時驗證 numerical / evidence correctness 與 Claim admissibility / Claim strength correctness。
+2. P9 後進入 **PUBLIC V0.1 INTEGRATION GATE**，組裝 fastest evidence-governed public Skill release，並用 narrow governed scope 證明 supported answer、unsupported explanation refusal、AOV Undefined 與 fail-closed provenance。
+3. P10 再做 Revenue Change Percentage vertical slice。Revenue Change Percentage 增加 metric breadth，但其語義依賴 governed Baseline Revenue 與 Comparison Revenue；Baseline Revenue = 0 必須產生 governed Undefined semantics。
+4. P11 / P12 之後再擴張 Product / Category metrics、Contribution 與 Ranking；這些不是 first public v0.1 prerequisites。
 5. WrenAI 保持 monitoring / foundation candidate；除非另開 feasibility gate，不改動目前 DuckDB production authority。
 
-P8 選擇 ClaimDecision 的原因是：數值正確的結果不會自動授權 material claim。Revenue Change Percentage 能增加 Metric breadth，但 ClaimDecision 關閉的是目前更中心的產品缺口：`AdmissibleEvidence → deterministic material Claim permission`。這是基於 analytical correctness、evidence governance、目前 implementation maturity 與 remaining MVP gap 的 approved current development strategy；不宣稱此 sequencing 已被外部市場證明。
+P9 remains next because public v0.1 needs minimum physical behavioral proof before a clean user demo can be trusted. Once P9 exists, the Integration Gate should assemble the narrow Skill loop instead of waiting for P10+ analytical breadth.
 
-P9 的 minimum physical fixture runner 必須緊接 ClaimDecision，因為 executable fixtures 應同時檢查：A. numerical / evidence correctness；B. Claim admissibility / Claim strength correctness。即使數字正確，若 formula、population、lineage、evidence admissibility、Claim type / strength 或 required qualification 任一不成立，答案仍可能 fail。
-
-P10 的 Revenue Change Percentage 仍保留為受治理 metric：它依賴 governed Baseline Revenue 與 Comparison Revenue；Baseline Revenue = 0 時不得產生偽精確 percentage，而必須走 governed Undefined semantics。
+P10 的 Revenue Change Percentage 仍保留為受治理 metric：它依賴 governed Baseline Revenue 與 Comparison Revenue；Baseline Revenue = 0 時不得產生偽精確 percentage，而必須走 governed Undefined semantics。P10、P11、P12 與後續 phase numbering 保持 intact；它們不因 public v0.1 gate 插入而重編號。
 
 ## 11. 目前進度的正確解讀
 
@@ -428,34 +500,39 @@ P10 的 Revenue Change Percentage 仍保留為受治理 metric：它依賴 gover
 - 八份治理與架構 authority documents。
 - 安全資料註冊、inspection、canonicalization、provenance 與 sufficiency foundation。
 - Revenue、Orders、AOV、Revenue Change 的完整 deterministic evidence chain。
-- 對 scope、currency、period、dependency、semantic 與 validation lineage 的 fail-closed 防護。
-- MetadataStore v5 與 immutable evidence artifacts。
-- P7 最終全套 398 tests、獨立 final verification 與 Main Project final source review。
+- deterministic ClaimDecision Foundation for governed descriptive Claims。
+- 對 scope、currency、period、dependency、semantic、Evidence、ClaimCandidate 與 ClaimDecision authority 的 fail-closed 防護。
+- MetadataStore v6 與 immutable evidence / claim artifacts。
+- P8 最終全套 455 tests、final Main Project hostile source review 與 **APPROVED / FROZEN** decision。
 - Wren R-001 第一輪 feasibility；結論為保留 DuckDB，不採用 Wren。
 
 ### 尚未完成
 
-- Evidence 到 ClaimDecision、Finding、Recommendation 的核心產品價值閉環。
-- 實體 evaluation fixtures 與 head-to-head validation。
-- Skill、LLM host integration、API/CLI、UI/demo。
-- 更多電商 metrics 與 entity/contribution analysis。
+- P9 Minimum Physical Fixture Runner。
+- Public v0.1 Skill integration gate and release surface。
+- Findings、Alternative Explanations、Recommendations 與完整 limitations artifacts。
+- 實體 evaluation fixtures 與 head-to-head validation beyond the public v0.1 minimum。
+- 更多電商 metrics、Revenue Change Percentage、Product / Category、entity / contribution analysis。
 - Benchmark 產品化。
 
 ### 不應使用單一百分比表示的原因
 
-P1–P7 是連續工程階段，但後續產品層的總 task 數尚未正式核准，因此不能誠實地把 P7 說成「整個專案完成 70%」之類的數字。較準確的說法是：
+P1–P8 是連續工程階段，但後續產品層的總 task 數尚未正式核准，因此不能誠實地把 P8 說成「整個專案完成 70%」之類的數字。較準確的說法是：
 
-- **第一版 Evidence Reliability Kernel：已完成四項 metric 的可驗證垂直切片。**
-- **完整 CommerceLens MVP：尚未完成，主要缺口在 decision governance 與 product delivery。**
+- **第一版 Evidence Reliability Kernel + ClaimDecision governance：已完成四項 metric 與 descriptive Claim permission 的可驗證垂直切片。**
+- **Public v0.1 Skill：尚未完成，但可在 P9 後用 narrow governed scope 進入 Integration Gate。**
+- **完整 CommerceLens MVP：尚未完成，主要缺口在 full decision product layer 與 product delivery。**
 - **Decision Reliability Benchmark：尚未開始。**
 
 ---
 
 ## 12. 下一個決策 Gate
 
-下一步不應直接大規模開發，也不應開始 P8 實作本身。下一個 narrow task 應是核准 P8 ClaimDecision Foundation 的 task specification：明確定義 ClaimCandidate、ClaimDecision、claim type / strength、support mapping、refusal / downgrade rules、required qualification 與 fixtures。
+P8-001 已 **APPROVED / FROZEN**。下一個 implementation target remains **P9：Minimum Physical Fixture Runner**。本 roadmap amendment 不建立 P9 task、不授權 P9 implementation，也不重開 Frozen analytical specifications。
 
-Revenue Change Percentage 改列 P10；Minimum Physical Fixture Runner 改列 P9。這移除了先前 metric-breadth option 與 fixture-first option 之間的衝突，並保留核心治理原則：a numerically correct result does not automatically authorize a material claim。
+P9 後新增 **PUBLIC V0.1 INTEGRATION GATE**：這是 milestone / gate，不是 downstream renumbering。它應組裝最快 evidence-governed public Skill release，使用現有 governed metrics、`ClaimType.DESCRIPTIVE` permission、Data Sufficiency、deterministic DuckDB execution、validation、AdmissibleEvidence 與 ClaimDecision，證明 clean user 能完成 supported / refusal / undefined / provenance cases。
+
+Revenue Change Percentage 保留為 P10；Product / Category performance 保留為 P11；Contribution / Ranking 保留為 P12。這些 analytical breadth expansions 不再預設阻擋 first public v0.1，除非未來 Main Project review identifies a concrete blocking need。
 
 WrenAI 保持 monitoring / foundation candidate；除非另開 feasibility gate，不改動目前 DuckDB production path。
 
@@ -463,7 +540,7 @@ WrenAI 保持 monitoring / foundation candidate；除非另開 feasibility gate�
 
 ## 13. 專案完成定義
 
-CommerceLens Technical MVP 只有在以下產品與工程條件全部成立時，才應稱為「完成」：
+CommerceLens Technical MVP 只有在以下產品與工程條件全部成立時，才應稱為「完成」。Public v0.1 是更窄的 first release gate，不代表下列完整 Technical MVP 條件已全部完成：
 
 1. 支援的核心電商 metrics 均有 authoritative definition、execution、validation、admissibility 與 fixtures。
 2. Business Question 可被轉成 required evidence 與受治理的 analysis plan。
@@ -478,4 +555,4 @@ Solution Validation 是獨立 gate，不是 Technical MVP 的前置條件，也�
 
 在此之前，對外最準確的定位是：
 
-> **CommerceLens 已完成 P7-001 APPROVED / FROZEN 的 evidence reliability kernel 基線，正在從可信數值引擎走向完整的 evidence-governed e-commerce decision product。**
+> **CommerceLens 已完成 P8-001 APPROVED / FROZEN 的 evidence reliability kernel + ClaimDecision governance 基線，下一步是 P9 minimum physical fixture proof，並在 P9 後進入最快 evidence-governed public v0.1 Skill Integration Gate。**
