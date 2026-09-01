@@ -2,7 +2,7 @@
 
 ## Status
 
-PROPOSED / NOT AUTHORIZED
+APPROVED FOR IMPLEMENTATION / NOT FROZEN
 
 Implementation:
 NOT STARTED
@@ -11,10 +11,14 @@ Relationship:
 BLOCKING PREREQUISITE FOR P9-001
 
 Main Project Review:
-NARROW TASK CONTRACT CORRECTION REQUIRED APPLIED; RE-REVIEW REQUIRED BEFORE
-IMPLEMENTATION
+APPROVED FOR IMPLEMENTATION
 
-This task is task specification only. It does not authorize implementation.
+This task records Main Project implementation authorization only.
+
+No implementation has started.
+
+This task authorizes future implementation only within the boundaries recorded
+here.
 
 P9-001 must not be implemented until this prerequisite is separately specified,
 reviewed, implemented, verified, and approved by Main Project Review.
@@ -357,6 +361,18 @@ Source path / dataset registration is already represented in `AnalysisRequest`:
   to the request. The local source path and source type used for current intake
   and registration are not represented in `AnalysisRequest`.
 
+Source-selection authority:
+
+- `AnalysisRequest.selected_sheet` and `AnalysisRequest.selected_table` are
+  governed request authority.
+- If separate runtime/source-binding context carries sheet or table selection,
+  those values may only bind physical access to the already-declared request
+  selection.
+- Separate runtime/source-binding sheet or table values must not override
+  `AnalysisRequest`.
+- A material mismatch must fail closed.
+- Do not invent reconciliation or silent preference rules.
+
 Additional non-semantic execution-context arguments the application service must
 receive separately where current contracts require them:
 
@@ -475,6 +491,17 @@ ClaimDecision association behavior from current source inspection:
   the authoritative `ClaimDecision` through existing `claim_decisions`.
 - This field does not authorize application-layer ClaimCandidate construction or
   natural-language interpretation.
+
+ClaimCandidate traceability clarification:
+
+- No direct `AnalysisResult.claim_candidate_ref` field is required or
+  authorized by P9-PRE-001.
+- Current `AnalysisResult` remains sufficient and unchanged.
+- Where Claim Evaluation has occurred, `ClaimCandidate` traceability may be
+  resolved through authoritative `ClaimDecision.claim_candidate_ref` and
+  persisted P8 authority.
+- Do not modify `src/commerce_lens/contracts/results.py` merely to add a direct
+  `ClaimCandidate` reference.
 
 ---
 
@@ -709,7 +736,8 @@ It must make the following distinguishable where applicable:
 - deterministic result refs;
 - validation state;
 - `AdmissibleEvidence` refs;
-- `ClaimCandidate` ref;
+- `ClaimCandidate` traceability through authoritative `ClaimDecision` and
+  persisted P8 authority where Claim Evaluation has occurred;
 - authoritative `ClaimDecision`;
 - failure code/details;
 - Undefined reason; and
