@@ -235,6 +235,60 @@ P6-001 must not be reopened without a specific implementation defect or governin
 
 ---
 
+### P7-001 — Revenue Change Vertical Metric Slice
+
+Status:
+
+APPROVED / FROZEN
+
+Formal Main Project decision:
+
+P7-001 — APPROVED / FROZEN
+
+Final approved implementation commit:
+
+f48b75eb0f67f5b14675886e6ce1749835d2dc16
+
+Final verification:
+
+PASSED
+
+Final verified full suite:
+
+398 passed
+
+Final full rerun:
+
+398 passed
+
+Final verification evidence:
+
+- Python 3.11.9
+- DuckDB 1.5.5
+- pytest 8.4.2
+- MetadataStore schema v5
+- validation: 71 passed
+- engine: 144 passed
+- evidence: 84 passed
+- persistence: 16 passed
+- metrics/sufficiency/contracts: 35 passed
+- full suite: 398 passed
+- final full rerun: 398 passed
+- git diff --check passed
+- material findings: NONE
+
+Corrected blocker classes:
+
+1. execution-stage Revenue dependency lineage;
+2. Revenue Change scope provenance duplication;
+3. validation-stage dependency ExecutionRecord lineage.
+
+P7-001 implemented the approved Revenue Change vertical deterministic reliability slice through AdmissibleEvidence for valid descriptive metric_value evidence.
+
+P7-001 must not be reopened without a specific implementation defect or governing conflict.
+
+---
+
 ## Current Production Execution Foundation
 
 The currently Frozen Architecture specifies:
@@ -280,12 +334,14 @@ Current implemented Metrics:
 - Revenue
 - Orders
 - AOV
+- Revenue Change
 
 Current implemented execution semantics include:
 
 - exact Decimal Revenue;
 - exact integer Orders;
 - governed Decimal AOV;
+- exact Decimal Revenue Change;
 - Orders = 0 → AOV Undefined;
 - explicit execution implementation bindings;
 - deterministic result fingerprints;
@@ -311,6 +367,7 @@ Current validation authority includes:
 - exact dependency plan/node lineage enforcement;
 - persisted dependency ValidationRecord authority;
 - persisted dependency ValidatedResult artifact authority;
+- persisted dependency ExecutionRecord lineage authority;
 - dependency validation-fingerprint verification;
 - artifact tamper detection;
 - canonical dataset integrity;
@@ -322,7 +379,7 @@ Current validation authority includes:
 Evidence admissibility currently supports:
 
 - descriptive Evidence only;
-- metric_value for Valid Revenue / Orders / AOV;
+- metric_value for Valid Revenue / Orders / AOV / Revenue Change;
 - metric_state only for governed AOV Undefined because Orders = 0;
 - exact Required Evidence linkage;
 - authoritative per-Metric Data Sufficiency;
@@ -450,17 +507,17 @@ Research must remain isolated from production implementation.
 
 ## Current Main-Branch Production State
 
-The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, P5-001 deterministic result validation, and P6-001 deterministic Evidence admissibility for Revenue, Orders, and AOV.
+The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, P5-001 deterministic result validation, P6-001 deterministic Evidence admissibility for Revenue, Orders, and AOV, and P7-001 Revenue Change vertical metric slice.
 
 R-001 must not silently modify production execution architecture.
 
 Any Wren experiment should be isolated in a research boundary or separate worktree/task.
 
-Deterministic result validation, ValidatedResult persistence, Evidence admissibility, EvidenceAdmissibilityRecord persistence, and AdmissibleEvidence artifact verification are implemented for Revenue, Orders, and AOV.
+Deterministic result validation, ValidatedResult persistence, Evidence admissibility, EvidenceAdmissibilityRecord persistence, and AdmissibleEvidence artifact verification are implemented for Revenue, Orders, AOV, and Revenue Change.
 
 ClaimDecision is not yet implemented.
 
-Revenue Change is not yet implemented.
+Revenue Change is implemented through P7-001.
 
 ---
 
@@ -478,13 +535,13 @@ Wren may be reconsidered later if material capabilities or project requirements 
 
 ## Next Authorized Work
 
-P6-001 is Approved / Frozen.
+P7-001 is Approved / Frozen.
 
 Any next implementation slice requires separate authorization.
 
 Do not begin:
 
-- Revenue Change implementation;
+- P8;
 - Product or Category Metric execution;
 - Contribution production execution;
 - ClaimDecision;
@@ -514,7 +571,8 @@ Codex must stop and request Main Project review before:
 - beginning Findings;
 - beginning Recommendations;
 - beginning Claim admissibility;
-- beginning Revenue Change or Contribution execution;
+- beginning Contribution execution;
+- beginning P8;
 - adopting MCP or external executor adapters;
 - merging a research result into the production execution path.
 
@@ -588,6 +646,27 @@ PASSED
 P6-001 final verified full suite:
 301 passed
 
+P7-001:
+APPROVED / FROZEN
+
+P7-001 final approved implementation commit:
+f48b75eb0f67f5b14675886e6ce1749835d2dc16
+
+P7-001 final verification:
+PASSED
+
+P7-001 final verified full suite:
+398 passed
+
+P7-001 final full rerun:
+398 passed
+
+P7-001 corrected blocker classes:
+
+1. execution-stage Revenue dependency lineage;
+2. Revenue Change scope provenance duplication;
+3. validation-stage dependency ExecutionRecord lineage.
+
 MetadataStore schema:
 5
 
@@ -626,6 +705,7 @@ Current implemented Metrics:
 - Revenue
 - Orders
 - AOV
+- Revenue Change
 
 Current validation authority includes:
 
@@ -641,6 +721,7 @@ Current validation authority includes:
 - exact dependency plan/node lineage enforcement;
 - persisted dependency ValidationRecord authority;
 - persisted dependency ValidatedResult artifact authority;
+- persisted dependency ExecutionRecord lineage authority;
 - dependency validation-fingerprint verification;
 - artifact tamper detection;
 - canonical dataset integrity;
@@ -652,7 +733,7 @@ Current validation authority includes:
 Evidence admissibility currently supports:
 
 - descriptive Evidence only;
-- metric_value for Valid Revenue / Orders / AOV;
+- metric_value for Valid Revenue / Orders / AOV / Revenue Change;
 - metric_state only for governed AOV Undefined because Orders = 0;
 - exact Required Evidence linkage;
 - authoritative per-Metric Data Sufficiency;
@@ -689,7 +770,7 @@ Recommendations:
 NOT YET IMPLEMENTED
 
 Revenue Change:
-NOT YET IMPLEMENTED
+APPROVED / FROZEN
 
 Current approved executor:
 DuckDB direct reference path

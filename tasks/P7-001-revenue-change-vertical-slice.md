@@ -2,10 +2,38 @@
 
 ## Status
 
-AUTHORIZED TASK SPECIFICATION ONLY
+APPROVED / FROZEN
+
+Formal Main Project decision:
+P7-001 — APPROVED / FROZEN
 
 Implementation:
-NOT STARTED
+COMPLETE
+
+Final approved implementation commit:
+f48b75eb0f67f5b14675886e6ce1749835d2dc16
+
+Final verification evidence:
+
+- Python 3.11.9
+- DuckDB 1.5.5
+- pytest 8.4.2
+- MetadataStore schema v5
+- validation: 71 passed
+- engine: 144 passed
+- evidence: 84 passed
+- persistence: 16 passed
+- metrics/sufficiency/contracts: 35 passed
+- full suite: 398 passed
+- final full rerun: 398 passed
+- git diff --check passed
+- material findings: NONE
+
+Corrected blocker classes:
+
+1. execution-stage Revenue dependency lineage;
+2. Revenue Change scope provenance duplication;
+3. validation-stage dependency ExecutionRecord lineage.
 
 This task authorizes the next CommerceLens implementation slice after:
 
@@ -1174,3 +1202,51 @@ Do NOT implement beyond this task.
 When P7-001 implementation is complete:
 
 STOP and wait for Main Project Review or a new explicit task.
+
+---
+
+## 31. Formal Approval And Freeze Record
+
+Formal Main Project decision:
+
+P7-001 — APPROVED / FROZEN
+
+Final approved implementation commit:
+
+f48b75eb0f67f5b14675886e6ce1749835d2dc16
+
+Final verification evidence:
+
+- Python 3.11.9
+- DuckDB 1.5.5
+- pytest 8.4.2
+- MetadataStore schema v5
+- validation: 71 passed
+- engine: 144 passed
+- evidence: 84 passed
+- persistence: 16 passed
+- metrics/sufficiency/contracts: 35 passed
+- full suite: 398 passed
+- final full rerun: 398 passed
+- git diff --check passed
+- material findings: NONE
+
+Corrected blocker classes:
+
+1. execution-stage Revenue dependency lineage;
+2. Revenue Change scope provenance duplication;
+3. validation-stage dependency ExecutionRecord lineage.
+
+ClaimDecision implemented:
+
+NO
+
+Revenue Change Percentage implemented:
+
+NO
+
+MCP / external executor / Wren implemented:
+
+NO
+
+P7-001 is closed and Frozen. Do not begin P8 without separate Main Project authorization.
