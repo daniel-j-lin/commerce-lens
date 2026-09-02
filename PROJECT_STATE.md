@@ -1280,13 +1280,13 @@ Revenue Change:
 APPROVED / FROZEN
 
 Next project step:
-PUBLIC V0.1 RELEASE READINESS GATE
+EXPLICIT PUBLIC V0.1 RELEASE ACTION
 
 Public v0.1 Integration:
 APPROVED / FROZEN
 
 Public v0.1 Release Readiness:
-NOT STARTED
+READY FOR PUBLIC RELEASE / NOT YET RELEASED
 
 P10:
 Revenue Change Percentage; not started; numbering preserved.
@@ -1305,3 +1305,160 @@ NOT YET APPROVED FOR IMPLEMENTATION
 
 Wren:
 NOT ADOPTED
+
+---
+
+### PUBLIC V0.1 RELEASE READINESS GATE
+
+Status:
+
+APPROVED / FROZEN
+
+Implementation:
+
+COMPLETE
+
+Approved implementation HEAD:
+
+15d81279f243d66366fc4279b4f87a00beede042
+
+Authorization baseline:
+
+1f5e9028967893f2f0b1373ee80008afcd56cc93
+
+Implementation branch:
+
+implementation/public-v0.1-release-readiness
+
+Implementation commit message:
+
+Prepare Public v0.1 release readiness
+
+Authorized implementation changed exactly:
+
+- LICENSE
+- README.md
+- examples/public_v0_1/README.md
+- examples/public_v0_1/aov_undefined.csv
+- examples/public_v0_1/orders.xlsx
+
+examples/public_v0_1/orders.csv remained unchanged because the existing
+synthetic content was sufficient.
+
+Source Review:
+
+APPROVE
+
+Source Review findings:
+
+- BLOCKER: none
+- MATERIAL: none
+- MINOR: none
+
+Independent Clean-Checkout / Runtime Verification:
+
+ACCEPT
+
+Verification target:
+
+15d81279f243d66366fc4279b4f87a00beede042
+
+Verification method:
+
+git archive
+
+Fresh Python:
+
+3.11.9
+
+Final Release Readiness state:
+
+READY FOR PUBLIC RELEASE / NOT YET RELEASED
+
+Pre-release acceptance criteria:
+
+PASS
+
+Release-action-only criteria:
+
+NOT YET APPLICABLE — RELEASE ACTION ONLY
+
+License:
+
+Apache-2.0
+
+Approved license:
+
+Apache License 2.0
+
+Package version:
+
+0.1.0
+
+Future tag:
+
+v0.1.0
+
+Future GitHub Release:
+
+CommerceLens v0.1.0
+
+Verified evidence summary:
+
+- documented runtime install succeeded;
+- documented developer/test install succeeded;
+- package import resolved from clean checkout;
+- package version 0.1.0;
+- CSV Revenue, CSV Orders, numeric AOV, Revenue Change, Killer Demo 1,
+  Killer Demo 2 diagnostic refusal, AOV Undefined, XLSX path, and CSV/XLSX
+  consistency verified;
+- Evidence traceability verified;
+- public inputs SHA-256 immutable;
+- no hidden developer-path authority;
+- runtime succeeded with socket creation blocked;
+- Apache License present;
+- public examples synthetic/public-safe;
+- no material secret/credential issue;
+- focused tests: 15 passed;
+- P9 tests: 35 passed;
+- application tests: 21 passed;
+- complete suite: 526 passed;
+- git diff --check passed.
+
+Final review findings:
+
+- BLOCKER: none
+- MATERIAL: none
+- MINOR release-readiness findings requiring correction: none
+
+Accepted non-blocking note:
+
+Historical/local absolute paths exist in governance/history text only. They are
+not public-facing product documentation, secrets, or runtime authority.
+
+Analytical freeze preserved:
+
+- Supported Metrics remain exactly revenue, orders, aov, and revenue_change.
+- Positive Claim permission remains ClaimType.DESCRIPTIVE only.
+- Positive Qualified path remains NONE.
+- MetadataStore remains v6.
+- No analytical semantics changed during Release Readiness.
+
+Public v0.1 Integration Gate:
+
+APPROVED / FROZEN
+
+P10:
+
+Revenue Change Percentage; NOT STARTED; numbering preserved.
+
+Release state distinction:
+
+READY FOR PUBLIC RELEASE / NOT YET RELEASED is not PUBLICLY RELEASED.
+
+No merge, fast-forward, tag, GitHub Release, push, PyPI publication, repository
+publicization, or P10 work was performed by this governance recording.
+
+Next required step:
+
+EXPLICIT PUBLIC V0.1 RELEASE ACTION
