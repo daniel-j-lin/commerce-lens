@@ -1288,6 +1288,12 @@ APPROVED / FROZEN
 Public v0.1 Release Readiness:
 READY FOR PUBLIC RELEASE / NOT YET RELEASED
 
+Public v0.1 active license:
+MIT License / MIT
+
+Public v0.1 copyright:
+Copyright (c) 2026 Jui-Hsin (Daniel) Lin
+
 P10:
 Revenue Change Percentage; not started; numbering preserved.
 
@@ -1385,11 +1391,39 @@ NOT YET APPLICABLE — RELEASE ACTION ONLY
 
 License:
 
-Apache-2.0
+MIT
 
 Approved license:
 
-Apache License 2.0
+MIT License / MIT
+
+Copyright:
+
+Copyright (c) 2026 Jui-Hsin (Daniel) Lin
+
+MIT License Correction:
+
+APPROVED / FROZEN
+
+MIT implementation commit:
+
+216601de809cdc5fe6e744492f985822cb522d27
+
+MIT task provenance commit:
+
+87bb49862cd74fff59258208d6b8eb89cf2fb42a
+
+Independent focused review:
+
+APPROVE
+
+Known governance limitation:
+
+GOVERNANCE PROVENANCE LIMITATION — NON-ANALYTICAL
+
+Git remote state:
+
+No Git remote currently configured
 
 Package version:
 
@@ -1416,7 +1450,8 @@ Verified evidence summary:
 - public inputs SHA-256 immutable;
 - no hidden developer-path authority;
 - runtime succeeded with socket creation blocked;
-- Apache License present;
+- Apache License was present during original Release Readiness verification;
+  MIT License is active after governed correction;
 - public examples synthetic/public-safe;
 - no material secret/credential issue;
 - focused tests: 15 passed;
@@ -1461,4 +1496,4 @@ publicization, or P10 work was performed by this governance recording.
 
 Next required step:
 
-EXPLICIT PUBLIC V0.1 RELEASE ACTION
+GITHUB REPOSITORY / PROFILE SETUP AND PUBLIC PRESENTATION

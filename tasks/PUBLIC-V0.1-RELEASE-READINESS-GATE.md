@@ -22,6 +22,10 @@ Release Decision:
 
 READY FOR PUBLIC RELEASE / NOT YET RELEASED
 
+Active release license:
+
+MIT
+
 This task specification authorizes future Release Readiness implementation only
 within the exact approved future implementation file scope. It does not
 authorize packaging edits, source changes, tests, GitHub release creation, Git
@@ -1366,4 +1370,65 @@ State distinctions preserved:
 ```text
 READY FOR PUBLIC RELEASE / NOT YET RELEASED
 != PUBLICLY RELEASED
+```
+
+## 34. Subsequent MIT License Correction Authority
+
+After the Release Readiness Gate was frozen and before first public release,
+Public v0.1 license authority was changed from:
+
+```text
+Apache License 2.0 / Apache-2.0
+```
+
+to:
+
+```text
+MIT License / MIT
+```
+
+through:
+
+```text
+tasks/PUBLIC-V0.1-LICENSE-CORRECTION.md
+```
+
+MIT implementation commit:
+
+```text
+216601de809cdc5fe6e744492f985822cb522d27
+```
+
+MIT correction provenance commit:
+
+```text
+87bb49862cd74fff59258208d6b8eb89cf2fb42a
+```
+
+Independent focused review:
+
+```text
+APPROVE
+```
+
+Active release license:
+
+```text
+MIT
+```
+
+The Apache evidence in this Release Readiness Gate remains historical evidence
+from the earlier Release Readiness cycle. It is not the active Public v0.1
+release license after the governed MIT License Correction.
+
+Release Readiness status remains:
+
+```text
+APPROVED / FROZEN
+```
+
+Release state remains:
+
+```text
+READY FOR PUBLIC RELEASE / NOT YET RELEASED
 ```
