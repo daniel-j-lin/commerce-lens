@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 
 from commerce_lens.fixture_runner.cases import EXPECTED_CASE_IDS, FixtureCase, discover_cases
@@ -63,6 +64,106 @@ def test_unexpected_metric_value_reports_failed_case_without_scoring(tmp_path) -
     assert not hasattr(result, "pass_percentage")
 
 
+def test_fail_closed_sufficiency_cases_expose_inadmissible_metric_state(tmp_path) -> None:
+    cases = {case.case_id: case for case in discover_cases(CASES_ROOT)}
+
+    missing = run_case(cases["P9-CONF-SUFF-MISSING-REVENUE-001"], runtime_root=tmp_path / "missing")
+    mixed = run_case(cases["P9-CONF-SUFF-MIXED-CURRENCY-001"], runtime_root=tmp_path / "mixed")
+
+    assert missing.passed
+    assert mixed.passed
+    assert missing.observed["metrics"]["revenue"]["metric_state"] == "Inadmissible"
+    assert mixed.observed["metrics"]["revenue"]["metric_state"] == "Inadmissible"
+
+
+def test_execution_disposition_is_checked(tmp_path) -> None:
+    case = discover_cases(CASES_ROOT)[0]
+    bad_case = _case_with_expected(case, execution_disposition="not_started")
+
+    result = run_case(bad_case, runtime_root=tmp_path / "runtime")
+
+    assert not result.passed
+    assert any("execution_disposition" in mismatch for mismatch in result.mismatches)
+
+
+def test_validation_disposition_is_checked(tmp_path) -> None:
+    case = discover_cases(CASES_ROOT)[0]
+    bad_case = _case_with_expected(case, validation_disposition="failed")
+
+    result = run_case(bad_case, runtime_root=tmp_path / "runtime")
+
+    assert not result.passed
+    assert any("validation_disposition" in mismatch for mismatch in result.mismatches)
+
+
+def test_no_claim_decision_is_checked_after_claim_evaluation(tmp_path) -> None:
+    case = discover_cases(CASES_ROOT)[0]
+    bad_case = _case_with_expected(case, no_claim_decision=True)
+
+    result = run_case(bad_case, runtime_root=tmp_path / "runtime")
+
+    assert not result.passed
+    assert any("no ClaimDecision" in mismatch for mismatch in result.mismatches)
+
+
+def test_unexpected_metric_state_causes_case_failure(tmp_path) -> None:
+    case = discover_cases(CASES_ROOT)[0]
+    metric = case.manifest.expected.expected_metric_results[0].model_copy(update={"metric_state": "Inadmissible"})
+    bad_case = _case_with_expected(
+        case,
+        expected_metric_results=(metric, *case.manifest.expected.expected_metric_results[1:]),
+    )
+
+    result = run_case(bad_case, runtime_root=tmp_path / "runtime")
+
+    assert not result.passed
+    assert any("MetricResult state expected" in mismatch for mismatch in result.mismatches)
+
+
+def test_unexpected_claim_state_causes_case_failure(tmp_path) -> None:
+    case = discover_cases(CASES_ROOT)[0]
+    claim = case.manifest.expected.expected_claims[0].model_copy(update={"claim_state": "Inadmissible"})
+    bad_case = _case_with_expected(case, expected_claims=(claim, *case.manifest.expected.expected_claims[1:]))
+
+    result = run_case(bad_case, runtime_root=tmp_path / "runtime")
+
+    assert not result.passed
+    assert any("ClaimState expected" in mismatch for mismatch in result.mismatches)
+
+
+def test_unexpected_failure_code_causes_case_failure(tmp_path) -> None:
+    case = next(item for item in discover_cases(CASES_ROOT) if item.case_id == "P9-CONF-SUFF-MISSING-REVENUE-001")
+    bad_case = _case_with_expected(case, failure_code="canonical.line_revenue.other")
+
+    result = run_case(bad_case, runtime_root=tmp_path / "runtime")
+
+    assert not result.passed
+    assert any("failure_code expected" in mismatch for mismatch in result.mismatches)
+
+
+def test_final_disposition_is_checked(tmp_path) -> None:
+    case = discover_cases(CASES_ROOT)[0]
+    bad_case = _case_with_expected(case, final_disposition="blocked_insufficient")
+
+    result = run_case(bad_case, runtime_root=tmp_path / "runtime")
+
+    assert not result.passed
+    assert any("final_disposition" in mismatch for mismatch in result.mismatches)
+
+
+def test_hostile_submitted_value_comes_from_manifest_authority(tmp_path) -> None:
+    case = next(item for item in discover_cases(CASES_ROOT) if item.case_id == "P9-CONF-VAL-REVCHG-WRONG-VALUE-001")
+    hostile = case.manifest.expected.hostile_revenue_change.model_copy(
+        update={"submitted_revenue_change": Decimal("22.00")}
+    )
+    bad_case = _case_with_expected(case, hostile_revenue_change=hostile)
+
+    result = run_case(bad_case, runtime_root=tmp_path / "runtime")
+
+    assert result.passed
+    assert result.observed["submitted_value"] == "22.00"
+
+
 def test_case_order_must_name_each_case_exactly_once(tmp_path) -> None:
     try:
         run_suite(CASES_ROOT, runtime_root=tmp_path / "runtime", case_order=EXPECTED_CASE_IDS[:-1])
@@ -70,6 +171,15 @@ def test_case_order_must_name_each_case_exactly_once(tmp_path) -> None:
         assert "case_order must contain each discovered P9 case exactly once" in str(exc)
     else:
         raise AssertionError("run_suite accepted incomplete case_order")
+
+
+def _case_with_expected(case, **updates) -> FixtureCase:
+    return FixtureCase(
+        case_dir=case.case_dir,
+        manifest=case.manifest.model_copy(
+            update={"expected": case.manifest.expected.model_copy(update=updates)}
+        ),
+    )
 
 
 def _material_observation(result: CaseRunResult) -> dict[str, object]:

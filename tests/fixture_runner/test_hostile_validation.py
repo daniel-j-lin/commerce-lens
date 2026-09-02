@@ -20,3 +20,6 @@ def test_revenue_change_wrong_value_hostile_case_fails_validation_only(tmp_path)
     assert result.observed["validation_status"] == "failed"
     assert result.observed["validation_rule_id"] == "validation:revenue_change_from_validated_revenues"
     assert result.observed["failure_code"] == "value_mismatch"
+    assert result.observed["validated_result_authorized"] is False
+    assert result.observed["admissible_evidence_authorized"] is False
+    assert result.observed["claim_decision_authorized"] is False

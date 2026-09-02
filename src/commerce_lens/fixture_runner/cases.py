@@ -24,6 +24,26 @@ EXPECTED_CASE_IDS = (
 
 DEFAULT_CASES_ROOT = Path("tests/fixtures/p9/cases")
 
+DataSufficiencyValue = Literal["sufficient", "data_quality_failure"]
+RunStatusValue = Literal["completed", "blocked", "partially_completed"]
+MetricStateValue = Literal["Valid", "Undefined", "Inadmissible"]
+EvidenceStatusValue = Literal["passed", "failed"]
+EvidenceRoleValue = Literal["metric_value", "metric_state"]
+ClaimTypeValue = Literal["descriptive", "diagnostic"]
+ClaimStateValue = Literal["Admissible", "Inadmissible"]
+PublicOperationValue = Literal[
+    "run_analysis(...)",
+    "run_analysis(...), then evaluate_claim(...)",
+    "evaluate_claim(...)",
+    "ONE hostile direct-validator harness exception",
+]
+FinalDispositionValue = Literal[
+    "completed_admissible",
+    "blocked_insufficient",
+    "validation_failed",
+    "claim_inadmissible",
+]
+
 
 class FixtureCaseError(ValueError):
     """Raised when P9 fixture case authority fails closed."""
@@ -57,38 +77,71 @@ class RequestSpec(StrictModel):
         return self
 
 
+class SetupRow(StrictModel):
+    order_id: str = ""
+    order_line_id: str = ""
+    order_date: str = ""
+    product_id: str = ""
+    product_name: str = ""
+    category_id: str = ""
+    category_name: str = ""
+    quantity: str = ""
+    line_revenue: str = ""
+    currency: str = ""
+    unit_price: str = ""
+    eligibility_status: str = ""
+
+
 class SetupContextSpec(StrictModel):
     name: str = Field(min_length=1)
-    rows: tuple[dict[str, str], ...] = Field(min_length=1)
+    rows: tuple[SetupRow, ...] = Field(min_length=1)
+
+
+class ExpectedMetricResult(StrictModel):
+    metric_ref: str = Field(min_length=1)
+    metric_state: MetricStateValue
 
 
 class ExpectedValidatedResult(StrictModel):
     metric_ref: str = Field(min_length=1)
     period_ref: str | None = None
     period_role: str | None = None
-    metric_state: str = Field(min_length=1)
+    metric_state: MetricStateValue
     value: Decimal | int | None = None
     undefined_reason: str | None = None
-    evidence_status: str | None = None
-    evidence_role: str | None = None
+    evidence_status: EvidenceStatusValue | None = None
+    evidence_role: EvidenceRoleValue | None = None
 
 
 class ExpectedClaim(StrictModel):
     metric_ref: str = Field(min_length=1)
-    claim_type: str = Field(min_length=1)
-    claim_state: str = Field(min_length=1)
+    claim_type: ClaimTypeValue
+    claim_state: ClaimStateValue
     failure_code: str | None = None
     period_ref: str | None = None
     period_role: str | None = None
 
 
+class HostileRevenueChangeAuthority(StrictModel):
+    baseline_revenue: Decimal
+    comparison_revenue: Decimal
+    authoritative_revenue_change: Decimal
+    submitted_revenue_change: Decimal
+    validation_rule_id: Literal["validation:revenue_change_from_validated_revenues"]
+    expected_metric_state: Literal["Inadmissible"]
+    failure_code: Literal["value_mismatch"]
+
+
 class ExpectedCaseOutcome(StrictModel):
-    data_sufficiency_state: str = Field(min_length=1)
-    run_status: str | None = None
+    data_sufficiency_state: DataSufficiencyValue
+    run_status: RunStatusValue | None = None
     execution_disposition: Literal["completed", "not_started", "hostile_submitted"]
     validation_disposition: Literal["passed", "failed", "not_started"]
+    final_disposition: FinalDispositionValue
+    expected_metric_results: tuple[ExpectedMetricResult, ...] = ()
     expected_validated_results: tuple[ExpectedValidatedResult, ...] = ()
     expected_claims: tuple[ExpectedClaim, ...] = ()
+    hostile_revenue_change: HostileRevenueChangeAuthority | None = None
     failure_code: str | None = None
     no_executed_results: bool = False
     no_validated_results: bool = False
@@ -104,7 +157,7 @@ class CaseManifest(StrictModel):
     authority_reference: str = Field(min_length=1)
     purpose: str = Field(min_length=1)
     source_input_path: str | None
-    public_operation: str = Field(min_length=1)
+    public_operation: PublicOperationValue
     request: RequestSpec
     expected: ExpectedCaseOutcome
     setup_contexts: tuple[SetupContextSpec, ...] = ()
@@ -115,6 +168,23 @@ class CaseManifest(StrictModel):
     def validate_case_contract(self) -> "CaseManifest":
         if tuple(self.request.metrics) != tuple(dict.fromkeys(self.request.metrics)):
             raise ValueError("request metrics must be unique and deterministic")
+        expected_operation = {
+            "P9-CONF-POS-001": "run_analysis(...), then evaluate_claim(...)",
+            "P9-CONF-REVCHG-001": "run_analysis(...), then evaluate_claim(...)",
+            "P9-CONF-SUFF-MISSING-REVENUE-001": "run_analysis(...)",
+            "P9-CONF-SUFF-MIXED-CURRENCY-001": "run_analysis(...)",
+            "P9-CONF-AOV-UNDEFINED-001": "run_analysis(...), then evaluate_claim(...)",
+            "P9-CONF-VAL-REVCHG-WRONG-VALUE-001": "ONE hostile direct-validator harness exception",
+            "P9-CONF-CLAIM-DIAGNOSTIC-REFUSAL-001": "evaluate_claim(...)",
+            "P9-CONF-TAMPER-CROSS-REQUEST-001": "evaluate_claim(...)",
+        }.get(self.case_id)
+        if expected_operation is not None and self.public_operation != expected_operation:
+            raise ValueError(f"public_operation for {self.case_id} must be {expected_operation}")
+        if self.case_id == "P9-CONF-VAL-REVCHG-WRONG-VALUE-001":
+            if self.expected.hostile_revenue_change is None:
+                raise ValueError("hostile Revenue Change case requires hostile_revenue_change authority")
+        elif self.expected.hostile_revenue_change is not None:
+            raise ValueError("hostile_revenue_change authority is only valid for the hostile Revenue Change case")
         if self.case_level == "physical-input":
             if self.source_input_path != "input.csv":
                 raise ValueError("physical-input cases must declare source_input_path=input.csv")

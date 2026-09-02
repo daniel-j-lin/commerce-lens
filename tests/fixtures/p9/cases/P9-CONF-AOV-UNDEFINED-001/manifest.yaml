@@ -17,6 +17,10 @@ expected:
   run_status: partially_completed
   execution_disposition: completed
   validation_disposition: passed
+  final_disposition: completed_admissible
+  expected_metric_results:
+    - {metric_ref: orders, metric_state: Valid}
+    - {metric_ref: aov, metric_state: Undefined}
   expected_validated_results:
     - {metric_ref: orders, period_ref: baseline, period_role: baseline, metric_state: Valid, value: 0, evidence_status: passed, evidence_role: metric_value}
     - {metric_ref: aov, period_ref: baseline, period_role: baseline, metric_state: Undefined, value: null, undefined_reason: orders_equals_zero, evidence_status: passed, evidence_role: metric_state}

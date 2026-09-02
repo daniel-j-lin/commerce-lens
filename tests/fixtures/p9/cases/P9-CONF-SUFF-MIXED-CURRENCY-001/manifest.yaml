@@ -17,6 +17,9 @@ expected:
   run_status: blocked
   execution_disposition: not_started
   validation_disposition: not_started
+  final_disposition: blocked_insufficient
+  expected_metric_results:
+    - {metric_ref: revenue, metric_state: Inadmissible}
   failure_code: canonical.currency.mixed
   no_executed_results: true
   no_validated_results: true

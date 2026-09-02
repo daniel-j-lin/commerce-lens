@@ -50,6 +50,7 @@ from commerce_lens.fixture_runner.cases import (
     DEFAULT_CASES_ROOT,
     CaseManifest,
     ExpectedClaim,
+    ExpectedMetricResult,
     ExpectedValidatedResult,
     FixtureCase,
     discover_cases,
@@ -133,6 +134,8 @@ def _run_case(case: FixtureCase, *, runtime_root: str | Path | None = None) -> C
         context = _run_analysis_for_source(case.manifest, case.input_path, runtime)
         mismatches = _compare_analysis(case.manifest, context)
         mismatches += _evaluate_expected_claims(case.manifest, context)
+        mismatches += _compare_claim_decision_absence(case.manifest, context)
+        mismatches += _compare_final_disposition(case.manifest, context)
         return CaseRunResult(
             case_id=case.case_id,
             passed=not mismatches,
@@ -145,22 +148,41 @@ def _compare_hostile(manifest: CaseManifest, runtime: _Runtime) -> CaseRunResult
     outcome = run_revenue_change_wrong_value_case(manifest, runtime.root)
     mismatches: list[str] = []
     expected = manifest.expected
+    hostile = expected.hostile_revenue_change
+    if hostile is None:
+        return CaseRunResult(case_id=manifest.case_id, passed=False, mismatches=("missing hostile authority",))
     if outcome.data_sufficiency_state != expected.data_sufficiency_state:
         mismatches.append(
             f"data_sufficiency_state expected {expected.data_sufficiency_state}, observed {outcome.data_sufficiency_state}"
         )
-    if outcome.submitted_value != Decimal("21.00"):
-        mismatches.append(f"hostile submitted value expected 21.00, observed {outcome.submitted_value}")
-    if outcome.validation_status != "failed":
-        mismatches.append(f"validation status expected failed, observed {outcome.validation_status}")
-    if outcome.validation_rule_id != "validation:revenue_change_from_validated_revenues":
-        mismatches.append(f"validation rule expected revenue_change_from_validated_revenues, observed {outcome.validation_rule_id}")
+    if outcome.baseline_revenue != hostile.baseline_revenue:
+        mismatches.append(f"baseline_revenue expected {hostile.baseline_revenue}, observed {outcome.baseline_revenue}")
+    if outcome.comparison_revenue != hostile.comparison_revenue:
+        mismatches.append(f"comparison_revenue expected {hostile.comparison_revenue}, observed {outcome.comparison_revenue}")
+    if outcome.authoritative_revenue_change != hostile.authoritative_revenue_change:
+        mismatches.append(
+            f"authoritative_revenue_change expected {hostile.authoritative_revenue_change}, observed {outcome.authoritative_revenue_change}"
+        )
+    if outcome.submitted_value != hostile.submitted_revenue_change:
+        mismatches.append(f"hostile submitted value expected {hostile.submitted_revenue_change}, observed {outcome.submitted_value}")
+    if outcome.execution_disposition != expected.execution_disposition:
+        mismatches.append(f"execution_disposition expected {expected.execution_disposition}, observed {outcome.execution_disposition}")
+    if outcome.validation_status != expected.validation_disposition:
+        mismatches.append(f"validation status expected {expected.validation_disposition}, observed {outcome.validation_status}")
+    if outcome.validation_rule_id != hostile.validation_rule_id:
+        mismatches.append(f"validation rule expected {hostile.validation_rule_id}, observed {outcome.validation_rule_id}")
     if outcome.failure_code != expected.failure_code:
         mismatches.append(f"failure_code expected {expected.failure_code}, observed {outcome.failure_code}")
+    if outcome.failure_code != hostile.failure_code:
+        mismatches.append(f"hostile failure_code expected {hostile.failure_code}, observed {outcome.failure_code}")
+    if outcome.final_disposition != expected.final_disposition:
+        mismatches.append(f"final_disposition expected {expected.final_disposition}, observed {outcome.final_disposition}")
     if outcome.validated_result_authorized:
         mismatches.append("hostile failed chain unexpectedly authorized ValidatedResult")
     if outcome.admissible_evidence_authorized:
         mismatches.append("hostile failed chain unexpectedly authorized AdmissibleEvidence")
+    if outcome.claim_decision_authorized:
+        mismatches.append("hostile failed chain unexpectedly authorized ClaimDecision")
     return CaseRunResult(case_id=manifest.case_id, passed=not mismatches, mismatches=tuple(mismatches), observed=outcome.observed)
 
 
@@ -170,6 +192,8 @@ def _run_diagnostic_refusal(manifest: CaseManifest, runtime: _Runtime) -> CaseRu
     context = _run_analysis_for_source(manifest, source_path, runtime)
     mismatches = _compare_analysis(manifest, context)
     mismatches += _evaluate_expected_claims(manifest, context)
+    mismatches += _compare_claim_decision_absence(manifest, context)
+    mismatches += _compare_final_disposition(manifest, context)
     return CaseRunResult(case_id=manifest.case_id, passed=not mismatches, mismatches=mismatches, observed=_observed_analysis(context))
 
 
@@ -195,6 +219,8 @@ def _run_cross_request_tamper(manifest: CaseManifest, runtime: _Runtime) -> Case
     if foreign_result.value != original_result.value:
         mismatches += (f"foreign value expected to equal original {original_result.value}, observed {foreign_result.value}",)
     mismatches += _compare_claim_decision(expected_claim, decision.claim_state, decision.failure_code)
+    mismatches += _compare_claim_decision_absence(manifest, original)
+    mismatches += _compare_final_disposition(manifest, original)
     return CaseRunResult(
         case_id=manifest.case_id,
         passed=not mismatches,
@@ -305,15 +331,63 @@ def _compare_analysis(manifest: CaseManifest, context: _AnalysisContext) -> tupl
         mismatches.append(f"run_status expected {expected.run_status}, observed {result.run_status.value}")
     if expected.failure_code is not None and expected.failure_code not in _failure_codes(context):
         mismatches.append(f"failure_code expected {expected.failure_code}, observed {_failure_codes(context)}")
+    mismatches.extend(_compare_execution_disposition(context, expected.execution_disposition))
+    mismatches.extend(_compare_validation_disposition(context, expected.validation_disposition))
     if expected.no_executed_results and result.executed_result_refs:
         mismatches.append(f"expected no ExecutedResult refs, observed {result.executed_result_refs}")
     if expected.no_validated_results and result.validated_result_refs:
         mismatches.append(f"expected no ValidatedResult refs, observed {result.validated_result_refs}")
     if expected.no_admissible_evidence and result.admissible_evidence_refs:
         mismatches.append(f"expected no AdmissibleEvidence refs, observed {result.admissible_evidence_refs}")
+    if expected.no_claim_decision and context.metadata_store.list_claim_decision_records(context.artifact_store):
+        mismatches.append("expected no ClaimDecision authority, observed persisted ClaimDecision record(s)")
+    for expected_metric in expected.expected_metric_results:
+        mismatches.extend(_compare_expected_metric_result(context, expected_metric))
     for expected_result in expected.expected_validated_results:
         mismatches.extend(_compare_expected_validated_result(context, expected_result))
     return tuple(mismatches)
+
+
+def _compare_execution_disposition(context: _AnalysisContext, expected: str) -> tuple[str, ...]:
+    records = _execution_records_for_request(context)
+    if expected == "not_started":
+        if records:
+            return (f"execution_disposition expected not_started, observed {len(records)} ExecutionRecord(s)",)
+        return ()
+    if expected == "completed":
+        if not records:
+            return ("execution_disposition expected completed, observed no ExecutionRecord authority",)
+        incomplete = tuple(record.status.value for record in records if record.status.value != "completed")
+        if incomplete:
+            return (f"execution_disposition expected completed, observed non-completed status(es) {incomplete}",)
+    return ()
+
+
+def _compare_validation_disposition(context: _AnalysisContext, expected: str) -> tuple[str, ...]:
+    records = _validation_records_for_request(context)
+    if expected == "not_started":
+        if records:
+            return (f"validation_disposition expected not_started, observed {len(records)} ValidationRecord(s)",)
+        return ()
+    if expected == "passed":
+        if not records:
+            return ("validation_disposition expected passed, observed no ValidationRecord authority",)
+        unexpected = tuple(record.status.value for record in records if record.status is not ValidationStatus.PASSED)
+        if unexpected:
+            return (f"validation_disposition expected passed, observed status(es) {unexpected}",)
+    if expected == "failed":
+        if not any(record.status is ValidationStatus.FAILED for record in records):
+            return ("validation_disposition expected failed, observed no failed ValidationRecord authority",)
+    return ()
+
+
+def _compare_expected_metric_result(context: _AnalysisContext, expected: ExpectedMetricResult) -> tuple[str, ...]:
+    metric = _metric_result(context.result, expected.metric_ref)
+    if metric is None:
+        raise ValueError(f"AnalysisResult exposes no MetricResult for expected metric {expected.metric_ref}")
+    if metric.metric_state.value != expected.metric_state:
+        return (f"{expected.metric_ref} MetricResult state expected {expected.metric_state}, observed {metric.metric_state.value}",)
+    return ()
 
 
 def _compare_expected_validated_result(context: _AnalysisContext, expected: ExpectedValidatedResult) -> tuple[str, ...]:
@@ -358,6 +432,36 @@ def _compare_claim_decision(expected: ExpectedClaim, state: ClaimState, failure_
     if failure_code != expected.failure_code:
         mismatches.append(f"{expected.metric_ref} Claim failure_code expected {expected.failure_code}, observed {failure_code}")
     return tuple(mismatches)
+
+
+def _compare_final_disposition(manifest: CaseManifest, context: _AnalysisContext) -> tuple[str, ...]:
+    observed = _final_disposition(context)
+    if observed != manifest.expected.final_disposition:
+        return (f"final_disposition expected {manifest.expected.final_disposition}, observed {observed}",)
+    return ()
+
+
+def _compare_claim_decision_absence(manifest: CaseManifest, context: _AnalysisContext) -> tuple[str, ...]:
+    if not manifest.expected.no_claim_decision:
+        return ()
+    decisions = context.metadata_store.list_claim_decision_records(context.artifact_store)
+    if decisions:
+        return ("expected no ClaimDecision authority, observed persisted ClaimDecision record(s)",)
+    return ()
+
+
+def _final_disposition(context: _AnalysisContext) -> str:
+    decisions = context.metadata_store.list_claim_decision_records(context.artifact_store)
+    if decisions:
+        if any(decision.claim_state is ClaimState.INADMISSIBLE for decision in decisions):
+            return "claim_inadmissible"
+        if all(decision.claim_state is ClaimState.ADMISSIBLE for decision in decisions):
+            return "completed_admissible"
+    if context.result.run_status is RunStatus.BLOCKED:
+        return "blocked_insufficient"
+    if any(record.status is ValidationStatus.FAILED for record in _validation_records_for_request(context)):
+        return "validation_failed"
+    return "completed_admissible" if context.result.run_status is RunStatus.COMPLETED else context.result.run_status.value
 
 
 def _claim_candidate_from_authority(
@@ -485,6 +589,15 @@ def _metric_result(result: AnalysisResult, metric_ref: str):
     return next((item for item in result.metric_results if item.metric_ref == metric_ref), None)
 
 
+def _execution_records_for_request(context: _AnalysisContext):
+    return tuple(record for record in context.metadata_store.list_execution_records() if record.request_id == context.request.request_id)
+
+
+def _validation_records_for_request(context: _AnalysisContext):
+    execution_ids = {record.execution_id for record in _execution_records_for_request(context)}
+    return tuple(record for record in context.metadata_store.list_validation_records() if record.execution_id in execution_ids)
+
+
 def _failure_codes(context: _AnalysisContext) -> tuple[str, ...]:
     codes: list[str] = [detail.reason for detail in context.result.failure_details]
     for detail in context.result.failure_details:
@@ -522,13 +635,17 @@ def _read_headers(path: Path) -> tuple[str, ...]:
     return tuple(headers)
 
 
-def _materialize_setup_csv(path: Path, rows: tuple[dict[str, str], ...]) -> Path:
+def _materialize_setup_csv(path: Path, rows) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as file_obj:
         writer = csv.DictWriter(file_obj, fieldnames=CSV_HEADERS)
         writer.writeheader()
         for row in rows:
-            writer.writerow({key: row.get(key, "") for key in CSV_HEADERS})
+            payload = row.model_dump() if hasattr(row, "model_dump") else dict(row)
+            unknown = set(payload) - set(CSV_HEADERS)
+            if unknown:
+                raise ValueError(f"setup row contains unknown field(s): {', '.join(sorted(unknown))}")
+            writer.writerow({key: payload.get(key, "") for key in CSV_HEADERS})
     return path
 
 

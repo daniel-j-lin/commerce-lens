@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
-from commerce_lens.contracts.common import MetricState
 from commerce_lens.contracts.execution import ExecutedResult
 from commerce_lens.contracts.validation import ValidatedResult
 from commerce_lens.engine.execution import _revenue_change_result_fingerprint
@@ -21,13 +20,18 @@ from commerce_lens.fixture_runner.cases import CaseManifest
 @dataclass(frozen=True)
 class HostileRevenueChangeOutcome:
     data_sufficiency_state: str
+    baseline_revenue: Decimal
+    comparison_revenue: Decimal
+    authoritative_revenue_change: Decimal
     submitted_value: Decimal
+    execution_disposition: str
     validation_status: str
     validation_rule_id: str
     failure_code: str | None
-    failed_metric_state: str
+    final_disposition: str
     validated_result_authorized: bool
     admissible_evidence_authorized: bool
+    claim_decision_authorized: bool
     observed: dict[str, object]
 
 
@@ -39,6 +43,9 @@ def run_revenue_change_wrong_value_case(manifest: CaseManifest, runtime_root: Pa
     artifact_store = ArtifactStore(runtime_root / "artifacts")
     metadata_store = MetadataStore(runtime_root / "metadata.sqlite")
     runtime = _Runtime(artifact_store=artifact_store, metadata_store=metadata_store, root=runtime_root)
+    hostile = manifest.expected.hostile_revenue_change
+    if hostile is None:
+        raise ValueError("hostile Revenue Change manifest authority is required")
     rows = (
         {
             "order_id": "o1",
@@ -49,7 +56,7 @@ def run_revenue_change_wrong_value_case(manifest: CaseManifest, runtime_root: Pa
             "category_id": "c1",
             "category_name": "Drinks",
             "quantity": "1",
-            "line_revenue": "100.00",
+            "line_revenue": str(hostile.baseline_revenue),
             "currency": "USD",
             "unit_price": "",
             "eligibility_status": "paid",
@@ -63,7 +70,7 @@ def run_revenue_change_wrong_value_case(manifest: CaseManifest, runtime_root: Pa
             "category_id": "c1",
             "category_name": "Drinks",
             "quantity": "1",
-            "line_revenue": "120.00",
+            "line_revenue": str(hostile.comparison_revenue),
             "currency": "USD",
             "unit_price": "",
             "eligibility_status": "paid",
@@ -81,7 +88,8 @@ def run_revenue_change_wrong_value_case(manifest: CaseManifest, runtime_root: Pa
     plan = build_execution_plan(request, sufficiency)
     baseline = _validated_result(context, "revenue", "baseline")
     comparison = _validated_result(context, "revenue", "comparison")
-    record, tampered = _persist_wrong_revenue_change_result(context, plan, canonical, Decimal("21.00"))
+    authoritative_change = _validated_result(context, "revenue_change", "comparison")
+    record, tampered = _persist_wrong_revenue_change_result(context, plan, canonical, hostile.submitted_revenue_change)
     validation = validate_executed_result(
         execution_id=record.execution_id,
         result_id=tampered.result_id,
@@ -91,21 +99,55 @@ def run_revenue_change_wrong_value_case(manifest: CaseManifest, runtime_root: Pa
         metadata_store=metadata_store,
         dependency_validated_results=(baseline, comparison),
     )
+    validated_refs = tuple(
+        item.validated_result_ref
+        for item in metadata_store.list_validation_records()
+        if item.target_result_ref == tampered.result_id and item.validated_result_ref is not None
+    )
+    validated_result_authorized = validation.validated_result is not None or bool(validated_refs)
+    admissible_evidence_authorized = any(
+        record.executed_result_id == tampered.result_id
+        or (record.validated_result_id is not None and record.validated_result_id in validated_refs)
+        for record in metadata_store.list_evidence_admissibility_records()
+    )
+    claim_decision_authorized = bool(metadata_store.list_claim_decision_records(artifact_store))
+    execution_disposition = "hostile_submitted" if metadata_store.get_execution_record(record.execution_id) is not None else "not_started"
+    final_disposition = (
+        "validation_failed"
+        if validation.validation_record.status.value == "failed"
+        and not validated_result_authorized
+        and not admissible_evidence_authorized
+        and not claim_decision_authorized
+        else "completed_admissible"
+    )
     return HostileRevenueChangeOutcome(
         data_sufficiency_state=context.result.data_sufficiency_state.value,
+        baseline_revenue=baseline.value,
+        comparison_revenue=comparison.value,
+        authoritative_revenue_change=authoritative_change.value,
         submitted_value=tampered.value,
+        execution_disposition=execution_disposition,
         validation_status=validation.validation_record.status.value,
         validation_rule_id=validation.validation_record.validation_rule_id,
         failure_code=validation.validation_record.failure_code,
-        failed_metric_state=MetricState.INADMISSIBLE.value,
-        validated_result_authorized=validation.validated_result is not None,
-        admissible_evidence_authorized=False,
+        final_disposition=final_disposition,
+        validated_result_authorized=validated_result_authorized,
+        admissible_evidence_authorized=admissible_evidence_authorized,
+        claim_decision_authorized=claim_decision_authorized,
         observed={
+            "baseline_revenue": str(baseline.value),
+            "comparison_revenue": str(comparison.value),
+            "authoritative_revenue_change": str(authoritative_change.value),
             "submitted_result_id": tampered.result_id,
             "submitted_value": str(tampered.value),
+            "execution_disposition": execution_disposition,
             "validation_status": validation.validation_record.status.value,
             "validation_rule_id": validation.validation_record.validation_rule_id,
             "failure_code": validation.validation_record.failure_code,
+            "validated_result_authorized": validated_result_authorized,
+            "admissible_evidence_authorized": admissible_evidence_authorized,
+            "claim_decision_authorized": claim_decision_authorized,
+            "final_disposition": final_disposition,
             "csv_headers": CSV_HEADERS,
         },
     )

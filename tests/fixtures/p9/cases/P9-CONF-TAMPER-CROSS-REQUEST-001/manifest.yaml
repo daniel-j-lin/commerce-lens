@@ -25,6 +25,9 @@ expected:
   run_status: completed
   execution_disposition: completed
   validation_disposition: passed
+  final_disposition: claim_inadmissible
+  expected_metric_results:
+    - {metric_ref: revenue, metric_state: Valid}
   expected_validated_results:
     - {metric_ref: revenue, period_ref: baseline, period_role: baseline, metric_state: Valid, value: "10.00", evidence_status: passed, evidence_role: metric_value}
   expected_claims:

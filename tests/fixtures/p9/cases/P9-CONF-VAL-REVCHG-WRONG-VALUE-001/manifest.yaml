@@ -16,6 +16,15 @@ expected:
   data_sufficiency_state: sufficient
   execution_disposition: hostile_submitted
   validation_disposition: failed
+  final_disposition: validation_failed
+  hostile_revenue_change:
+    baseline_revenue: "100.00"
+    comparison_revenue: "120.00"
+    authoritative_revenue_change: "20.00"
+    submitted_revenue_change: "21.00"
+    validation_rule_id: validation:revenue_change_from_validated_revenues
+    expected_metric_state: Inadmissible
+    failure_code: value_mismatch
   expected_validated_results: []
   failure_code: value_mismatch
   no_validated_results: true
