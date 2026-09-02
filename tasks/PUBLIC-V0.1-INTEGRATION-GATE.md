@@ -2,24 +2,160 @@
 
 ## Status
 
-APPROVED FOR IMPLEMENTATION / NOT FROZEN
+APPROVED / FROZEN
 
 Implementation:
-NOT STARTED
+COMPLETE
 
 Freeze status:
-NOT FROZEN
+FROZEN
 
 Main Project Review:
 COMPLETE
 
 Approval record:
 
-- task contract is approved for implementation;
-- all prior Main Project corrections have been satisfied;
-- implementation has not yet started; and
-- final APPROVED / FROZEN status requires implementation, source review,
-  independent verification, and acceptance/regression success.
+- task contract was approved for implementation;
+- all prior Main Project corrections were satisfied;
+- implementation is complete;
+- Independent Source Review approved the implementation;
+- Independent Runtime / Acceptance Verification accepted the implementation;
+  and
+- Final Main Project Review approved the gate for freeze.
+
+Final governance record:
+
+- Final Main Project decision:
+  `PUBLIC V0.1 INTEGRATION GATE — APPROVED / FROZEN`
+- Approved implementation HEAD:
+  `72d4e094463134ed9efa7bb2ffd406a41d69c635`
+- Authorization baseline:
+  `fef87d3d5b08581ebdc1fc25105b41726355da3f`
+- Implementation branch:
+  `implementation/public-v0.1-integration-gate`
+- Implementation decision:
+  `COMPLETE`
+- Independent Source Review:
+  `APPROVE`
+- Independent Acceptance:
+  `ACCEPT`
+- Final Main Project Review:
+  `APPROVED FOR FREEZE`
+- Acceptance Criteria:
+  `40 / 40 applicable criteria satisfied`
+- Acceptance-criteria discrepancy resolution:
+  `ACCEPTANCE-CRITERIA DISCREPANCY RESOLVED — VERIFIER COUNTING ERROR`
+
+Verification evidence:
+
+- Implementation execution reported:
+  - focused Skill tests: 14 passed;
+  - Public v0.1 end-to-end: 1 passed;
+  - P9 regression: 35 passed;
+  - application regression: 21 passed;
+  - full repository: 526 passed;
+  - `git diff --check`: clean.
+- Independent Source Review executed:
+  - focused Public v0.1 combined suite: 15 passed;
+  - P9 regression: 35 passed;
+  - application regression: 21 passed;
+  - full repository: 526 passed;
+  - `git diff --check`: clean.
+- Independent Runtime / Acceptance Verification executed:
+  - focused Public v0.1 combined suite: 15 passed;
+  - P9 regression: 35 passed;
+  - application regression: 21 passed;
+  - full repository: 526 passed;
+  - `git diff --check`: clean;
+  - hostile runtime verification: ACCEPT.
+- Final Main Project Review freshly executed:
+  - focused Public v0.1 suite: 15 passed.
+
+Full-suite freeze authority comes from independently executed Source Review and
+Acceptance evidence over unchanged implementation HEAD
+`72d4e094463134ed9efa7bb2ffd406a41d69c635`.
+
+Frozen acceptance summary:
+
+- Revenue controlled runtime path: PASS;
+- Orders governed distinct-order behavior: PASS;
+- numeric AOV: PASS;
+- AOV Orders=0:
+  - `MetricState.UNDEFINED`
+  - `value=None`
+  - `orders_equals_zero`
+  - not numeric zero;
+- Revenue Change: PASS;
+- Killer Demo 1: PASS;
+- Killer Demo 2: PASS;
+- unsupported Diagnostic Claim:
+  - `INADMISSIBLE`
+  - `unsupported_claim_type`;
+- cross-request/equal-value substitution:
+  - fail closed
+  - `cross_request_substitution`;
+- wrong Revenue Change value:
+  - `value_mismatch`
+  - no ValidatedResult / Evidence / supported Claim;
+- Evidence Summary traceability: PASS;
+- source input immutability: PASS;
+- no network requirement: PASS.
+
+Frozen analytical authority:
+
+- MetadataStore schema: `v6`
+- Supported Metrics: `revenue`, `orders`, `aov`, `revenue_change`
+- Current positive Claim permission: `ClaimType.DESCRIPTIVE only`
+- Positive Qualified Admissible path: `NONE`
+- Public source headline: CSV and XLSX
+- SQLite: existing kernel capability retained, not Public v0.1 headline workflow
+- Normal analysis operation: `run_analysis(...)`
+- Claim evaluation operation: `evaluate_claim(...)`
+
+This freeze does not authorize support for Revenue Change Percentage, Product,
+Category, Contribution, ranking, Findings, Alternative Explanations,
+Recommendations, positive Diagnostic Claims, causal Claims, predictive Claims,
+or prescriptive Claims.
+
+Freeze boundary:
+
+The approved implementation is frozen at
+`72d4e094463134ed9efa7bb2ffd406a41d69c635` plus the governance-recording
+commit created by this task. The governance commit may change only
+`tasks/PUBLIC-V0.1-INTEGRATION-GATE.md` and `PROJECT_STATE.md`. The governance
+commit does not alter analytical implementation.
+
+This freeze does not authorize reopening P1-P9, changing the Skill
+implementation, changing Metric semantics, changing Evidence semantics,
+changing Claim policy, adding new Metrics, adding Product/Category, Revenue
+Change Percentage, Findings, Recommendations, CLI work, README work, packaging
+work, dependency changes, GitHub release, release documentation, connectors,
+network services, MCP, Wren, RAG, Multi-Agent, Vector DB, or P10
+implementation.
+
+Release readiness remains separate:
+
+`PUBLIC V0.1 INTEGRATION GATE APPROVED / FROZEN` does not mean
+`PUBLIC GITHUB V0.1 RELEASED`.
+
+The next product-delivery governance step is
+`PUBLIC V0.1 RELEASE READINESS GATE`.
+
+That future gate must address README, verified installation instructions,
+clean-checkout reproducibility, Python/environment setup, public
+synthetic/open examples, supported/unsupported question documentation,
+limitations, Evidence behavior documentation, refusal behavior documentation,
+license review, data-safety review, repository hygiene, and public release
+preparation.
+
+Environment limitation:
+
+- System Python observed: `Python 3.8.8`
+- Approved existing project `.venv` used for successful verification:
+  `Python 3.11.9`
+- Project requires Python: `>=3.11`
+- Classification: `Release Readiness limitation / setup requirement`
+- This is not an Integration Gate failure.
 
 This task is a governance and task-specification gate only. It does not begin
 P10 and must not be renamed to P10.
@@ -1133,8 +1269,16 @@ Initial task status:
 
 PROPOSED / NOT AUTHORIZED
 
+Final lifecycle record:
+
 Implementation:
 
-NOT STARTED
+COMPLETE
 
-This task document must not be frozen before implementation.
+Final task status:
+
+APPROVED / FROZEN
+
+Freeze status:
+
+FROZEN

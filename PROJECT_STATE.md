@@ -427,12 +427,173 @@ P9 physical/evidence conformance gate:
 
 SATISFIED
 
-P9-001 does not begin Public v0.1 Integration.
+P9-001 did not begin Public v0.1 Integration.
 
-The next project step is the Public v0.1 Integration Gate.
+Public v0.1 Integration is now recorded separately below as APPROVED / FROZEN.
 
 P9-PRE-001 must not be reopened without a specific implementation defect or
 governing conflict.
+
+---
+
+### PUBLIC V0.1 INTEGRATION GATE
+
+Status:
+
+APPROVED / FROZEN
+
+Implementation status:
+
+COMPLETE
+
+Approved implementation HEAD before governance recording:
+
+72d4e094463134ed9efa7bb2ffd406a41d69c635
+
+Authorization baseline:
+
+fef87d3d5b08581ebdc1fc25105b41726355da3f
+
+Implementation branch:
+
+implementation/public-v0.1-integration-gate
+
+Source Review:
+
+APPROVE
+
+Independent Runtime / Acceptance Verification:
+
+ACCEPT
+
+Final Main Project Review:
+
+APPROVED FOR FREEZE
+
+Final applicable acceptance criteria:
+
+40 / 40 PASSED
+
+Independent verified focused Public v0.1 suite:
+
+15 passed
+
+Independent verified P9 regression:
+
+35 passed
+
+Independent verified application regression:
+
+21 passed
+
+Independent verified complete suite:
+
+526 passed
+
+git diff --check:
+
+PASSED
+
+Acceptance-criteria discrepancy resolution:
+
+ACCEPTANCE-CRITERIA DISCREPANCY RESOLVED — VERIFIER COUNTING ERROR
+
+Material frozen acceptance evidence:
+
+- Revenue controlled runtime path: PASS;
+- Orders governed distinct-order behavior: PASS;
+- numeric AOV: PASS;
+- AOV Orders=0 remains MetricState.UNDEFINED, value=None,
+  orders_equals_zero, and not numeric zero;
+- Revenue Change: PASS;
+- Killer Demo 1: PASS;
+- Killer Demo 2: PASS;
+- unsupported Diagnostic Claim remains INADMISSIBLE with
+  unsupported_claim_type;
+- cross-request/equal-value substitution fails closed with
+  cross_request_substitution;
+- wrong Revenue Change value produces value_mismatch and no ValidatedResult,
+  Evidence, or supported Claim;
+- Evidence Summary traceability: PASS;
+- source input immutability: PASS;
+- no network requirement: PASS.
+
+MetadataStore:
+
+v6
+
+Supported Metrics:
+
+- revenue
+- orders
+- aov
+- revenue_change
+
+Positive Claim permission:
+
+ClaimType.DESCRIPTIVE only
+
+Positive Qualified path:
+
+NONE
+
+Public source headline:
+
+- CSV
+- XLSX
+
+SQLite:
+
+Existing kernel capability retained, not Public v0.1 headline workflow.
+
+Normal analysis operation:
+
+run_analysis(...)
+
+Claim evaluation operation:
+
+evaluate_claim(...)
+
+Freeze boundary:
+
+The approved implementation is frozen at
+72d4e094463134ed9efa7bb2ffd406a41d69c635 plus the governance-recording commit.
+The governance commit may change only tasks/PUBLIC-V0.1-INTEGRATION-GATE.md and
+PROJECT_STATE.md and does not alter analytical implementation.
+
+This freeze does not authorize reopening P1-P9, changing the Skill
+implementation, changing Metric semantics, changing Evidence semantics,
+changing Claim policy, adding new Metrics, adding Product/Category, Revenue
+Change Percentage, Findings, Recommendations, CLI work, README work, packaging
+work, dependency changes, GitHub release, release documentation, connectors,
+network services, MCP, Wren, RAG, Multi-Agent, Vector DB, or P10
+implementation.
+
+Release readiness:
+
+PUBLIC V0.1 INTEGRATION GATE APPROVED / FROZEN does not mean PUBLIC GITHUB V0.1
+RELEASED.
+
+Public v0.1 Release Readiness:
+
+NOT STARTED
+
+Next product-delivery governance step:
+
+PUBLIC V0.1 RELEASE READINESS GATE
+
+Release Readiness limitation / setup requirement:
+
+- System Python observed: Python 3.8.8
+- Approved existing project .venv used for successful verification:
+  Python 3.11.9
+- Project requires Python: >=3.11
+- This is not an Integration Gate failure.
+
+P10 remains Revenue Change Percentage and is not started.
+
+PUBLIC V0.1 INTEGRATION GATE must not be reopened without a specific
+implementation defect or governing conflict.
 
 ---
 
@@ -660,7 +821,7 @@ Research must remain isolated from production implementation.
 
 ## Current Main-Branch Production State
 
-The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, P5-001 deterministic result validation, P6-001 deterministic Evidence admissibility for Revenue, Orders, and AOV, P7-001 Revenue Change vertical metric slice, P8-001 ClaimDecision Foundation, P9-PRE-001 Public Application Service Foundation, and P9-001 Minimum Physical Fixture Runner.
+The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, P5-001 deterministic result validation, P6-001 deterministic Evidence admissibility for Revenue, Orders, and AOV, P7-001 Revenue Change vertical metric slice, P8-001 ClaimDecision Foundation, P9-PRE-001 Public Application Service Foundation, P9-001 Minimum Physical Fixture Runner, and the Public v0.1 Skill integration layer.
 
 R-001 must not silently modify production execution architecture.
 
@@ -674,6 +835,35 @@ Revenue Change is implemented through P7-001.
 
 Public Application Service is implemented through P9-PRE-001 with run_analysis(...)
 and evaluate_claim(...).
+
+The approved production/integration state now includes:
+
+- P1-P9 Frozen foundations;
+- Public Application Service;
+- Minimum Physical Fixture Runner;
+- frozen Public v0.1 Skill integration layer.
+
+Current public integration chain:
+
+User / host-governed intent
+→
+CommerceLens Skill integration
+→
+AnalysisRequest
+→
+run_analysis(...)
+→
+AnalysisResult
+→
+exact authority binding
+→
+ClaimCandidate
+→
+evaluate_claim(...)
+→
+ClaimDecision
+→
+Public Response Projection
 
 ---
 
@@ -705,20 +895,33 @@ RESOLVED
 
 Next project step:
 
-Public v0.1 Integration Gate
+PUBLIC V0.1 RELEASE READINESS GATE
+
+Status:
+
+NOT STARTED
 
 Public v0.1 Integration:
+
+APPROVED / FROZEN
+
+Public v0.1 Release Readiness:
 
 NOT STARTED
 
 P9-001 implementation is COMPLETE.
 
+P10 remains Revenue Change Percentage and is not started.
+
 Do not begin:
 
+- Public GitHub v0.1 release;
+- P10 Revenue Change Percentage implementation;
 - Product or Category Metric execution;
 - Contribution production execution;
 - Findings;
 - Recommendations;
+- release packaging;
 - MCP or external executor adapters;
 - Wren production implementation;
 
@@ -741,7 +944,11 @@ Codex must stop and request Main Project review before:
 - beginning Findings;
 - beginning Recommendations;
 - beginning Contribution execution;
-- beginning Public v0.1 Integration;
+- beginning P10 Revenue Change Percentage implementation;
+- beginning Product / Category implementation;
+- beginning Public v0.1 Release Readiness Gate;
+- public GitHub v0.1 release;
+- release packaging;
 - adopting MCP or external executor adapters;
 - merging a research result into the production execution path.
 
@@ -902,6 +1109,54 @@ ONE
 P9 physical/evidence conformance gate:
 SATISFIED
 
+PUBLIC V0.1 INTEGRATION GATE:
+APPROVED / FROZEN
+
+Public v0.1 Integration implementation status:
+COMPLETE
+
+Public v0.1 approved implementation HEAD before governance recording:
+72d4e094463134ed9efa7bb2ffd406a41d69c635
+
+Public v0.1 authorization baseline:
+fef87d3d5b08581ebdc1fc25105b41726355da3f
+
+Public v0.1 Source Review:
+APPROVE
+
+Public v0.1 Independent Runtime / Acceptance Verification:
+ACCEPT
+
+Public v0.1 Final Main Project Review:
+APPROVED FOR FREEZE
+
+Public v0.1 final applicable acceptance criteria:
+40 / 40 PASSED
+
+Public v0.1 independent verified focused suite:
+15 passed
+
+Public v0.1 independent verified P9 regression:
+35 passed
+
+Public v0.1 independent verified application regression:
+21 passed
+
+Public v0.1 independent verified complete suite:
+526 passed
+
+Public v0.1 git diff --check:
+PASSED
+
+Public v0.1 Release Readiness:
+NOT STARTED
+
+Next product-delivery governance step:
+PUBLIC V0.1 RELEASE READINESS GATE
+
+P10:
+Revenue Change Percentage; not started; numbering preserved.
+
 Public Application Service prerequisite:
 SATISFIED
 
@@ -1025,10 +1280,16 @@ Revenue Change:
 APPROVED / FROZEN
 
 Next project step:
-Public v0.1 Integration Gate
+PUBLIC V0.1 RELEASE READINESS GATE
 
 Public v0.1 Integration:
+APPROVED / FROZEN
+
+Public v0.1 Release Readiness:
 NOT STARTED
+
+P10:
+Revenue Change Percentage; not started; numbering preserved.
 
 P9-001:
 APPROVED / FROZEN
