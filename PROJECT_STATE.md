@@ -405,17 +405,31 @@ MetadataStore schema:
 
 6
 
-P9-PRE-001 does not implement P9-001.
-
-P9-001 remains:
-
-PROPOSED / NOT AUTHORIZED
+P9-001 is now APPROVED / FROZEN.
 
 P9-001 implementation:
 
-NOT STARTED
+COMPLETE
 
-The next Main Project decision is whether to authorize P9-001 implementation.
+P9-001 approved implementation HEAD:
+
+ba72e2b658b854b0e45ba51a3273f9e4e5a593bd
+
+P9 hostile source review:
+
+PASS
+
+P9 independent runtime verification:
+
+APPROVE
+
+P9 physical/evidence conformance gate:
+
+SATISFIED
+
+P9-001 does not begin Public v0.1 Integration.
+
+The next project step is the Public v0.1 Integration Gate.
 
 P9-PRE-001 must not be reopened without a specific implementation defect or
 governing conflict.
@@ -646,7 +660,7 @@ Research must remain isolated from production implementation.
 
 ## Current Main-Branch Production State
 
-The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, P5-001 deterministic result validation, P6-001 deterministic Evidence admissibility for Revenue, Orders, and AOV, P7-001 Revenue Change vertical metric slice, P8-001 ClaimDecision Foundation, and P9-PRE-001 Public Application Service Foundation.
+The main CommerceLens implementation contains the Approved / Frozen Phase 1, Phase 2, P3-001 deterministic pre-execution foundation, P4-001 deterministic reference execution, P5-001 deterministic result validation, P6-001 deterministic Evidence admissibility for Revenue, Orders, and AOV, P7-001 Revenue Change vertical metric slice, P8-001 ClaimDecision Foundation, P9-PRE-001 Public Application Service Foundation, and P9-001 Minimum Physical Fixture Runner.
 
 R-001 must not silently modify production execution architecture.
 
@@ -679,6 +693,8 @@ Wren may be reconsidered later if material capabilities or project requirements 
 
 P9-PRE-001 is Approved / Frozen.
 
+P9-001 is Approved / Frozen.
+
 Public Application Service prerequisite:
 
 SATISFIED
@@ -687,13 +703,15 @@ P9_PREREQUISITE_PUBLIC_APPLICATION_SERVICE_MISSING:
 
 RESOLVED
 
-Next Main Project decision:
+Next project step:
 
-whether to authorize P9-001 Minimum Physical Fixture Runner implementation
+Public v0.1 Integration Gate
 
-P9-001 remains PROPOSED / NOT AUTHORIZED.
+Public v0.1 Integration:
 
-P9-001 implementation is NOT STARTED.
+NOT STARTED
+
+P9-001 implementation is COMPLETE.
 
 Do not begin:
 
@@ -723,7 +741,7 @@ Codex must stop and request Main Project review before:
 - beginning Findings;
 - beginning Recommendations;
 - beginning Contribution execution;
-- beginning P9 implementation;
+- beginning Public v0.1 Integration;
 - adopting MCP or external executor adapters;
 - merging a research result into the production execution path.
 
@@ -841,6 +859,48 @@ P9-PRE-001 final verified focused application suite:
 
 P9-PRE-001 final verified full suite:
 476 passed
+
+P9-001:
+APPROVED / FROZEN
+
+P9-001 implementation status:
+COMPLETE
+
+P9-001 approved implementation HEAD:
+ba72e2b658b854b0e45ba51a3273f9e4e5a593bd
+
+P9-001 source review:
+PASS
+
+P9-001 independent runtime verification:
+APPROVE
+
+P9-001 post-fast-forward focused P9 suite:
+35 passed
+
+P9-001 post-fast-forward application regression:
+21 passed
+
+P9-001 post-fast-forward complete suite:
+511 passed
+
+P9-001 exact case count:
+8
+
+P9-001 Frozen Fixture IDs claimed:
+NONE
+
+P9-001 normal analysis operation:
+run_analysis(...)
+
+P9-001 Claim evaluation operation:
+evaluate_claim(...)
+
+P9-001 direct-validator hostile exception count:
+ONE
+
+P9 physical/evidence conformance gate:
+SATISFIED
 
 Public Application Service prerequisite:
 SATISFIED
@@ -964,14 +1024,17 @@ NOT YET IMPLEMENTED
 Revenue Change:
 APPROVED / FROZEN
 
-Next authorized planning target:
-P9-001 authorization decision
+Next project step:
+Public v0.1 Integration Gate
+
+Public v0.1 Integration:
+NOT STARTED
 
 P9-001:
-PROPOSED / NOT AUTHORIZED
+APPROVED / FROZEN
 
 P9-001 implementation:
-NOT STARTED
+COMPLETE
 
 Current approved executor:
 DuckDB direct reference path

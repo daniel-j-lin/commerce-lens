@@ -2,10 +2,10 @@
 
 ## Status
 
-APPROVED FOR IMPLEMENTATION / NOT FROZEN
+APPROVED / FROZEN
 
 Implementation:
-NOT STARTED
+COMPLETE
 
 P9-PRE-001:
 APPROVED / FROZEN
@@ -14,15 +14,125 @@ Public v0.1 Integration:
 NOT STARTED
 
 Main Project Review:
-APPROVED FOR IMPLEMENTATION
+SOURCE REVIEW PASS
 
-This task records Main Project task-level source review authorization for
-implementation within the file and behavioral scope below.
+Independent runtime verification:
+APPROVE
 
-P9-001 is not frozen. No P9 implementation has yet been reviewed or approved.
-This authorization does not implement P9, create fixture assets, create fixture
-runner code, create an implementation branch, begin Public v0.1 Integration, or
-authorize P9 to be marked APPROVED / FROZEN.
+Approved implementation HEAD:
+
+`ba72e2b658b854b0e45ba51a3273f9e4e5a593bd`
+
+Implementation lineage:
+
+- authorization baseline:
+  `0355a0698c968e87481e8a30cbc8198cee7dd880`
+- original implementation commit:
+  `9671b6030da196b40f6d344f3c6c3fd9b80ead5d`
+- final corrected implementation HEAD:
+  `ba72e2b658b854b0e45ba51a3273f9e4e5a593bd`
+
+Fresh post-fast-forward verification:
+
+- focused P9 suite: 35 passed in 6.94s
+- Public Application Service regression: 21 passed in 3.13s
+- complete repository suite: 511 passed in 60.52s
+- git diff --check: clean
+
+Preserved independent verification evidence:
+
+- focused P9 suite: 35 passed
+- Public Application Service regression: 21 passed
+- relevant P1-P8 regression: 417 passed
+- complete repository suite: 511 passed
+- source review: PASS
+- independent runtime verification: APPROVE
+
+P9-001 is approved and frozen after successful governance integration. This
+freeze does not begin Public v0.1 Integration.
+
+Frozen P9-001 provides:
+
+- deterministic physical fixture execution;
+- exactly eight initial P9 conformance cases;
+- YAML fixture metadata;
+- tiny synthetic CSV physical inputs;
+- safe YAML loading;
+- strict fixture contract validation;
+- deterministic expected-vs-actual comparison;
+- public `run_analysis(...)` path for normal analysis;
+- public `evaluate_claim(...)` path for Claim evaluation;
+- exactly one narrow Revenue Change direct-validator hostile exception;
+- case isolation;
+- order independence;
+- repeat-run material reproducibility;
+- source fixture integrity; and
+- fail-closed YAML/case authority behavior.
+
+Exact initial P9 cases:
+
+- `P9-CONF-POS-001`
+- `P9-CONF-REVCHG-001`
+- `P9-CONF-SUFF-MISSING-REVENUE-001`
+- `P9-CONF-SUFF-MIXED-CURRENCY-001`
+- `P9-CONF-AOV-UNDEFINED-001`
+- `P9-CONF-VAL-REVCHG-WRONG-VALUE-001`
+- `P9-CONF-CLAIM-DIAGNOSTIC-REFUSAL-001`
+- `P9-CONF-TAMPER-CROSS-REQUEST-001`
+
+Frozen Fixture PHYSICALIZE NOW:
+
+NONE
+
+Frozen Fixture IDs claimed:
+
+NONE
+
+P9 conformance IDs are not Frozen FX IDs.
+
+Frozen P9 proof points:
+
+- positive: Revenue `10.00`; Orders `1`; AOV `10.00`; descriptive
+  ClaimDecision `Admissible`;
+- Revenue Change: baseline Revenue `100.00`; comparison Revenue `120.00`;
+  Revenue Change `20.00`; descriptive ClaimDecision `Admissible`;
+- missing Revenue: `canonical.line_revenue.invalid`; fail closed; no downstream
+  authority;
+- mixed currency: `canonical.currency.mixed`; fail closed; no FX conversion; no
+  downstream authority;
+- AOV Undefined: Orders `0`; AOV value `None`; MetricState `Undefined`;
+  `undefined_reason=orders_equals_zero`; metric_state Evidence; descriptive
+  Claim `Admissible`;
+- hostile Revenue Change: submitted `21.00`; governed expected authority
+  `20.00`; validation failure `value_mismatch`; failed state `Inadmissible`; no
+  ValidatedResult; no AdmissibleEvidence; no ClaimDecision;
+- diagnostic refusal: `ClaimType.DIAGNOSTIC`; `ClaimState.INADMISSIBLE`;
+  failure `unsupported_claim_type`;
+- cross-request substitution: equal-valued original Revenue `10.00`; foreign
+  Revenue `10.00`; distinct request authority; `ClaimState.INADMISSIBLE`;
+  failure `cross_request_substitution`.
+
+Hostile authority freeze:
+
+- case: `P9-CONF-VAL-REVCHG-WRONG-VALUE-001`
+- Metric: `revenue_change`
+- baseline: `100.00`
+- comparison: `120.00`
+- authoritative Revenue Change: `20.00`
+- submitted Revenue Change: `21.00`
+- rule: `validation:revenue_change_from_validated_revenues`
+- expected failure: `value_mismatch`
+- expected failed MetricState: `Inadmissible`
+
+The fixed hostile contract rejects material mutation including Decimal-scale
+drift. This is the one authorized hostile validation case and is not a
+generalized tamper framework.
+
+Non-blocking maintainability note:
+
+Current hostile validation implementation reuses private Application Service
+helper `_metric_state`. Independent runtime verification confirmed correct
+current behavior. This is a non-blocking maintainability observation only.
 
 Authorization review baseline:
 
@@ -870,16 +980,16 @@ The full Frozen fixture suite is not required for P9.
 
 ---
 
-## 12. Authorized Future Implementation File Scope
+## 12. Authorized Implementation File Scope
 
-Read-only inspection found an existing placeholder package:
+Implementation completed the fixture-runner package:
 
 - `src/commerce_lens/fixture_runner/__init__.py`
 
-No implemented evaluation or fixture-runner package exists beyond that
-placeholder.
+The approved implementation also added the scoped helper modules, fixtures, and
+focused tests listed below.
 
-Future production/evaluation helper files authorized for P9 implementation:
+Production/evaluation helper files authorized for P9 implementation:
 
 - `src/commerce_lens/fixture_runner/__init__.py`
 - `src/commerce_lens/fixture_runner/cases.py`
@@ -888,7 +998,7 @@ Future production/evaluation helper files authorized for P9 implementation:
 - `tests/fixtures/p9/cases/<case-id>/input.csv`
 - `tests/fixtures/p9/cases/<case-id>/manifest.yaml`
 
-Future focused test files authorized for P9 implementation:
+Focused test files authorized for P9 implementation:
 
 - `tests/fixture_runner/test_cases.py`
 - `tests/fixture_runner/test_runner.py`
@@ -909,16 +1019,14 @@ Expected conceptual needs are only:
 
 Do not introduce a generic framework.
 
-Do not create these files during this authorization-only update.
-
-If later implementation inspection reveals that P9 requires a material
-architecture redesign, STOP and request Main Project Review.
+P9 implementation created only the authorized implementation files, fixture
+assets, and focused tests listed above.
 
 ---
 
 ## 13. Runner Responsibility
 
-The future P9 runner must be thin and must invoke the public application service
+The P9 runner must be thin and must invoke the public application service
 for normal analysis and Claim paths.
 
 It may:
@@ -1004,7 +1112,7 @@ P9-001 itself must not create:
 
 ## 15. Test Strategy
 
-Future P9 implementation tests must cover at least:
+P9 implementation tests cover:
 
 - safe YAML manifest/case schema validation;
 - case discovery;
@@ -1069,7 +1177,7 @@ P9-001 implementation is successful only if:
 
 ## 17. Protected Boundaries
 
-Future P9 implementation must not modify unless separately reviewed:
+P9 implementation did not modify:
 
 - `docs/frozen/`;
 - Metric formulas;
@@ -1127,40 +1235,34 @@ Do not silently solve a STOP condition.
 
 ---
 
-## 19. Authorization Boundary
+## 19. Freeze Boundary
 
-This authorization records approval to implement P9-001 later within the exact
-scope of this task. It does not itself perform implementation work.
+This governance integration records approval and freeze of P9-001 within the
+exact scope of this task.
 
-This authorization change does not authorize:
+This freeze does not authorize:
 
-- creating fixture directories;
-- creating physical CSV/YAML fixture assets;
-- writing a fixture runner;
-- writing a public application service;
-- writing production code;
-- modifying tests;
+- creating additional fixture directories;
+- creating additional physical CSV/YAML fixture assets;
+- expanding the fixture runner;
+- writing another public application service;
+- modifying production analytical semantics;
+- modifying tests beyond the approved P9 implementation commits;
 - modifying Frozen specifications;
-- modifying `PROJECT_STATE.md`;
+- modifying `PROJECT_STATE.md` beyond this governance integration;
 - modifying the roadmap;
 - modifying `README.md`;
 - modifying dependencies;
 - creating CLI;
 - creating `SKILL.md`;
 - creating an implementation branch;
-- beginning P10;
+- beginning Public v0.1 Integration;
 - beginning the Public v0.1 Integration Gate;
 - creating benchmark scoring; or
 - pushing commits.
 
-Future implementation may create only the authorized implementation files,
-fixture assets, and focused tests listed in Section 12, subject to the protected
-boundaries and stop conditions in this task.
-
-If future implementation discovers that an existing non-fixture-runner
-production file must materially change, STOP and request Main Project Review.
-
-After this authorization is recorded, STOP. Do not freeze P9.
+P9 is frozen at approved implementation HEAD
+`ba72e2b658b854b0e45ba51a3273f9e4e5a593bd`.
 
 ---
 
@@ -1191,7 +1293,7 @@ Main Project Review verified before implementation authorization:
 - Claim refusal has one exact unsupported Claim type;
 - validation failure has one exact validator/failure;
 - adapter release prerequisite status is recorded;
-- expected future implementation file scope is recorded;
+- approved implementation file scope is recorded;
 - P9 is not Benchmark;
 - P9 does not begin Skill integration;
 - no requirement says all 40 Frozen fixture families must be implemented;
