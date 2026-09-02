@@ -280,12 +280,12 @@ CommerceLens Public v0.1 does not claim enterprise security certification.
 
 ## License
 
-CommerceLens AI is licensed under the Apache License 2.0. See `LICENSE`.
+CommerceLens AI is licensed under the MIT License. See `LICENSE`.
 
 SPDX identifier:
 
 ```text
-Apache-2.0
+MIT
 ```
 
 ## Release Status
