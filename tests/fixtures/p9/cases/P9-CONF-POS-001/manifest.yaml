@@ -1,0 +1,29 @@
+case_id: P9-CONF-POS-001
+case_class: current-authority conformance
+case_level: physical-input
+frozen_fixture_id: NONE
+authority_reference: P4/P5/P6/P8/P9-PRE Revenue, Orders, and AOV descriptive chain
+purpose: Prove a positive physical CSV chain reaches admissible descriptive metric claims.
+source_input_path: input.csv
+public_operation: run_analysis(...), then evaluate_claim(...)
+request:
+  canonical_business_question_id: canonical_revenue_orders_aov
+  analytical_request_class: describe_total_revenue_orders_aov_single_period
+  metrics: [revenue, orders, aov]
+  baseline_period: {period_id: baseline, label: Baseline, start_date: 2026-01-01, end_date: 2026-01-02, date_convention_ref: order_date_utc}
+  comparison_period: {period_id: comparison, label: Comparison, start_date: 2026-01-03, end_date: 2026-01-04, date_convention_ref: order_date_utc}
+expected:
+  data_sufficiency_state: sufficient
+  run_status: completed
+  execution_disposition: completed
+  validation_disposition: passed
+  expected_validated_results:
+    - {metric_ref: revenue, period_ref: baseline, period_role: baseline, metric_state: Valid, value: "10.00", evidence_status: passed, evidence_role: metric_value}
+    - {metric_ref: orders, period_ref: baseline, period_role: baseline, metric_state: Valid, value: 1, evidence_status: passed, evidence_role: metric_value}
+    - {metric_ref: aov, period_ref: baseline, period_role: baseline, metric_state: Valid, value: "10.00", evidence_status: passed, evidence_role: metric_value}
+  expected_claims:
+    - {metric_ref: revenue, claim_type: descriptive, claim_state: Admissible, period_ref: baseline, period_role: baseline}
+    - {metric_ref: orders, claim_type: descriptive, claim_state: Admissible, period_ref: baseline, period_role: baseline}
+    - {metric_ref: aov, claim_type: descriptive, claim_state: Admissible, period_ref: baseline, period_role: baseline}
+prohibited_material_output: [diagnostic, causal, predictive, prescriptive, Finding, Recommendation]
+governing_authority: [P4-001, P5-001, P6-001, P8-001, P9-PRE-001]

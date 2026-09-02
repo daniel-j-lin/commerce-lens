@@ -1,0 +1,25 @@
+case_id: P9-CONF-VAL-REVCHG-WRONG-VALUE-001
+case_class: current-authority conformance
+case_level: harness-level
+frozen_fixture_id: NONE
+authority_reference: P5/P7 Revenue Change validation authority
+purpose: Prove wrong Revenue Change value fails deterministic validation and authorizes no downstream evidence.
+source_input_path: null
+public_operation: ONE hostile direct-validator harness exception
+request:
+  canonical_business_question_id: canonical_revenue_change
+  analytical_request_class: validate_total_revenue_change_baseline_to_comparison
+  metrics: [revenue_change]
+  baseline_period: {period_id: baseline, label: Baseline, start_date: 2026-01-01, end_date: 2026-01-02, date_convention_ref: order_date_utc}
+  comparison_period: {period_id: comparison, label: Comparison, start_date: 2026-01-03, end_date: 2026-01-04, date_convention_ref: order_date_utc}
+expected:
+  data_sufficiency_state: sufficient
+  execution_disposition: hostile_submitted
+  validation_disposition: failed
+  expected_validated_results: []
+  failure_code: value_mismatch
+  no_validated_results: true
+  no_admissible_evidence: true
+  no_claim_decision: true
+prohibited_material_output: [ValidatedResult, AdmissibleEvidence, admissible ClaimDecision, narrative repair]
+governing_authority: [P5-001, P7-001]

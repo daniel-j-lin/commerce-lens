@@ -1,0 +1,26 @@
+case_id: P9-CONF-AOV-UNDEFINED-001
+case_class: current-authority conformance
+case_level: physical-input
+frozen_fixture_id: NONE
+authority_reference: P6/P8/P9-PRE AOV Undefined authority
+purpose: Prove Orders equals zero yields AOV Undefined, not numeric zero.
+source_input_path: input.csv
+public_operation: run_analysis(...), then evaluate_claim(...)
+request:
+  canonical_business_question_id: canonical_aov_state
+  analytical_request_class: describe_aov_state_single_period_zero_orders
+  metrics: [orders, aov]
+  baseline_period: {period_id: baseline, label: Baseline, start_date: 2026-01-01, end_date: 2026-01-02, date_convention_ref: order_date_utc}
+  comparison_period: {period_id: comparison, label: Comparison, start_date: 2026-01-03, end_date: 2026-01-04, date_convention_ref: order_date_utc}
+expected:
+  data_sufficiency_state: sufficient
+  run_status: partially_completed
+  execution_disposition: completed
+  validation_disposition: passed
+  expected_validated_results:
+    - {metric_ref: orders, period_ref: baseline, period_role: baseline, metric_state: Valid, value: 0, evidence_status: passed, evidence_role: metric_value}
+    - {metric_ref: aov, period_ref: baseline, period_role: baseline, metric_state: Undefined, value: null, undefined_reason: orders_equals_zero, evidence_status: passed, evidence_role: metric_state}
+  expected_claims:
+    - {metric_ref: aov, claim_type: descriptive, claim_state: Admissible, period_ref: baseline, period_role: baseline}
+prohibited_material_output: [numeric AOV zero, AOV metric-value Evidence, stronger Claim, Finding, Recommendation]
+governing_authority: [P6-001, P8-001, P9-PRE-001]

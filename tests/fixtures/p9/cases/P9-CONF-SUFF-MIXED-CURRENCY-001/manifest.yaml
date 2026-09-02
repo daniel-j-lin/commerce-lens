@@ -1,0 +1,26 @@
+case_id: P9-CONF-SUFF-MIXED-CURRENCY-001
+case_class: current-authority conformance
+case_level: physical-input
+frozen_fixture_id: NONE
+authority_reference: Frozen FX-SUFF-001 mixed-currency semantic reference without Frozen ID claim; Phase 2/P3/P9-PRE fail-closed authority
+purpose: Prove mixed currency fails closed without conversion or inferred basis.
+source_input_path: input.csv
+public_operation: run_analysis(...)
+request:
+  canonical_business_question_id: canonical_revenue
+  analytical_request_class: describe_total_revenue_single_period
+  metrics: [revenue]
+  baseline_period: {period_id: baseline, label: Baseline, start_date: 2026-01-01, end_date: 2026-01-02, date_convention_ref: order_date_utc}
+  comparison_period: {period_id: comparison, label: Comparison, start_date: 2026-01-03, end_date: 2026-01-04, date_convention_ref: order_date_utc}
+expected:
+  data_sufficiency_state: data_quality_failure
+  run_status: blocked
+  execution_disposition: not_started
+  validation_disposition: not_started
+  failure_code: canonical.currency.mixed
+  no_executed_results: true
+  no_validated_results: true
+  no_admissible_evidence: true
+  no_claim_decision: true
+prohibited_material_output: [FX conversion, inferred currency basis, aggregated monetary result, ExecutedResult, ValidatedResult, AdmissibleEvidence, ClaimDecision]
+governing_authority: [Canonical Dataset and Metric Dictionary, Phase 2, P3-001, P9-PRE-001]
