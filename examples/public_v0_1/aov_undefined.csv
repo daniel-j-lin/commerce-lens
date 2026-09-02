@@ -1,0 +1,3 @@
+order_id,order_line_id,order_date,product_id,product_name,category_id,category_name,quantity,line_revenue,currency,unit_price,eligibility_status
+q3-cancelled-o1,l1,2026-07-15,p1,Widget,c1,Widgets,1,120.00,USD,120.00,cancelled
+q4-cancelled-o1,l1,2026-10-15,p1,Widget,c1,Widgets,1,100.00,USD,100.00,cancelled
