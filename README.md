@@ -1,25 +1,39 @@
-# CommerceLens AI
+# CommerceLens
 
-CommerceLens AI is an evidence-driven commerce and e-commerce analytical
-decision-support system. Material analytical claims must pass governed,
-deterministic Evidence and ClaimDecision authority before they can be presented
-as supported.
+## Evidence-Governed Analytics Agent Skill
 
-Its core principle is:
+Turn commerce data into validated, traceable analytical claims, and refuse conclusions the evidence cannot support.
+
+Core principle:
 
 ```text
 No material claim without traceable evidence.
 ```
 
-In practice, CommerceLens can refuse unsupported conclusions instead of filling
-evidence gaps with plausible language.
+CommerceLens is an evidence-governed commerce analytics Agent Skill. Material
+analytical claims must pass governed, deterministic Evidence and ClaimDecision
+authority before they can be presented as supported.
 
-## Current Public v0.1 Scope
+## What Makes CommerceLens Different?
+
+CommerceLens focuses on evidence-governed analytical judgment rather than
+treating generated answers or executed queries as sufficient authority.
+
+| Typical AI analytics behavior | CommerceLens |
+| --- | --- |
+| Produces an answer from available data | Defines required Evidence before supporting a Claim |
+| Executed query may be treated as sufficient | Separates executed results from validated results |
+| Plausible explanations may be generated | Refuses unsupported diagnostic or causal explanations |
+| Metrics may be interpreted ad hoc | Uses governed metric definitions |
+| Correlation may leak into causal language | Makes Claim type and admissibility explicit |
+| Answer is primary output | Returns Claim, Evidence, status, and limitations |
+
+## Public v0.1 Capabilities
 
 Public v0.1 supports structured Python invocation of the CommerceLens Skill
 integration over local structured data files.
 
-Supported sources:
+Supported inputs:
 
 - CSV
 - XLSX
@@ -31,38 +45,44 @@ Supported Metrics:
 - AOV
 - Revenue Change
 
-Supported positive material Claim type:
+Supported positive material Claim scope:
 
-- Descriptive only
+- descriptive claims only
+
+Governed behaviors:
+
+- AOV remains Undefined when Orders equals zero;
+- unsupported why or diagnostic questions are refused;
+- Revenue Change is absolute change only;
+- Revenue Change Percentage is not supported in Public v0.1.
 
 The host or caller is responsible for interpreting a user question into a
 structured `PublicAnalysisIntent`. The current Public v0.1 integration validates
 that intent, constructs the governed request, executes the frozen application
-service, evaluates ClaimDecision authority, and projects a public response. It
-does not provide a CLI, GUI, REST endpoint, hosted chatbot, or general Python
-natural-language parser.
+service, evaluates ClaimDecision authority, and projects a public response.
 
-## Current Limitations
+## Governed Refusal Example
 
-Public v0.1 does not currently support:
+Question:
 
-- Revenue Change Percentage
-- Product / Category analysis
-- contribution / ranking
-- positive diagnostic explanation
-- causal inference
-- forecasting
-- Recommendations
-- arbitrary generic tabular analytics
-- marketplace connectors
-- hosted SaaS
-- REST API
-- production cloud service
+```text
+Why did revenue drop from Q3 2026 to Q4 2026?
+```
 
-SQLite exists in the lower-level kernel, but it is not the primary Public v0.1
-workflow.
+Expected Public v0.1 behavior:
 
-## Requirements
+- the supported descriptive decline/change may be shown;
+- the unsupported diagnostic explanation is refused.
+
+The required bounded refusal is:
+
+```text
+Insufficient evidence to conclude why Revenue declined.
+```
+
+## Quick Start
+
+### Requirements
 
 - Python >=3.11
 
@@ -70,7 +90,7 @@ Public v0.1 has been verified with environment-independent Python behavior on a
 local Python 3.11 environment. This README does not claim operating-system
 certification for Windows, macOS, or Linux.
 
-## Installation
+### Installation
 
 From a clean checkout, create an isolated environment and install the package:
 
@@ -90,7 +110,7 @@ python -m pip install -e ".[dev]"
 The repository's existing developer `.venv` is not required and is not public
 installation authority.
 
-## Quick Start
+### First Run
 
 This example uses the tracked synthetic CSV at
 `examples/public_v0_1/orders.csv`.
@@ -153,7 +173,22 @@ for evidence in outcome.response.evidence_summary:
 The supported answer is the absolute Revenue Change. Public v0.1 does not add a
 percentage, causal explanation, or Recommendation.
 
-## Public v0.1 Invocation
+## Evidence Model
+
+Conceptually, the Public v0.1 path is:
+
+```text
+Business Question
+-> Metric Definition
+-> Required Evidence
+-> Data Sufficiency
+-> Analysis Plan
+-> Deterministic Execution
+-> Deterministic Validation
+-> Evidence
+-> ClaimDecision
+-> Controlled Response
+```
 
 The supported public boundary is structured Python invocation through:
 
@@ -165,6 +200,52 @@ The current integration expects explicit governed periods, a supported Metric,
 `GroupingDimension.NONE`, a supported local source selection, and descriptive
 Claim intent. It validates unsupported Metrics, unsupported grouping, ambiguous
 period or mapping authority, and unsupported Claim types fail-closed.
+
+Core distinctions:
+
+```text
+Executed Result != Validated Result
+Validated Result != Admissible Evidence
+Admissible Evidence != ClaimDecision
+```
+
+A public Evidence Summary makes traceability readable without requiring users
+to inspect raw runtime identifiers. It includes the Metric, governed period,
+MetricState, Evidence status, ClaimState, source filename, source type, and
+validation status.
+
+## Supported / Unsupported Scope
+
+Public v0.1 is not primarily:
+
+- generic Chat with CSV
+- generic Text-to-SQL
+- dashboard generation
+- arbitrary natural-language analytics
+- causal analysis
+- forecasting
+- recommendations
+- SaaS
+- enterprise production platform
+- a full e-commerce analytics platform
+
+Public v0.1 does not currently support:
+
+- Revenue Change Percentage
+- Product / Category analysis
+- contribution / ranking
+- positive diagnostic explanation
+- causal inference
+- forecasting
+- Recommendations
+- arbitrary generic tabular analytics
+- marketplace connectors
+- hosted SaaS
+- REST API
+- production cloud service
+
+SQLite exists in the lower-level kernel, but it is not the primary Public v0.1
+workflow.
 
 ## Supported Examples
 
@@ -179,25 +260,7 @@ The public examples are in `examples/public_v0_1/`:
 The examples use identity canonical columns with explicit eligibility status:
 `paid` rows are eligible and `cancelled` rows are excluded.
 
-## Evidence-Governed Behavior
-
-Conceptually, the Public v0.1 path is:
-
-```text
-Question / governed intent
--> deterministic execution
--> validation
--> Evidence
--> ClaimDecision
--> public response
-```
-
-A public Evidence Summary makes traceability readable without requiring users
-to inspect raw runtime identifiers. It includes the Metric, governed period,
-MetricState, Evidence status, ClaimState, source filename, source type, and
-validation status.
-
-## Killer Demo 1
+### Revenue Change
 
 Question:
 
@@ -217,26 +280,7 @@ With `examples/public_v0_1/orders.csv`, Q3 2026 Revenue is 120.00 USD and Q4
 2026 Revenue is 100.00 USD, so the supported absolute Revenue Change is -20.00
 USD.
 
-## Killer Demo 2
-
-Question:
-
-```text
-Why did revenue drop from Q3 2026 to Q4 2026?
-```
-
-Expected Public v0.1 behavior:
-
-- the supported descriptive decline/change may be shown;
-- the diagnostic explanation is refused.
-
-The required bounded refusal is:
-
-```text
-Insufficient evidence to conclude why Revenue declined.
-```
-
-## AOV Undefined
+### AOV Undefined
 
 When Orders equals zero, AOV is not zero. It is governed as:
 
@@ -278,17 +322,21 @@ runtime artifacts.
 
 CommerceLens Public v0.1 does not claim enterprise security certification.
 
-## License
+## License / Release Status
 
-CommerceLens AI is licensed under the MIT License. See `LICENSE`.
+CommerceLens is licensed under the MIT License. See `LICENSE`.
+
+Copyright:
+
+```text
+Copyright (c) 2026 Jui-Hsin (Daniel) Lin
+```
 
 SPDX identifier:
 
 ```text
 MIT
 ```
-
-## Release Status
 
 Package version:
 
@@ -299,7 +347,7 @@ Package version:
 Current implementation/release-readiness state on this branch:
 
 ```text
-NOT YET PUBLICLY RELEASED
+READY FOR PUBLIC RELEASE / NOT YET RELEASED
 ```
 
 Future approved tag identity:
@@ -309,4 +357,4 @@ v0.1.0
 ```
 
 No Git tag, GitHub Release, PyPI publication, hosted service, or public release
-action is created by this release-readiness implementation.
+action is created by this presentation implementation.
