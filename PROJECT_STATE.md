@@ -1379,7 +1379,39 @@ Fresh Python:
 
 Final Release Readiness state:
 
-READY FOR PUBLIC RELEASE / NOT YET RELEASED
+PUBLIC V0.1 RELEASED
+
+Public release repository:
+
+https://github.com/daniel-j-lin/commerce-lens
+
+Public release visibility:
+
+PUBLIC
+
+Public release:
+
+CommerceLens v0.1.0
+
+Public release tag:
+
+v0.1.0
+
+Public release URL:
+
+https://github.com/daniel-j-lin/commerce-lens/releases/tag/v0.1.0
+
+Public release commit:
+
+1fc359dffdd0801a0d6324c3b42c044db13bf200
+
+Public release package version:
+
+0.1.0
+
+Public release license:
+
+MIT
 
 Pre-release acceptance criteria:
 
@@ -1423,7 +1455,11 @@ GOVERNANCE PROVENANCE LIMITATION — NON-ANALYTICAL
 
 Git remote state:
 
-No Git remote currently configured
+https://github.com/daniel-j-lin/commerce-lens
+
+GitHub repository visibility:
+
+PUBLIC
 
 Package version:
 
@@ -1489,11 +1525,11 @@ Revenue Change Percentage; NOT STARTED; numbering preserved.
 
 Release state distinction:
 
-READY FOR PUBLIC RELEASE / NOT YET RELEASED is not PUBLICLY RELEASED.
+PUBLIC V0.1 RELEASED records the completed external release action.
 
-No merge, fast-forward, tag, GitHub Release, push, PyPI publication, repository
-publicization, or P10 work was performed by this governance recording.
+No implementation change, PyPI publication, or P10 work was performed by this
+governance recording.
 
 Next required step:
 
-GITHUB REPOSITORY / PROFILE SETUP AND PUBLIC PRESENTATION
+GitHub Profile Finalization

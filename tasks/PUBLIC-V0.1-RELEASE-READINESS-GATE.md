@@ -1432,3 +1432,102 @@ Release state remains:
 ```text
 READY FOR PUBLIC RELEASE / NOT YET RELEASED
 ```
+
+## 35. Downstream Public Release Execution Evidence
+
+The separate authorized external release action completed after this Release
+Readiness Gate was approved and frozen.
+
+Public release action:
+
+```text
+COMPLETE
+```
+
+Final external release state:
+
+```text
+PUBLIC V0.1 RELEASED
+```
+
+Repository:
+
+```text
+daniel-j-lin/commerce-lens
+```
+
+Visibility:
+
+```text
+PUBLIC
+```
+
+Tag:
+
+```text
+v0.1.0
+```
+
+Tag target:
+
+```text
+1fc359dffdd0801a0d6324c3b42c044db13bf200
+```
+
+GitHub Release:
+
+```text
+CommerceLens v0.1.0
+```
+
+Release URL:
+
+```text
+https://github.com/daniel-j-lin/commerce-lens/releases/tag/v0.1.0
+```
+
+PyPI:
+
+```text
+NOT PUBLISHED
+```
+
+Release Readiness status remains:
+
+```text
+APPROVED / FROZEN
+```
+
+MIT License Correction status remains:
+
+```text
+APPROVED / FROZEN
+```
+
+Active release license remains:
+
+```text
+MIT
+```
+
+Package version remains:
+
+```text
+0.1.0
+```
+
+Analytical freeze preserved:
+
+- Supported Metrics remain exactly `revenue`, `orders`, `aov`, and
+  `revenue_change`.
+- Positive Claim permission remains `ClaimType.DESCRIPTIVE only`.
+- Positive Qualified path remains `NONE`.
+- MetadataStore remains `v6`.
+- No analytical semantics changed during release execution or governance
+  recording.
+
+P10 remains:
+
+```text
+Revenue Change Percentage — NOT STARTED
+```
