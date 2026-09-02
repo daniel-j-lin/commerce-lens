@@ -344,17 +344,19 @@ Package version:
 0.1.0
 ```
 
-Current implementation/release-readiness state on this branch:
+Public release:
 
 ```text
-READY FOR PUBLIC RELEASE / NOT YET RELEASED
+CommerceLens v0.1.0
 ```
 
-Future approved tag identity:
+Git tag:
 
 ```text
 v0.1.0
 ```
 
-No Git tag, GitHub Release, PyPI publication, hosted service, or public release
-action is created by this presentation implementation.
+CommerceLens v0.1.0 is the first public GitHub release of CommerceLens.
+
+CommerceLens is not currently published to PyPI and does not provide a hosted
+SaaS product, REST API, or production cloud service.
