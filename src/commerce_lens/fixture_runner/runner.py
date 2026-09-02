@@ -175,6 +175,8 @@ def _compare_hostile(manifest: CaseManifest, runtime: _Runtime) -> CaseRunResult
         mismatches.append(f"failure_code expected {expected.failure_code}, observed {outcome.failure_code}")
     if outcome.failure_code != hostile.failure_code:
         mismatches.append(f"hostile failure_code expected {hostile.failure_code}, observed {outcome.failure_code}")
+    if outcome.failed_metric_state != hostile.expected_metric_state:
+        mismatches.append(f"hostile MetricState expected {hostile.expected_metric_state}, observed {outcome.failed_metric_state}")
     if outcome.final_disposition != expected.final_disposition:
         mismatches.append(f"final_disposition expected {expected.final_disposition}, observed {outcome.final_disposition}")
     if outcome.validated_result_authorized:

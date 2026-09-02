@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 from commerce_lens.fixture_runner.cases import EXPECTED_CASE_IDS, FixtureCase, discover_cases
+from commerce_lens.fixture_runner import runner as runner_module
 from commerce_lens.fixture_runner.runner import CaseRunResult, run_case, run_suite
 
 
@@ -151,7 +153,7 @@ def test_final_disposition_is_checked(tmp_path) -> None:
     assert any("final_disposition" in mismatch for mismatch in result.mismatches)
 
 
-def test_hostile_submitted_value_comes_from_manifest_authority(tmp_path) -> None:
+def test_hostile_submitted_value_deviation_fails_closed(tmp_path) -> None:
     case = next(item for item in discover_cases(CASES_ROOT) if item.case_id == "P9-CONF-VAL-REVCHG-WRONG-VALUE-001")
     hostile = case.manifest.expected.hostile_revenue_change.model_copy(
         update={"submitted_revenue_change": Decimal("22.00")}
@@ -160,8 +162,38 @@ def test_hostile_submitted_value_comes_from_manifest_authority(tmp_path) -> None
 
     result = run_case(bad_case, runtime_root=tmp_path / "runtime")
 
-    assert result.passed
-    assert result.observed["submitted_value"] == "22.00"
+    assert not result.passed
+    assert any("submitted_revenue_change" in mismatch for mismatch in result.mismatches)
+
+
+def test_hostile_expected_metric_state_is_compared(tmp_path, monkeypatch) -> None:
+    case = next(item for item in discover_cases(CASES_ROOT) if item.case_id == "P9-CONF-VAL-REVCHG-WRONG-VALUE-001")
+
+    def mismatched_hostile_outcome(manifest, runtime_root):
+        hostile = manifest.expected.hostile_revenue_change
+        return SimpleNamespace(
+            data_sufficiency_state=manifest.expected.data_sufficiency_state,
+            baseline_revenue=hostile.baseline_revenue,
+            comparison_revenue=hostile.comparison_revenue,
+            authoritative_revenue_change=hostile.authoritative_revenue_change,
+            submitted_value=hostile.submitted_revenue_change,
+            execution_disposition=manifest.expected.execution_disposition,
+            validation_status=manifest.expected.validation_disposition,
+            validation_rule_id=hostile.validation_rule_id,
+            failure_code=hostile.failure_code,
+            failed_metric_state="Valid",
+            final_disposition=manifest.expected.final_disposition,
+            validated_result_authorized=False,
+            admissible_evidence_authorized=False,
+            claim_decision_authorized=False,
+            observed={"failed_metric_state": "Valid"},
+        )
+
+    monkeypatch.setattr(runner_module, "run_revenue_change_wrong_value_case", mismatched_hostile_outcome)
+    result = runner_module._compare_hostile(case.manifest, SimpleNamespace(root=tmp_path / "runtime"))
+
+    assert not result.passed
+    assert any("hostile MetricState expected" in mismatch for mismatch in result.mismatches)
 
 
 def test_case_order_must_name_each_case_exactly_once(tmp_path) -> None:

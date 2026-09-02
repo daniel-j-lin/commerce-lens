@@ -44,6 +44,13 @@ FinalDispositionValue = Literal[
     "claim_inadmissible",
 ]
 
+_FIXED_HOSTILE_DECIMALS = {
+    "baseline_revenue": Decimal("100.00"),
+    "comparison_revenue": Decimal("120.00"),
+    "authoritative_revenue_change": Decimal("20.00"),
+    "submitted_revenue_change": Decimal("21.00"),
+}
+
 
 class FixtureCaseError(ValueError):
     """Raised when P9 fixture case authority fails closed."""
@@ -131,6 +138,19 @@ class HostileRevenueChangeAuthority(StrictModel):
     expected_metric_state: Literal["Inadmissible"]
     failure_code: Literal["value_mismatch"]
 
+    @model_validator(mode="after")
+    def validate_fixed_hostile_values(self) -> "HostileRevenueChangeAuthority":
+        for field_name, expected in _FIXED_HOSTILE_DECIMALS.items():
+            value = getattr(self, field_name)
+            if value != expected or value.as_tuple().exponent != expected.as_tuple().exponent:
+                raise ValueError(f"{field_name} must be fixed P9 hostile authority {expected}")
+        return self
+
+
+def validate_fixed_hostile_authority(authority: HostileRevenueChangeAuthority) -> HostileRevenueChangeAuthority:
+    """Revalidate the single fixed P9 hostile authority before use."""
+    return HostileRevenueChangeAuthority.model_validate(authority.model_dump())
+
 
 class ExpectedCaseOutcome(StrictModel):
     data_sufficiency_state: DataSufficiencyValue
@@ -183,6 +203,8 @@ class CaseManifest(StrictModel):
         if self.case_id == "P9-CONF-VAL-REVCHG-WRONG-VALUE-001":
             if self.expected.hostile_revenue_change is None:
                 raise ValueError("hostile Revenue Change case requires hostile_revenue_change authority")
+            if self.request.metrics != ("revenue_change",):
+                raise ValueError("hostile Revenue Change case must remain fixed to revenue_change")
         elif self.expected.hostile_revenue_change is not None:
             raise ValueError("hostile_revenue_change authority is only valid for the hostile Revenue Change case")
         if self.case_level == "physical-input":

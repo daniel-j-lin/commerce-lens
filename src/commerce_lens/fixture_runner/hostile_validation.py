@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
+from commerce_lens.application.analysis_service import _metric_state as application_metric_state_from_authority
 from commerce_lens.contracts.execution import ExecutedResult
 from commerce_lens.contracts.validation import ValidatedResult
 from commerce_lens.engine.execution import _revenue_change_result_fingerprint
@@ -14,7 +15,7 @@ from commerce_lens.evidence.identifiers import generate_id
 from commerce_lens.persistence.metadata_store import MetadataStore
 from commerce_lens.validation.validator import validate_executed_result
 
-from commerce_lens.fixture_runner.cases import CaseManifest
+from commerce_lens.fixture_runner.cases import CaseManifest, validate_fixed_hostile_authority
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,7 @@ class HostileRevenueChangeOutcome:
     validation_status: str
     validation_rule_id: str
     failure_code: str | None
+    failed_metric_state: str
     final_disposition: str
     validated_result_authorized: bool
     admissible_evidence_authorized: bool
@@ -46,6 +48,7 @@ def run_revenue_change_wrong_value_case(manifest: CaseManifest, runtime_root: Pa
     hostile = manifest.expected.hostile_revenue_change
     if hostile is None:
         raise ValueError("hostile Revenue Change manifest authority is required")
+    hostile = validate_fixed_hostile_authority(hostile)
     rows = (
         {
             "order_id": "o1",
@@ -111,6 +114,14 @@ def run_revenue_change_wrong_value_case(manifest: CaseManifest, runtime_root: Pa
         for record in metadata_store.list_evidence_admissibility_records()
     )
     claim_decision_authorized = bool(metadata_store.list_claim_decision_records(artifact_store))
+    failed_metric_state = application_metric_state_from_authority(
+        "revenue_change",
+        sufficiency,
+        (tampered,),
+        (),
+        (validation.validation_record,),
+        validation.validation_record.failure_details,
+    )
     execution_disposition = "hostile_submitted" if metadata_store.get_execution_record(record.execution_id) is not None else "not_started"
     final_disposition = (
         "validation_failed"
@@ -130,6 +141,7 @@ def run_revenue_change_wrong_value_case(manifest: CaseManifest, runtime_root: Pa
         validation_status=validation.validation_record.status.value,
         validation_rule_id=validation.validation_record.validation_rule_id,
         failure_code=validation.validation_record.failure_code,
+        failed_metric_state=failed_metric_state.value,
         final_disposition=final_disposition,
         validated_result_authorized=validated_result_authorized,
         admissible_evidence_authorized=admissible_evidence_authorized,
@@ -144,6 +156,7 @@ def run_revenue_change_wrong_value_case(manifest: CaseManifest, runtime_root: Pa
             "validation_status": validation.validation_record.status.value,
             "validation_rule_id": validation.validation_record.validation_rule_id,
             "failure_code": validation.validation_record.failure_code,
+            "failed_metric_state": failed_metric_state.value,
             "validated_result_authorized": validated_result_authorized,
             "admissible_evidence_authorized": admissible_evidence_authorized,
             "claim_decision_authorized": claim_decision_authorized,

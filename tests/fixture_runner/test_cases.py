@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import shutil
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
-from commerce_lens.fixture_runner.cases import EXPECTED_CASE_IDS, FixtureCaseError, discover_cases, load_case
+from commerce_lens.fixture_runner.cases import (
+    EXPECTED_CASE_IDS,
+    FixtureCaseError,
+    HostileRevenueChangeAuthority,
+    discover_cases,
+    load_case,
+    validate_fixed_hostile_authority,
+)
 
 
 CASES_ROOT = Path("tests/fixtures/p9/cases")
@@ -107,6 +115,46 @@ def test_setup_row_unknown_field_fails_load(tmp_path) -> None:
 
     with pytest.raises(FixtureCaseError, match="schema invalid"):
         load_case(case_dir)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "old", "new"),
+    (
+        ("baseline_revenue", 'baseline_revenue: "100.00"', 'baseline_revenue: "101.00"'),
+        ("comparison_revenue", 'comparison_revenue: "120.00"', 'comparison_revenue: "121.00"'),
+        ("authoritative_revenue_change", 'authoritative_revenue_change: "20.00"', 'authoritative_revenue_change: "19.00"'),
+        ("submitted_revenue_change", 'submitted_revenue_change: "21.00"', 'submitted_revenue_change: "22.00"'),
+    ),
+)
+def test_fixed_hostile_authority_deviation_fails_load(tmp_path, field_name: str, old: str, new: str) -> None:
+    case_dir = _copy_case(tmp_path, "P9-CONF-VAL-REVCHG-WRONG-VALUE-001")
+    _replace(case_dir, old, new)
+
+    with pytest.raises(FixtureCaseError, match=field_name):
+        load_case(case_dir)
+
+
+def test_fixed_hostile_authority_revalidation_rejects_in_memory_deviation() -> None:
+    case = load_case(CASES_ROOT / "P9-CONF-VAL-REVCHG-WRONG-VALUE-001")
+    hostile = case.manifest.expected.hostile_revenue_change.model_copy(
+        update={"submitted_revenue_change": Decimal("22.00")}
+    )
+
+    with pytest.raises(ValueError, match="submitted_revenue_change"):
+        validate_fixed_hostile_authority(hostile)
+
+
+def test_hostile_authority_requires_two_decimal_scale() -> None:
+    with pytest.raises(ValueError, match="baseline_revenue"):
+        HostileRevenueChangeAuthority(
+            baseline_revenue=Decimal("100.0"),
+            comparison_revenue=Decimal("120.00"),
+            authoritative_revenue_change=Decimal("20.00"),
+            submitted_revenue_change=Decimal("21.00"),
+            validation_rule_id="validation:revenue_change_from_validated_revenues",
+            expected_metric_state="Inadmissible",
+            failure_code="value_mismatch",
+        )
 
 
 def test_harness_cases_do_not_require_placeholder_csv_files() -> None:
