@@ -1,0 +1,20 @@
+{
+  "name": "commerce-lens",
+  "interface": {
+    "displayName": "CommerceLens"
+  },
+  "plugins": [
+    {
+      "name": "commerce-lens",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
