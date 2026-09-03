@@ -47,7 +47,7 @@ def test_codex_plugin_manifest_exists_parses_and_points_to_skills() -> None:
     payload = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))
 
     assert payload["name"] == "commerce-lens"
-    assert payload["version"]
+    assert payload["version"] == "0.1.1"
     assert payload["skills"] == "./skills/"
     assert "evidence-governed" in payload["description"].lower()
     assert payload["author"]["name"] == "CommerceLens"

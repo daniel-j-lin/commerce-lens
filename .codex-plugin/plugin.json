@@ -1,7 +1,7 @@
 {
   "name": "commerce-lens",
   "description": "Evidence-governed commerce analytics Skill for supported Public v0.1 CSV/XLSX questions.",
-  "version": "0.1.0-p10",
+  "version": "0.1.1",
   "author": {
     "name": "CommerceLens"
   },

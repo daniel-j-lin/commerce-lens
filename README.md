@@ -30,7 +30,7 @@ treating generated answers or executed queries as sufficient authority.
 
 ## Public v0.1 Capabilities
 
-Public v0.1 supports a native Codex Skill/plugin candidate workflow over local
+Public v0.1 supports a native Codex Skill/plugin workflow over local
 structured data files. The Skill interprets supported natural-language business
 questions into structured intent, then invokes the deterministic CommerceLens
 runtime. The deterministic runtime remains the sole authority for material KPI
@@ -141,7 +141,7 @@ What was AOV in Q4 2026?
 On first use, the bundled Skill may verify Python >=3.11, create an isolated
 local environment, install this local package, and invoke the deterministic
 runner. Do not treat manual construction of `PublicAnalysisIntent` as the
-end-user Skill workflow after P10.
+end-user Skill workflow for v0.1.1.
 
 ### Standalone Skill fallback for local development
 
@@ -259,8 +259,7 @@ for evidence in outcome.response.evidence_summary:
 
 The supported answer is the absolute Revenue Change. Public v0.1 does not add a
 percentage, causal explanation, or Recommendation. This Python API remains
-available for development and tests; it is not the primary end-user Skill UX
-after P10.
+available for development and tests; it is not the primary end-user Skill UX.
 
 ## Evidence Model
 
@@ -386,8 +385,8 @@ The public state includes `MetricState=Undefined`, value `None`, and
 
 ## Reproducibility / Tests
 
-Current P10 candidate verification on this implementation branch was run on
-2026-09-03 with Python 3.11.9 in a fresh local venv and produced:
+Current v0.1.1 release verification was run on 2026-09-03 with Python 3.11.9
+in a fresh local venv and produced:
 
 - Public v0.1 focused tests plus native Skill packaging tests: 26 passed
 - P9 fixture runner: 35 passed
@@ -434,22 +433,23 @@ MIT
 Package version:
 
 ```text
-0.1.0
+0.1.1
 ```
 
 Public release:
 
 ```text
-CommerceLens v0.1.0
+CommerceLens v0.1.1
 ```
 
 Git tag:
 
 ```text
-v0.1.0
+v0.1.1
 ```
 
-CommerceLens v0.1.0 is the first public GitHub release of CommerceLens.
+CommerceLens v0.1.1 adds native Codex plugin and Skill distribution for the
+existing Public v0.1 governed analytics workflow.
 
 CommerceLens is not currently published to PyPI and does not provide a hosted
 SaaS product, REST API, or production cloud service.
