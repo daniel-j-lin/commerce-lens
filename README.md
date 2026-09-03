@@ -30,8 +30,11 @@ treating generated answers or executed queries as sufficient authority.
 
 ## Public v0.1 Capabilities
 
-Public v0.1 supports structured Python invocation of the CommerceLens Skill
-integration over local structured data files.
+Public v0.1 supports a native Codex Skill/plugin workflow over local
+structured data files. The Skill interprets supported natural-language business
+questions into structured intent, then invokes the deterministic CommerceLens
+runtime. The deterministic runtime remains the sole authority for material KPI
+values, Evidence, and ClaimDecision outcomes.
 
 Supported inputs:
 
@@ -90,7 +93,91 @@ Public v0.1 has been verified with environment-independent Python behavior on a
 local Python 3.11 environment. This README does not claim operating-system
 certification for Windows, macOS, or Linux.
 
-### Installation
+### Install as a Codex plugin
+
+CommerceLens includes a minimal native Codex skills-only plugin package:
+
+- `.agents/plugins/marketplace.json`
+- `.codex-plugin/plugin.json`
+- `skills/commerce-lens/SKILL.md`
+- `skills/commerce-lens/scripts/run_public_analysis.py`
+
+The repository marketplace exposes the existing plugin root, and the plugin
+manifest exposes the local Skill directory with:
+
+```json
+"skills": "./skills/"
+```
+
+Add this repository as a Codex marketplace source, install the `commerce-lens`
+plugin from that marketplace, then start a fresh Codex session:
+
+```bash
+codex plugin marketplace add daniel-j-lin/commerce-lens
+codex plugin marketplace list
+codex plugin add commerce-lens --marketplace commerce-lens
+```
+
+If you are testing a local checkout instead of GitHub distribution, add the
+local repository root as the marketplace source:
+
+```bash
+codex plugin marketplace add .
+codex plugin add commerce-lens --marketplace commerce-lens
+```
+
+After installation, restart or reload Codex if your surface requires it. Once
+the bundled Skill is discovered in a fresh session, ask CommerceLens a supported
+Public v0.1 question and provide a CSV or XLSX file.
+
+Supported first-run questions include:
+
+```text
+How did revenue change from Q3 2026 to Q4 2026?
+Why did revenue drop from Q3 2026 to Q4 2026?
+What was AOV in Q4 2026?
+```
+
+On first use, the bundled Skill may verify Python >=3.11, create an isolated
+local environment, install this local package, and invoke the deterministic
+runner. Do not treat manual construction of `PublicAnalysisIntent` as the
+end-user Skill workflow for v0.1.1.
+
+### Standalone Skill fallback for local development
+
+During local development, a developer may expose only the Skill folder through a
+user-level Skill location. That fallback is not the public plugin distribution
+path and should not be used as acceptance evidence for repository marketplace
+packaging.
+
+### Deterministic runner surface
+
+The deterministic runner command surface is:
+
+```bash
+python3.11 skills/commerce-lens/scripts/run_public_analysis.py \
+  --source examples/public_v0_1/orders.csv \
+  --source-type csv \
+  --question-class revenue_change \
+  --metric revenue_change \
+  --baseline-label "Q3 2026" \
+  --baseline-start 2026-07-01 \
+  --baseline-end 2026-09-30 \
+  --comparison-label "Q4 2026" \
+  --comparison-start 2026-10-01 \
+  --comparison-end 2026-12-31 \
+  --original-question "How did revenue change from Q3 2026 to Q4 2026?"
+```
+
+This command is intended for the Skill/agent orchestration layer. It translates
+already-interpreted structured arguments into the existing governed
+`run_public_analysis(...)` integration. It does not calculate Revenue, Orders,
+AOV, or Revenue Change itself. The runner automatically creates temporary
+`ArtifactStore` and `MetadataStore` locations for the governed run and returns
+the public response plus a `validated_results_summary` derived from CommerceLens
+validation records.
+
+### Install Python package for development
 
 From a clean checkout, create an isolated environment and install the package:
 
@@ -110,7 +197,7 @@ python -m pip install -e ".[dev]"
 The repository's existing developer `.venv` is not required and is not public
 installation authority.
 
-### First Run
+### Developer Python API Example
 
 This example uses the tracked synthetic CSV at
 `examples/public_v0_1/orders.csv`.
@@ -171,7 +258,8 @@ for evidence in outcome.response.evidence_summary:
 ```
 
 The supported answer is the absolute Revenue Change. Public v0.1 does not add a
-percentage, causal explanation, or Recommendation.
+percentage, causal explanation, or Recommendation. This Python API remains
+available for development and tests; it is not the primary end-user Skill UX.
 
 ## Evidence Model
 
@@ -190,11 +278,15 @@ Business Question
 -> Controlled Response
 ```
 
-The supported public boundary is structured Python invocation through:
+The deterministic public execution boundary is:
 
 - `commerce_lens.skill.integration.PublicAnalysisIntent`
 - `commerce_lens.skill.integration.PublicSourceSelection`
 - `commerce_lens.skill.integration.run_public_analysis`
+
+The native Skill/plugin path constructs this structured intent from supported
+natural-language questions and invokes the same boundary through
+`skills/commerce-lens/scripts/run_public_analysis.py`.
 
 The current integration expects explicit governed periods, a supported Metric,
 `GroupingDimension.NONE`, a supported local source selection, and descriptive
@@ -293,18 +385,18 @@ The public state includes `MetricState=Undefined`, value `None`, and
 
 ## Reproducibility / Tests
 
-Current release-candidate verification on this implementation branch was run on
-2026-09-02 with Python 3.11.9 and produced:
+Current v0.1.1 release verification was run on 2026-09-03 with Python 3.11.9
+in a fresh local venv and produced:
 
-- Public v0.1 focused tests: 15 passed
+- Public v0.1 focused tests plus native Skill packaging tests: 26 passed
 - P9 fixture runner: 35 passed
 - application tests: 21 passed
-- full repository tests: 526 passed
+- full repository tests: 538 passed
 
 To run the verification suite from an environment installed with `.[dev]`:
 
 ```bash
-python -m pytest tests/skill/test_integration.py tests/skill/test_public_response.py tests/end_to_end/test_public_v0_1.py
+python -m pytest tests/skill/test_native_plugin_packaging.py tests/skill/test_integration.py tests/skill/test_public_response.py tests/end_to_end/test_public_v0_1.py
 python -m pytest tests/fixture_runner
 python -m pytest tests/application
 python -m pytest
@@ -341,22 +433,23 @@ MIT
 Package version:
 
 ```text
-0.1.0
+0.1.1
 ```
 
 Public release:
 
 ```text
-CommerceLens v0.1.0
+CommerceLens v0.1.1
 ```
 
 Git tag:
 
 ```text
-v0.1.0
+v0.1.1
 ```
 
-CommerceLens v0.1.0 is the first public GitHub release of CommerceLens.
+CommerceLens v0.1.1 adds native Codex plugin and Skill distribution for the
+existing Public v0.1 governed analytics workflow.
 
 CommerceLens is not currently published to PyPI and does not provide a hosted
 SaaS product, REST API, or production cloud service.

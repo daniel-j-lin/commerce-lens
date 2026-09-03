@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "commerce-lens"
-version = "0.1.0"
+version = "0.1.1"
 description = "CommerceLens AI deterministic foundation package"
 readme = "README.md"
 requires-python = ">=3.11"

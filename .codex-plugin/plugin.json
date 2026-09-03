@@ -1,0 +1,31 @@
+{
+  "name": "commerce-lens",
+  "description": "Evidence-governed commerce analytics Skill for supported Public v0.1 CSV/XLSX questions.",
+  "version": "0.1.1",
+  "author": {
+    "name": "CommerceLens"
+  },
+  "repository": "https://github.com/daniel-j-lin/commerce-lens",
+  "license": "MIT",
+  "keywords": [
+    "commerce",
+    "analytics",
+    "evidence",
+    "codex-skill"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CommerceLens",
+    "shortDescription": "Evidence-governed commerce analytics for CSV/XLSX questions.",
+    "longDescription": "CommerceLens answers supported Public v0.1 commerce analytics questions by invoking a deterministic governed runner and refusing unsupported diagnostic, causal, predictive, or prescriptive conclusions.",
+    "developerName": "CommerceLens",
+    "category": "Productivity",
+    "capabilities": [
+      "Skills"
+    ],
+    "defaultPrompt": [
+      "How did revenue change from Q3 2026 to Q4 2026?",
+      "Why did revenue drop from Q3 2026 to Q4 2026?"
+    ]
+  }
+}
