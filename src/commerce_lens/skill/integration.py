@@ -41,7 +41,13 @@ from commerce_lens.intake.registry import DatasetRegistry
 from commerce_lens.metrics import METRIC_REGISTRY_VERSION, get_metric_registry
 from commerce_lens.persistence.artifact_store import ArtifactStore
 from commerce_lens.persistence.metadata_store import MetadataStore
-from commerce_lens.skill.public_response import EvaluatedClaimAuthority, PublicResponse, project_public_response
+from commerce_lens.skill.public_response import (
+    EvaluatedClaimAuthority,
+    PublicMappingProposal,
+    PublicResponse,
+    project_public_response,
+)
+from commerce_lens.skill.schema_mapping import assess_schema_mapping
 
 
 PUBLIC_V0_1_METRICS = frozenset({"revenue", "orders", "aov", "revenue_change"})
@@ -122,6 +128,11 @@ def validate_public_intent(intent: PublicAnalysisIntent) -> tuple[str, ...]:
         failures.append("Public v0.1 does not expose table selection as a headline CSV/XLSX workflow")
     if intent.source.mapping is None and intent.source.mapping_mode != "identity_canonical_columns":
         failures.append("mapping selection requires clarification")
+    if intent.source.mapping is not None and intent.source.mapping_mode in {
+        "proposed_unconfirmed_mapping",
+        "mapping_rejected",
+    }:
+        failures.append("confirmed source-to-canonical mapping authority is required")
     if intent.baseline_period is None or intent.comparison_period is None:
         failures.append("explicit governed baseline and comparison periods are required by the current AnalysisRequest contract")
     if intent.metric_id in PUBLIC_SINGLE_PERIOD_METRICS and intent.result_period_role not in ("baseline", "comparison"):
@@ -158,6 +169,25 @@ def run_public_analysis(
             intent=intent,
             response=PublicResponse(clarification_required=(source_failure,)),
         )
+    if intent.source.mapping is None:
+        mapping_assessment = assess_schema_mapping(source_headers, intent.metric_id)
+        if not mapping_assessment.identity_mapping_available:
+            return PublicAnalysisOutcome(
+                intent=intent,
+                response=PublicResponse(
+                    clarification_required=mapping_assessment.clarification_required,
+                    mapping_proposals=tuple(
+                        PublicMappingProposal(
+                            source_field=proposal.source_field,
+                            canonical_field=proposal.canonical_field,
+                        )
+                        for proposal in mapping_assessment.proposals
+                    ),
+                    required_mapping_fields=mapping_assessment.required_canonical_fields,
+                    blocked=True,
+                    insufficient_evidence_message="Insufficient evidence to conclude.",
+                ),
+            )
 
     artifact_store.ensure_layout()
     metadata_store.initialize()

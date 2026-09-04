@@ -38,8 +38,8 @@ values, Evidence, and ClaimDecision outcomes.
 
 Supported inputs:
 
-- CSV
-- XLSX
+- CSV with canonical columns or an explicitly confirmed source-to-canonical mapping
+- XLSX with canonical columns or an explicitly confirmed source-to-canonical mapping
 
 Supported Metrics:
 
@@ -57,7 +57,9 @@ Governed behaviors:
 - AOV remains Undefined when Orders equals zero;
 - unsupported why or diagnostic questions are refused;
 - Revenue Change is absolute change only;
-- Revenue Change Percentage is not supported in Public v0.1.
+- Revenue Change Percentage is not supported in Public v0.1;
+- non-canonical column mappings are proposed for user confirmation and are
+  validated deterministically before analysis.
 
 The host or caller is responsible for interpreting a user question into a
 structured `PublicAnalysisIntent`. The current Public v0.1 integration validates
@@ -176,6 +178,30 @@ AOV, or Revenue Change itself. The runner automatically creates temporary
 `ArtifactStore` and `MetadataStore` locations for the governed run and returns
 the public response plus a `validated_results_summary` derived from CommerceLens
 validation records.
+
+When source headers differ from the CommerceLens canonical schema, the Skill may
+propose a source-to-canonical mapping and must ask the user to confirm or
+correct it. Confirmed mappings can be handed to the deterministic runner as JSON
+without renaming or editing the source file:
+
+```bash
+python3.11 skills/commerce-lens/scripts/run_public_analysis.py \
+  --source path/to/orders.csv \
+  --source-type csv \
+  --question-class revenue_change \
+  --metric revenue_change \
+  --baseline-label "Q3 2026" \
+  --baseline-start 2026-07-01 \
+  --baseline-end 2026-09-30 \
+  --comparison-label "Q4 2026" \
+  --comparison-start 2026-10-01 \
+  --comparison-end 2026-12-31 \
+  --mapping-json '{"Order ID":"order_id","Order Line ID":"order_line_id","Order Date":"order_date","Product ID":"product_id","Quantity":"quantity","Revenue":"line_revenue","Currency":"currency","Order Status":"eligibility_status"}'
+```
+
+The JSON object maps source field names to canonical field names. The runner
+constructs the existing `CanonicalMapping`, and the deterministic
+`validate_mapping(...)` authority must pass before governed analysis proceeds.
 
 ### Install Python package for development
 

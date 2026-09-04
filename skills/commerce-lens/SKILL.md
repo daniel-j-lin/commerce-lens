@@ -87,6 +87,35 @@ If the user has not provided a source file, source type, selected XLSX sheet
 when needed, or explicit governed periods, ask for clarification. Unsupported
 requests must not be approximated.
 
+## Schema Mapping UX
+
+After the source file is available, inspect the source headers before running
+material analysis.
+
+If all canonical fields required by the requested supported analysis are
+available as exact canonical column names, continue without asking for mapping
+confirmation. Exact identity mapping is already explicit under the CommerceLens
+canonical contract.
+
+If exact canonical fields are missing but semantically compatible source
+headers appear available, propose a source-to-canonical mapping and ask the user
+to confirm or correct it. The proposal is not authority. Do not run material
+analysis until the user explicitly confirms or supplies the mapping.
+
+The user may confirm all proposed mappings, correct one or more mappings,
+decline the mapping, or supply a missing mapping. If ambiguity remains, ask a
+targeted clarification such as which source column represents `line_revenue`.
+Do not infer confirmation from silence.
+
+When confirmed, hand the runner a structured source-to-canonical mapping with
+source headers as keys and canonical fields as values. The runner converts this
+to the existing `CanonicalMapping` contract, and CommerceLens deterministic
+authority still validates it with `validate_mapping(...)` before analysis.
+
+Fail closed when required mapping authority is unresolved, rejected, ambiguous,
+or rejected by deterministic validation. Never fall back to LLM calculation,
+silent renaming, guessed mapping, or generic dataframe analysis.
+
 ## Deterministic Runner
 
 Use `skills/commerce-lens/scripts/run_public_analysis.py` as the first-run
@@ -115,6 +144,23 @@ python3.11 skills/commerce-lens/scripts/run_public_analysis.py \
   --comparison-start 2026-10-01 \
   --comparison-end 2026-12-31 \
   --original-question "How did revenue change from Q3 2026 to Q4 2026?"
+```
+
+Confirmed non-canonical mapping example:
+
+```bash
+python3.11 skills/commerce-lens/scripts/run_public_analysis.py \
+  --source path/to/orders.csv \
+  --source-type csv \
+  --question-class revenue_change \
+  --metric revenue_change \
+  --baseline-label "Q3 2026" \
+  --baseline-start 2026-07-01 \
+  --baseline-end 2026-09-30 \
+  --comparison-label "Q4 2026" \
+  --comparison-start 2026-10-01 \
+  --comparison-end 2026-12-31 \
+  --mapping-json '{"Order ID":"order_id","Order Line ID":"order_line_id","Order Date":"order_date","Product ID":"product_id","Quantity":"quantity","Revenue":"line_revenue","Currency":"currency","Order Status":"eligibility_status"}'
 ```
 
 For first use, verify Python >=3.11. If CommerceLens cannot be imported, create

@@ -34,6 +34,7 @@ def main(argv: list[str] | None = None) -> int:
         PublicAnalysisIntent,
         PublicClaimIntent,
         PublicSourceSelection,
+        confirmed_mapping_from_source_to_canonical,
         run_public_analysis,
     ) = runtime
 
@@ -50,6 +51,12 @@ def main(argv: list[str] | None = None) -> int:
             source_path=Path(args.source),
             source_type=source_type,
             selected_sheet=args.selected_sheet,
+            mapping=_mapping(args, confirmed_mapping_from_source_to_canonical),
+            mapping_mode=(
+                "confirmed_source_to_canonical_mapping"
+                if args.mapping_json or args.mapping_file
+                else "identity_canonical_columns"
+            ),
         )
         intent = PublicAnalysisIntent(
             question_class=args.question_class,
@@ -107,6 +114,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--result-period-role", choices=("baseline", "comparison"))
     parser.add_argument("--claim-type", action="append", default=["descriptive"])
     parser.add_argument("--original-question")
+    parser.add_argument(
+        "--mapping-json",
+        help='Confirmed source-to-canonical mapping JSON, e.g. {"Order ID":"order_id"}.',
+    )
+    parser.add_argument("--mapping-file", help="Path to a JSON file containing confirmed source-to-canonical mapping.")
     parser.add_argument("--artifact-store")
     parser.add_argument("--metadata-store")
     return parser
@@ -159,6 +171,7 @@ def _import_runtime() -> tuple[Any, ...]:
         PublicSourceSelection,
         run_public_analysis,
     )
+    from commerce_lens.skill.schema_mapping import confirmed_mapping_from_source_to_canonical
 
     return (
         ClaimType,
@@ -169,8 +182,36 @@ def _import_runtime() -> tuple[Any, ...]:
         PublicAnalysisIntent,
         PublicClaimIntent,
         PublicSourceSelection,
+        confirmed_mapping_from_source_to_canonical,
         run_public_analysis,
     )
+
+
+def _mapping(args: argparse.Namespace, factory) -> Any | None:
+    if args.mapping_json and args.mapping_file:
+        raise ValueError("use either --mapping-json or --mapping-file, not both")
+    if not args.mapping_json and not args.mapping_file:
+        return None
+    raw = args.mapping_json
+    if args.mapping_file:
+        raw = Path(args.mapping_file).read_text(encoding="utf-8")
+    assert raw is not None
+    parsed = json.loads(raw)
+    if _looks_like_canonical_mapping(parsed):
+        return _canonical_mapping_from_runtime_payload(parsed)
+    if not isinstance(parsed, dict) or not all(isinstance(key, str) and isinstance(value, str) for key, value in parsed.items()):
+        raise ValueError("mapping JSON must be a source-to-canonical object with string keys and values")
+    return factory(parsed)
+
+
+def _looks_like_canonical_mapping(parsed: Any) -> bool:
+    return isinstance(parsed, dict) and "entries" in parsed
+
+
+def _canonical_mapping_from_runtime_payload(parsed: dict[str, Any]) -> Any:
+    from commerce_lens.canonical.mapping import CanonicalMapping
+
+    return CanonicalMapping.model_validate(parsed)
 
 
 def _repo_root() -> Path | None:

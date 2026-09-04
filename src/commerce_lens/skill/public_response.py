@@ -57,9 +57,17 @@ class PublicEvidenceSummary:
 
 
 @dataclass(frozen=True)
+class PublicMappingProposal:
+    source_field: str
+    canonical_field: str
+
+
+@dataclass(frozen=True)
 class PublicResponse:
     supported_claims: tuple[PublicClaimProjection, ...] = ()
     evidence_summary: tuple[PublicEvidenceSummary, ...] = ()
+    mapping_proposals: tuple[PublicMappingProposal, ...] = ()
+    required_mapping_fields: tuple[str, ...] = ()
     limitations: tuple[str, ...] = ()
     unsupported_conclusions: tuple[str, ...] = ()
     additional_evidence_needed: tuple[str, ...] = ()
@@ -69,7 +77,14 @@ class PublicResponse:
 
     def render_text(self) -> str:
         if self.clarification_required:
-            return "Clarification required: " + "; ".join(self.clarification_required)
+            lines = ["Clarification required: " + "; ".join(self.clarification_required)]
+            if self.mapping_proposals:
+                lines.append("Proposed source-to-canonical mapping")
+                lines.extend(
+                    f"- {proposal.source_field} -> {proposal.canonical_field}"
+                    for proposal in self.mapping_proposals
+                )
+            return "\n".join(lines)
         lines: list[str] = []
         if self.supported_claims:
             lines.append("Supported Claims / Answer")
