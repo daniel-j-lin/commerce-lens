@@ -143,7 +143,7 @@ What was AOV in Q4 2026?
 On first use, the bundled Skill may verify Python >=3.11, create an isolated
 local environment, install this local package, and invoke the deterministic
 runner. Do not treat manual construction of `PublicAnalysisIntent` as the
-end-user Skill workflow for v0.1.1.
+end-user Skill workflow for v0.1.2.
 
 ### Standalone Skill fallback for local development
 
@@ -411,13 +411,13 @@ The public state includes `MetricState=Undefined`, value `None`, and
 
 ## Reproducibility / Tests
 
-Current v0.1.1 release verification was run on 2026-09-03 with Python 3.11.9
+Current v0.1.2 release verification was run on 2026-09-04 with Python 3.11.9
 in a fresh local venv and produced:
 
-- Public v0.1 focused tests plus native Skill packaging tests: 26 passed
-- P9 fixture runner: 35 passed
-- application tests: 21 passed
-- full repository tests: 538 passed
+- P12 explicit schema mapping UX tests: 10 passed
+- P11 input robustness characterization tests: 34 passed
+- native Skill packaging and integration tests: 26 passed
+- full repository tests: 582 passed
 
 To run the verification suite from an environment installed with `.[dev]`:
 
@@ -459,23 +459,23 @@ MIT
 Package version:
 
 ```text
-0.1.1
+0.1.2
 ```
 
 Public release:
 
 ```text
-CommerceLens v0.1.1
+CommerceLens v0.1.2
 ```
 
 Git tag:
 
 ```text
-v0.1.1
+v0.1.2
 ```
 
-CommerceLens v0.1.1 adds native Codex plugin and Skill distribution for the
-existing Public v0.1 governed analytics workflow.
+CommerceLens v0.1.2 adds explicit source-to-canonical schema mapping
+confirmation to the existing Public v0.1 governed analytics workflow.
 
 CommerceLens is not currently published to PyPI and does not provide a hosted
 SaaS product, REST API, or production cloud service.
