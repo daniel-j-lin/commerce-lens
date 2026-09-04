@@ -41,6 +41,23 @@ Supported inputs:
 - CSV with canonical columns or an explicitly confirmed source-to-canonical mapping
 - XLSX with canonical columns or an explicitly confirmed source-to-canonical mapping
 
+Supported date and monetary representations are normalized deterministically.
+Dates may be native XLSX dates, `YYYY-MM-DD`, `YYYY/MM/DD`, `Jul 15 2026`,
+`July 15, 2026`, or ISO midnight timestamp strings without timezone
+information. Numeric slash dates such as `01/02/2026`, non-midnight
+timestamps, and timestamp strings with timezone information are rejected unless
+upstream governed conversion supplies an order date.
+
+Money values may be plain decimals, valid US-style thousands grouping such as
+`1,200.00`, leading `$` notation, leading ISO currency text such as
+`USD 120.00`, and negative input notation such as `-120.00` or `($120.00)`.
+Currency notation is reconciled against the authoritative canonical `currency`
+field; CommerceLens does not infer USD merely from `$`, and conflicting explicit
+currency text fails closed. Negative parsing preserves sign, but downstream
+canonical Revenue and unit-price eligibility still governs whether the value is
+analytically admissible. Locale-ambiguous forms such as `1.200,00` and
+malformed thousands grouping are rejected.
+
 Supported Metrics:
 
 - Revenue

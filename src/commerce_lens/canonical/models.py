@@ -15,8 +15,8 @@ from commerce_lens.contracts.common import ContractBase, Qualification
 from commerce_lens.contracts.evidence import CanonicalDatasetReference, CanonicalizationRecord
 
 
-CANONICALIZATION_VERSION = "phase2_canonicalization_v1"
-SUPPORTED_DATE_POLICY_REF = "order_date_iso_date_only"
+CANONICALIZATION_VERSION = "phase2_canonicalization_v1_p13_common_formats"
+SUPPORTED_DATE_POLICY_REF = "order_date_common_unambiguous_v1"
 
 
 class EligibilityMode(str, Enum):

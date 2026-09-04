@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import math
+import re
 import sqlite3
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
@@ -40,6 +41,17 @@ from commerce_lens.contracts.common import ArtifactReference, Qualification
 from commerce_lens.contracts.evidence import CanonicalDatasetReference, CanonicalizationRecord, DatasetReference
 from commerce_lens.evidence.identifiers import canonical_json_fingerprint, sha256_file, stable_content_id
 from commerce_lens.persistence.artifact_store import ArtifactStore
+
+
+_ISO_DATE_SLASH_RE = re.compile(r"^(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})$")
+_AMBIGUOUS_NUMERIC_DATE_RE = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}$")
+_ISO_TIMESTAMP_RE = re.compile(
+    r"^(?P<date>\d{4}-\d{2}-\d{2})[T ](?P<time>\d{2}:\d{2}:\d{2})(?:\.\d+)?(?P<tz>Z|[+-]\d{2}:\d{2})?$"
+)
+_MONTH_DATE_FORMATS = ("%b %d %Y", "%B %d, %Y")
+_TEXTUAL_CURRENCY_RE = re.compile(r"^(?P<currency>[A-Z]{3})\s+(?P<amount>.+)$")
+_PLAIN_DECIMAL_RE = re.compile(r"^\d+(?:\.\d+)?$")
+_GROUPED_DECIMAL_RE = re.compile(r"^\d{1,3}(?:,\d{3})+(?:\.\d+)?$")
 
 
 def canonicalize_dataset(
@@ -417,9 +429,21 @@ def _canonicalize_row(
     order_date = _parse_order_date(values["order_date"], source_row_number, results)
     product_id = _required_identifier(values["product_id"], "product_id", source_row_number, results)
     quantity = _parse_quantity(values["quantity"], source_row_number, results)
-    line_revenue = _parse_decimal(values["line_revenue"], "line_revenue", source_row_number, results)
     currency = _required_identifier(values["currency"], "currency", source_row_number, results)
-    unit_price = _parse_optional_decimal(values["unit_price"], "unit_price", source_row_number, results)
+    line_revenue = _parse_decimal(
+        values["line_revenue"],
+        "line_revenue",
+        source_row_number,
+        results,
+        currency_authority=currency,
+    )
+    unit_price = _parse_optional_decimal(
+        values["unit_price"],
+        "unit_price",
+        source_row_number,
+        results,
+        currency_authority=currency,
+    )
     eligibility = _eligibility_status(values["eligibility_status"], source_row_number, request, results)
     product_name = _optional_text(values["product_name"])
     category_id = _category_id(values["category_id"], source_row_number, request, results)
@@ -496,15 +520,14 @@ def _required_identifier(
 
 def _parse_order_date(value: Any, row_number: int, results: list[DataQualityCheckResult]) -> date | None:
     if isinstance(value, datetime):
-        results.append(
-            blocking(
-                "canonical.order_date.timestamp_unsupported",
-                f"row:{row_number}:order_date",
-                "canonical_dictionary:16",
-                "timestamp values require upstream governed conversion to order_date",
-            )
+        if value.time() == datetime.min.time() and value.tzinfo is None:
+            return value.date()
+        return _order_date_failure(
+            row_number,
+            "canonical.order_date.timestamp_unsupported",
+            "timestamp values with time or timezone components require upstream governed conversion to order_date",
+            results,
         )
-        return None
     if isinstance(value, date):
         return value
     if isinstance(value, str):
@@ -514,21 +537,73 @@ def _parse_order_date(value: Any, row_number: int, results: list[DataQualityChec
                 return date.fromisoformat(text)
             except ValueError:
                 pass
-        results.append(
-            blocking(
-                "canonical.order_date.invalid",
-                f"row:{row_number}:order_date",
-                "canonical_dictionary:16",
-                "order_date must be a native date or unambiguous ISO date string",
+        slash_match = _ISO_DATE_SLASH_RE.match(text)
+        if slash_match is not None:
+            try:
+                return date(
+                    int(slash_match.group("year")),
+                    int(slash_match.group("month")),
+                    int(slash_match.group("day")),
+                )
+            except ValueError:
+                pass
+        for format_string in _MONTH_DATE_FORMATS:
+            try:
+                return datetime.strptime(text, format_string).date()
+            except ValueError:
+                continue
+        timestamp_match = _ISO_TIMESTAMP_RE.match(text)
+        if timestamp_match is not None:
+            if timestamp_match.group("tz") is not None or timestamp_match.group("time") != "00:00:00":
+                return _order_date_failure(
+                    row_number,
+                    "canonical.order_date.timestamp_unsupported",
+                    "timestamp strings with time or timezone components require upstream governed conversion to order_date",
+                    results,
+                )
+            try:
+                return date.fromisoformat(timestamp_match.group("date"))
+            except ValueError:
+                pass
+        if _AMBIGUOUS_NUMERIC_DATE_RE.match(text):
+            _order_date_failure(
+                row_number,
+                "canonical.order_date.ambiguous",
+                "numeric slash dates require explicit locale authority",
+                results,
             )
+            return _order_date_failure(
+                row_number,
+                "canonical.order_date.invalid",
+                "order_date must be a native date or supported unambiguous date representation",
+                results,
+            )
+        return _order_date_failure(
+            row_number,
+            "canonical.order_date.invalid",
+            "order_date must be a native date or supported unambiguous date representation",
+            results,
         )
-        return None
+    return _order_date_failure(
+        row_number,
+        "canonical.order_date.invalid",
+        "order_date must be a native date or supported unambiguous date representation",
+        results,
+    )
+
+
+def _order_date_failure(
+    row_number: int,
+    check_id: str,
+    reason: str,
+    results: list[DataQualityCheckResult],
+) -> None:
     results.append(
         blocking(
-            "canonical.order_date.invalid",
+            check_id,
             f"row:{row_number}:order_date",
             "canonical_dictionary:16",
-            "order_date must be a native date or unambiguous ISO date string",
+            reason,
         )
     )
     return None
@@ -538,7 +613,7 @@ def _parse_quantity(value: Any, row_number: int, results: list[DataQualityCheckR
     if value is None or value == "" or isinstance(value, bool):
         results.append(_quantity_failure(row_number, "quantity must be present as a positive whole number"))
         return None
-    decimal = _decimal_from_source(value)
+    decimal, _ = _decimal_from_source(value)
     if decimal is None:
         results.append(_quantity_failure(row_number, "quantity must be finite numeric input with integer semantics"))
         return None
@@ -562,6 +637,8 @@ def _parse_decimal(
     field_name: str,
     row_number: int,
     results: list[DataQualityCheckResult],
+    *,
+    currency_authority: str | None = None,
 ) -> Decimal | None:
     if value is None or value == "" or isinstance(value, bool):
         results.append(
@@ -573,14 +650,15 @@ def _parse_decimal(
             )
         )
         return None
-    decimal = _decimal_from_source(value)
+    decimal, failure = _decimal_from_source(value, currency_authority=currency_authority)
     if decimal is None:
+        check_id = f"canonical.{field_name}.{failure}" if failure is not None else f"canonical.{field_name}.invalid"
         results.append(
             blocking(
-                f"canonical.{field_name}.invalid",
+                check_id,
                 f"row:{row_number}:{field_name}",
                 "canonical_dictionary:32.1",
-                f"{field_name} must be a valid finite Decimal-compatible value",
+                _decimal_failure_reason(field_name, check_id),
             )
         )
         return None
@@ -597,22 +675,89 @@ def _parse_decimal(
     return decimal
 
 
-def _decimal_from_source(value: Any) -> Decimal | None:
+def _decimal_failure_reason(field_name: str, check_id: str) -> str:
+    reasons = {
+        f"canonical.{field_name}.ambiguous_locale": f"{field_name} uses unsupported ambiguous locale separators",
+        f"canonical.{field_name}.malformed_grouping": f"{field_name} contains malformed thousands grouping",
+        f"canonical.{field_name}.currency_authority_missing": (
+            f"{field_name} contains currency notation but governing currency authority is missing"
+        ),
+        f"canonical.{field_name}.currency_conflict": (
+            f"{field_name} currency notation conflicts with governing currency authority"
+        ),
+    }
+    return reasons.get(check_id, f"{field_name} must be a valid finite Decimal-compatible value")
+
+
+def _decimal_from_source(value: Any, *, currency_authority: str | None = None) -> tuple[Decimal | None, str | None]:
     if isinstance(value, bool):
-        return None
+        return None, None
     if isinstance(value, float):
         if not math.isfinite(value):
-            return None
+            return None, None
         text = str(value)
     else:
         text = str(value).strip()
+    parsed = _parse_decimal_text(text, currency_authority=currency_authority)
+    if parsed is None:
+        return None, None
+    decimal_text, failure = parsed
+    if failure is not None:
+        return None, failure
     try:
-        decimal = Decimal(text)
+        decimal = Decimal(decimal_text)
     except (InvalidOperation, ValueError):
-        return None
+        return None, None
     if not decimal.is_finite():
+        return None, None
+    return decimal, None
+
+
+def _parse_decimal_text(text: str, *, currency_authority: str | None) -> tuple[str, str | None] | None:
+    if text == "":
         return None
-    return decimal
+    negative = False
+    if text.startswith("(") or text.endswith(")"):
+        if not (text.startswith("(") and text.endswith(")")):
+            return None
+        negative = True
+        text = text[1:-1]
+    if text.startswith("-"):
+        negative = True
+        text = text[1:]
+    if text.startswith("+"):
+        text = text[1:]
+
+    textual_match = _TEXTUAL_CURRENCY_RE.match(text)
+    if textual_match is not None:
+        textual_currency = textual_match.group("currency")
+        if currency_authority is None:
+            return "", "currency_authority_missing"
+        if textual_currency != currency_authority:
+            return "", "currency_conflict"
+        text = textual_match.group("amount")
+
+    if text.startswith("$"):
+        if currency_authority is None:
+            return "", "currency_authority_missing"
+        text = text[1:]
+
+    if text.startswith("-") or text.startswith("+") or text.endswith(")") or text.startswith("("):
+        return None
+    if "," in text and "." in text and text.rfind(".") < text.rfind(","):
+        return "", "ambiguous_locale"
+    if "," in text:
+        if not _GROUPED_DECIMAL_RE.match(text):
+            return "", "malformed_grouping"
+        text = text.replace(",", "")
+    elif not _PLAIN_DECIMAL_RE.match(text):
+        if re.match(r"^\d{1,3}(?:\.\d{3})+,\d+$", text):
+            return "", "ambiguous_locale"
+        return None
+
+    if negative:
+        text = "-" + text
+    return text, None
 
 
 def _parse_optional_decimal(
@@ -620,10 +765,12 @@ def _parse_optional_decimal(
     field_name: str,
     row_number: int,
     results: list[DataQualityCheckResult],
+    *,
+    currency_authority: str | None = None,
 ) -> Decimal | None:
     if value is None or value == "":
         return None
-    return _parse_decimal(value, field_name, row_number, results)
+    return _parse_decimal(value, field_name, row_number, results, currency_authority=currency_authority)
 
 
 def _optional_text(value: Any) -> str | None:

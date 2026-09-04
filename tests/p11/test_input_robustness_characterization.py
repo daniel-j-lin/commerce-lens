@@ -251,8 +251,8 @@ def test_p11_missing_eligibility_field_csv_fails_closed_even_when_status_matters
         ("2026-07-15", True),
         ("07/15/2026", False),
         ("15/07/2026", False),
-        ("Jul 15 2026", False),
-        ("2026-07-15T00:00:00", False),
+        ("Jul 15 2026", True),
+        ("2026-07-15T00:00:00", True),
     ),
 )
 def test_p11_csv_date_format_characterization(tmp_path: Path, date_text: str, supported: bool) -> None:
@@ -270,9 +270,9 @@ def test_p11_csv_date_format_characterization(tmp_path: Path, date_text: str, su
     (
         ("120.00", Decimal("-20.00"), True),
         ("120", Decimal("-20"), True),
-        ("$120.00", None, False),
-        ("1,200.00", None, False),
-        ("USD 120.00", None, False),
+        ("$120.00", Decimal("-20.00"), True),
+        ("1,200.00", Decimal("-1100.00"), True),
+        ("USD 120.00", Decimal("-20.00"), True),
     ),
 )
 def test_p11_csv_monetary_format_characterization(
