@@ -1,0 +1,6 @@
+order_id,order_line_id,order_date,product_id,product_name,category_id,category_name,quantity,line_revenue,currency,unit_price,eligibility_status
+CL-Q3-1001,CL-Q3-1001-1,2026-07-15,SKU-TEA-001,Everyday Tea,CAT-BEV,Beverages,1,70.00,USD,70.00,paid
+CL-Q3-1002,CL-Q3-1002-1,2026-08-20,SKU-MUG-001,Ceramic Mug,CAT-HOME,Home,1,50.00,USD,50.00,paid
+CL-Q4-1001,CL-Q4-1001-1,2026-10-15,SKU-TEA-001,Everyday Tea,CAT-BEV,Beverages,1,40.00,USD,40.00,paid
+CL-Q4-1002,CL-Q4-1002-1,2026-11-05,SKU-INF-001,Infuser,CAT-HOME,Home,2,60.00,USD,30.00,paid
+CL-Q4-VOID,CL-Q4-VOID-1,2026-11-20,SKU-GIFT-999,Corporate Gift,CAT-GIFT,Gifts,1,999.00,USD,999.00,cancelled

@@ -1,0 +1,6 @@
+Document No,Line No,Posting Date,Item Code,Item Description,Qty,Net Amount,Currency Code,Unit Amount,Document Status,Warehouse
+CL-Q3-1001,1,2026-07-15,SKU-TEA-001,Everyday Tea,1,70.00,USD,70.00,paid,MAIN
+CL-Q3-1002,1,2026-08-20,SKU-MUG-001,Ceramic Mug,1,50.00,USD,50.00,paid,MAIN
+CL-Q4-1001,1,2026-10-15,SKU-TEA-001,Everyday Tea,1,40.00,USD,40.00,paid,MAIN
+CL-Q4-1002,1,2026-11-05,SKU-INF-001,Infuser,2,60.00,USD,30.00,paid,MAIN
+CL-Q4-VOID,1,2026-11-20,SKU-GIFT-999,Corporate Gift,1,999.00,USD,999.00,cancelled,MAIN

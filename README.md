@@ -104,13 +104,25 @@ Insufficient evidence to conclude why Revenue declined.
 
 ## Quick Start
 
-### Requirements
+### Prerequisite: Codex CLI
 
-- Python >=3.11
+Verify that Codex CLI is available:
 
-Public v0.1 has been verified with environment-independent Python behavior on a
-local Python 3.11 environment. This README does not claim operating-system
-certification for Windows, macOS, or Linux.
+```bash
+codex --version
+```
+
+If the command is unavailable and Node/npm are already installed:
+
+```bash
+npm install -g @openai/codex
+```
+
+Then verify again:
+
+```bash
+codex --version
+```
 
 ### Install as a Codex plugin
 
@@ -129,7 +141,8 @@ manifest exposes the local Skill directory with:
 ```
 
 Add this repository as a Codex marketplace source, install the `commerce-lens`
-plugin from that marketplace, then start a fresh Codex session:
+plugin from that marketplace, then start a fresh Codex session. The repository
+remote is `https://github.com/daniel-j-lin/commerce-lens.git`.
 
 ```bash
 codex plugin marketplace add daniel-j-lin/commerce-lens
@@ -145,9 +158,34 @@ codex plugin marketplace add .
 codex plugin add commerce-lens --marketplace commerce-lens
 ```
 
-After installation, restart or reload Codex if your surface requires it. Once
-the bundled Skill is discovered in a fresh session, ask CommerceLens a supported
-Public v0.1 question and provide a CSV or XLSX file.
+For release verification, prefer the GitHub marketplace source above. Local
+checkout installation copies the checkout tree, so ignored development artifacts
+such as `.venv`, `.pytest_cache`, or runtime output can make installation slow
+or appear stuck. Use a clean checkout when testing the local marketplace path.
+
+Verify marketplace availability with:
+
+```bash
+codex plugin marketplace list
+codex plugin list
+```
+
+After installation, restart or reload Codex if your surface requires it. In a
+fresh Codex session, the `commerce-lens` plugin exposes the CommerceLens Skill.
+Provide a CSV or XLSX file and ask CommerceLens a supported Public v0.1
+natural-language question.
+
+First-use workflow:
+
+```text
+Install/enable CommerceLens
+-> provide a CSV or XLSX file
+-> ask a supported natural-language business question
+-> CommerceLens inspects source headers
+-> review any proposed non-canonical source-to-canonical mapping
+-> explicitly confirm or correct material mappings
+-> receive governed analysis with Evidence and ClaimDecision status
+```
 
 Supported first-run questions include:
 
@@ -160,7 +198,20 @@ What was AOV in Q4 2026?
 On first use, the bundled Skill may verify Python >=3.11, create an isolated
 local environment, install this local package, and invoke the deterministic
 runner. Do not treat manual construction of `PublicAnalysisIntent` as the
-end-user Skill workflow for v0.1.2.
+end-user Skill workflow for v0.1.3.
+
+### Runtime and developer requirement
+
+- Python >=3.11
+
+The deterministic CommerceLens runtime requires Python >=3.11. Ordinary plugin
+users should treat Codex CLI -> CommerceLens plugin -> fresh session -> CSV/XLSX
+-> supported natural-language question as the primary workflow; the Skill may
+bootstrap the local deterministic runtime on first use.
+
+Public v0.1 has been verified with environment-independent Python behavior on a
+local Python 3.11 environment. This README does not claim operating-system
+certification for Windows, macOS, or Linux.
 
 ### Standalone Skill fallback for local development
 
@@ -169,7 +220,14 @@ user-level Skill location. That fallback is not the public plugin distribution
 path and should not be used as acceptance evidence for repository marketplace
 packaging.
 
-### Deterministic runner surface
+### CLI / Invocation
+
+CommerceLens does not currently expose a standalone `commerce-lens` shell CLI
+or console entry point. The supported end-user invocation path is the Codex
+Skill/plugin workflow above.
+
+The repository does include a deterministic runner script used by the Skill and
+by developer verification. It is not a separate analytics CLI product.
 
 The deterministic runner command surface is:
 
@@ -219,6 +277,73 @@ python3.11 skills/commerce-lens/scripts/run_public_analysis.py \
 The JSON object maps source field names to canonical field names. The runner
 constructs the existing `CanonicalMapping`, and the deterministic
 `validate_mapping(...)` authority must pass before governed analysis proceeds.
+
+### Governed Mapping Example
+
+The P14 generic marketplace fixture
+`tests/fixtures/p14/P14-B-generic-marketplace.csv` uses non-canonical headers
+such as `Order Number`, `Line Item ID`, `Sales Amount`, and `Order Status`.
+
+A first user question may be:
+
+```text
+Using tests/fixtures/p14/P14-B-generic-marketplace.csv, how did revenue change from Q3 2026 to Q4 2026?
+```
+
+CommerceLens must inspect the source schema and require confirmation before
+material analysis. The deterministic mapping proposal includes:
+
+```text
+Order Number -> order_id
+Line Item ID -> order_line_id
+Order Date -> order_date
+SKU -> product_id
+Quantity -> quantity
+Currency -> currency
+Order Status -> eligibility_status
+```
+
+The user confirmation can be represented to the deterministic runner as:
+
+```bash
+python3.11 skills/commerce-lens/scripts/run_public_analysis.py \
+  --source tests/fixtures/p14/P14-B-generic-marketplace.csv \
+  --source-type csv \
+  --question-class revenue_change \
+  --metric revenue_change \
+  --baseline-label "Q3 2026" \
+  --baseline-start 2026-07-01 \
+  --baseline-end 2026-09-30 \
+  --comparison-label "Q4 2026" \
+  --comparison-start 2026-10-01 \
+  --comparison-end 2026-12-31 \
+  --original-question "How did revenue change from Q3 2026 to Q4 2026?" \
+  --mapping-json '{"Order Number":"order_id","Line Item ID":"order_line_id","Order Date":"order_date","SKU":"product_id","Product":"product_name","Category":"category_name","Quantity":"quantity","Sales Amount":"line_revenue","Currency":"currency","Unit Price":"unit_price","Order Status":"eligibility_status"}'
+```
+
+Executed P14 evidence for that confirmed mapping produced:
+
+```text
+Revenue Change for Q4 2026: -20.00 USD.
+MetricState=Valid; ClaimState=Admissible; validation_status=passed.
+```
+
+### Fail-Closed Example
+
+The P14 insufficient fixture
+`tests/fixtures/p14/P14-H-insufficient-unsupported.csv` contains realistic
+status values `Complete` and `Voided`, but those values are not governed
+eligibility authority under Public v0.1. Even if the user confirms the column
+mapping, CommerceLens intentionally refuses to produce material KPIs.
+
+Executed P14 evidence for this fixture produced no supported claim and included:
+
+```text
+Insufficient evidence to conclude.
+source eligibility value is not explicitly mapped
+```
+
+This is expected evidence governance, not a crash.
 
 ### Install Python package for development
 
@@ -428,17 +553,20 @@ The public state includes `MetricState=Undefined`, value `None`, and
 
 ## Reproducibility / Tests
 
-Current v0.1.2 release verification was run on 2026-09-04 with Python 3.11.9
-in a fresh local venv and produced:
+Current v0.1.3 verification was run on 2026-09-04 with Python 3.11.9 in a
+fresh local venv and produced:
 
+- P14 realistic synthetic ecommerce fixture tests: 10 passed
 - P12 explicit schema mapping UX tests: 10 passed
 - P11 input robustness characterization tests: 34 passed
+- P13 common date/money format robustness tests: 9 passed
 - native Skill packaging and integration tests: 26 passed
-- full repository tests: 582 passed
+- full repository tests: 601 passed
 
 To run the verification suite from an environment installed with `.[dev]`:
 
 ```bash
+python -m pytest tests/p14
 python -m pytest tests/skill/test_native_plugin_packaging.py tests/skill/test_integration.py tests/skill/test_public_response.py tests/end_to_end/test_public_v0_1.py
 python -m pytest tests/fixture_runner
 python -m pytest tests/application
@@ -476,23 +604,24 @@ MIT
 Package version:
 
 ```text
-0.1.2
+0.1.3
 ```
 
 Public release:
 
 ```text
-CommerceLens v0.1.2
+CommerceLens v0.1.3
 ```
 
 Git tag:
 
 ```text
-v0.1.2
+v0.1.3
 ```
 
-CommerceLens v0.1.2 adds explicit source-to-canonical schema mapping
-confirmation to the existing Public v0.1 governed analytics workflow.
+CommerceLens v0.1.3 preserves explicit source-to-canonical schema mapping
+confirmation and adds common unambiguous date and money normalization to the
+existing Public v0.1 governed analytics workflow.
 
 CommerceLens is not currently published to PyPI and does not provide a hosted
 SaaS product, REST API, or production cloud service.

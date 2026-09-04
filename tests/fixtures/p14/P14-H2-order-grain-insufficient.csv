@@ -1,0 +1,6 @@
+Order ID,Order Date,Customer Email,Order Total,Currency,Status,Export Note
+CL-Q3-1001,2026-07-15,buyer1@example.test,70.00,USD,paid,order-grain export without line identity or quantity
+CL-Q3-1002,2026-08-20,buyer2@example.test,50.00,USD,paid,order-grain export without line identity or quantity
+CL-Q4-1001,2026-10-15,buyer3@example.test,40.00,USD,paid,order-grain export without line identity or quantity
+CL-Q4-1002,2026-11-05,buyer4@example.test,60.00,USD,paid,order-grain export without line identity or quantity
+CL-Q4-VOID,2026-11-20,buyer5@example.test,999.00,USD,cancelled,order-grain excluded control row

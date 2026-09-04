@@ -1,0 +1,6 @@
+Order ID,Order Line ID,Order Date,SKU,Quantity,Total,Currency,Status,Export Note
+CL-Q3-1001,CL-Q3-1001-1,2026-07-15,SKU-TEA-001,1,70.00,USD,Complete,order-level status semantics not governed
+CL-Q3-1002,CL-Q3-1002-1,2026-08-20,SKU-MUG-001,1,50.00,USD,Complete,order-level status semantics not governed
+CL-Q4-1001,CL-Q4-1001-1,2026-10-15,SKU-TEA-001,1,40.00,USD,Complete,order-level status semantics not governed
+CL-Q4-1002,CL-Q4-1002-1,2026-11-05,SKU-INF-001,2,60.00,USD,Complete,order-level status semantics not governed
+CL-Q4-VOID,CL-Q4-VOID-1,2026-11-20,SKU-GIFT-999,1,999.00,USD,Voided,order-level status semantics not governed
