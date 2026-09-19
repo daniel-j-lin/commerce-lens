@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import csv
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
 
 from commerce_lens.application import evaluate_claim, run_analysis
 from commerce_lens.canonical import CanonicalizationRequest, EligibilityMode, EligibilityState, EligibilityValueMapping
-from commerce_lens.canonical.mapping import CanonicalMapping, identity_mapping
+from commerce_lens.canonical.mapping import CanonicalMapping, identity_mapping, validate_mapping
+from commerce_lens.canonical.quality import DataQualityConsequence
 from commerce_lens.canonical.models import PeriodCoverageEvidence
 from commerce_lens.canonical.schema import CANONICAL_SCHEMA_VERSION
 from commerce_lens.contracts.common import (
@@ -33,7 +34,7 @@ from commerce_lens.contracts.evidence import (
 from commerce_lens.contracts.requests import AnalysisRequest
 from commerce_lens.contracts.results import AnalysisResult, MetricResult
 from commerce_lens.contracts.validation import ValidatedResult
-from commerce_lens.evidence.identifiers import generate_id
+from commerce_lens.evidence.identifiers import generate_id, canonical_json_fingerprint
 from commerce_lens.intake.csv_adapter import CsvInspectionAdapter
 from commerce_lens.intake.excel_adapter import ExcelInspectionAdapter
 from commerce_lens.intake.inspection import InspectionStatus
@@ -48,6 +49,9 @@ from commerce_lens.skill.public_response import (
     project_public_response,
 )
 from commerce_lens.skill.schema_mapping import assess_schema_mapping
+from commerce_lens.skill.coverage_intake import (
+    DISCLOSURE, declaration_template, validate_declarations, project_coverage,
+)
 
 
 PUBLIC_V0_1_METRICS = frozenset({"revenue", "orders", "aov", "revenue_change"})
@@ -154,11 +158,15 @@ def run_public_analysis(
     metadata_store: MetadataStore,
     available_evidence: tuple[AvailableEvidence, ...] | None = None,
     period_coverage_evidence: tuple[PeriodCoverageEvidence, ...] | None = None,
+    coverage_declarations: object | None = None,
 ) -> PublicAnalysisOutcome:
     """Run the approved Public v0.1 integration chain.
 
     Missing authority stays unknown for the existing sufficiency gate. Request
     dates, requirements, and observed transaction dates do not establish it.
+    available_evidence/period_coverage_evidence are trusted Python caller inputs.
+    coverage_declarations is external input and must pass deterministic intake.
+    Mixing the boundaries fails closed.
     """
     validation_failures = validate_public_intent(intent)
     if validation_failures:
@@ -204,15 +212,44 @@ def run_public_analysis(
     )
     request = _analysis_request(intent, dataset.dataset_id)
     canonicalization_request = _canonicalization_request(intent, dataset.dataset_id, source_headers)
+    coverage_provenance = ()
+    if coverage_declarations is not None:
+        try:
+            if available_evidence is not None or period_coverage_evidence is not None:
+                raise ValueError("do not mix external declarations with trusted evidence inputs")
+            declaration = validate_declarations(
+                coverage_declarations, dataset=dataset, context=canonicalization_request,
+                scope=intent.scope, periods=(request.baseline_period, request.comparison_period),
+                artifact_store=artifact_store,
+            )
+            semantic_evidence = _public_mapping_evidence(intent, canonicalization_request, source_headers)
+            payload = declaration.model_dump(mode="json")
+            fingerprint = canonical_json_fingerprint(payload)
+            artifact = artifact_store.write_json_artifact(
+                f"runs/coverage_declarations/{dataset.dataset_id}/{fingerprint}.json", payload,
+            )
+            metadata_store.insert_artifact_reference(artifact)
+            coverage_authority, coverage = project_coverage(declaration, artifact.path)
+            available_evidence = (coverage_authority, semantic_evidence)
+            period_coverage_evidence = (coverage,)
+            coverage_provenance = ({**payload, "artifact": artifact.model_dump(mode="json")},)
+        except ValueError as exc:
+            return PublicAnalysisOutcome(
+                intent=intent, request=request,
+                response=PublicResponse(
+                    blocked=True, clarification_required=(f"Coverage declaration rejected: {exc}",),
+                    insufficient_evidence_message="Insufficient evidence to conclude.",
+                ),
+            )
     result = run_analysis(
         request,
         canonicalization_request=canonicalization_request,
         artifact_store=artifact_store,
         metadata_store=metadata_store,
-        source_path=intent.source.source_path,
-        source_type=intent.source.source_type,
-        selected_sheet=intent.source.selected_sheet,
-        selected_table=intent.source.selected_table,
+        **({"dataset": dataset} if coverage_declarations is not None else {
+            "source_path": intent.source.source_path, "source_type": intent.source.source_type,
+            "selected_sheet": intent.source.selected_sheet, "selected_table": intent.source.selected_table,
+        }),
         available_evidence=available_evidence if available_evidence is not None else (),
         period_coverage_evidence=(
             period_coverage_evidence
@@ -254,14 +291,71 @@ def run_public_analysis(
         analysis_result=result,
         claim_candidates=tuple(candidates),
         claim_decisions=tuple(decisions),
-        response=project_public_response(
+        response=_with_coverage_disclosure(project_public_response(
             intent=intent,
             request=request,
             result=result,
             evaluated_claims=tuple(evaluated),
             metadata_store=metadata_store,
-        ),
+        ), coverage_provenance),
     )
+
+
+def _with_coverage_disclosure(response: PublicResponse, provenance: tuple) -> PublicResponse:
+    if not provenance:
+        return response
+    return replace(response, coverage_provenance=provenance,
+                   limitations=(*response.limitations, DISCLOSURE))
+
+
+def _public_mapping_evidence(intent, context, headers) -> AvailableEvidence:
+    # Separate input semantics gate. Coverage cannot authorize a Metric or mapping.
+    if intent.source.mapping is not None and intent.source.mapping_mode != "confirmed_source_to_canonical_mapping":
+        raise ValueError("external intake requires separately confirmed mapping authority")
+    checks = validate_mapping(context.mapping, headers, require_eligibility=True)
+    if any(check.consequence is DataQualityConsequence.BLOCKING for check in checks):
+        raise ValueError("separate schema mapping validation failed")
+    metric = get_metric_registry().require(intent.metric_id)
+    return AvailableEvidence(
+        evidence_id=f"public_mapping:{context.mapping.fingerprint}:{metric.metric_id}",
+        description=f"Separate canonical mapping input authority for {metric.metric_id} {metric.definition_version}; currency and eligibility still require canonical validation",
+        source_ref=context.mapping.mapping_id,
+        satisfies_requirement_ids=(f"req_{metric.metric_id}",),
+    )
+
+
+def prepare_public_coverage(intent: PublicAnalysisIntent, *, artifact_store: ArtifactStore) -> dict:
+    """Inspect binding and propose a confirmation summary; never attest or execute."""
+    failures = validate_public_intent(intent)
+    if failures:
+        raise ValueError("; ".join(failures))
+    headers, failure = _source_headers(intent.source)
+    if failure:
+        raise ValueError(failure)
+    if intent.source.source_type is SourceType.EXCEL_XLSX and not intent.source.selected_sheet:
+        raise ValueError("select the XLSX sheet explicitly before coverage confirmation")
+    dataset = DatasetRegistry(artifact_store).register_source(
+        intent.source.source_path, intent.source.source_type,
+        selected_sheet=intent.source.selected_sheet, selected_table=intent.source.selected_table,
+    )
+    context = _canonicalization_request(intent, dataset.dataset_id, headers)
+    _public_mapping_evidence(intent, context, headers)
+    template = declaration_template(dataset, context, intent.scope,
+                                    (intent.baseline_period, intent.comparison_period))
+    return {
+        "status": "coverage_confirmation_required", "declaration_template": template,
+        "confirmation_summary": {
+            "file": dataset.original_name, "sheet": dataset.selected_sheet,
+            "requested_periods": [p.model_dump(mode="json") for p in (intent.baseline_period, intent.comparison_period)],
+            "time_boundary": "Inclusive UTC calendar dates; availability cutoff at or after the next UTC midnight",
+            "population": intent.scope.model_dump(mode="json"),
+            "eligibility": [item.model_dump(mode="json") for item in context.eligibility_value_mapping],
+            "filters": template["filters_status"],
+            "data_completeness_cutoff": "Ask the user; unknown until explicitly supplied",
+        },
+        "choices": ["Confirm", "Correct", "I don't know"],
+        "disclosure": "Coverage is based on your declaration and has not been independently verified by CommerceLens.",
+    }
 
 
 def bind_claim_candidate_from_authority(

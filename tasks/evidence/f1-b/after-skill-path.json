@@ -1,0 +1,344 @@
+{
+  "scenario": "Actual runner sequence with scripted Skill-host interpretation and confirmation",
+  "synthetic_data_only": true,
+  "human_confirmation_observed": false,
+  "clock": "actual runtime UTC clock, unpatched",
+  "question": "How did revenue change from Q3 2025 to Q4 2025?",
+  "source_csv": "Order ID,Order Line ID,Order Date,Product ID,Quantity,Revenue,Currency,Order Status\no1,l1,2025-07-15,p1,1,120.00,USD,paid\no2,l2,2025-10-15,p1,1,180.00,USD,paid\n",
+  "schema_mapping_response": {
+    "additional_evidence_needed": [],
+    "blocked": true,
+    "clarification_required": [
+      "Confirm or correct the proposed source-to-canonical mapping before CommerceLens can analyze the file."
+    ],
+    "coverage_provenance": [],
+    "evidence_summary": [],
+    "insufficient_evidence_message": "Insufficient evidence to conclude.",
+    "limitations": [],
+    "mapping_proposals": [
+      {
+        "canonical_field": "order_id",
+        "source_field": "Order ID"
+      },
+      {
+        "canonical_field": "order_line_id",
+        "source_field": "Order Line ID"
+      },
+      {
+        "canonical_field": "order_date",
+        "source_field": "Order Date"
+      },
+      {
+        "canonical_field": "product_id",
+        "source_field": "Product ID"
+      },
+      {
+        "canonical_field": "quantity",
+        "source_field": "Quantity"
+      },
+      {
+        "canonical_field": "line_revenue",
+        "source_field": "Revenue"
+      },
+      {
+        "canonical_field": "currency",
+        "source_field": "Currency"
+      },
+      {
+        "canonical_field": "eligibility_status",
+        "source_field": "Order Status"
+      }
+    ],
+    "required_mapping_fields": [
+      "order_id",
+      "order_line_id",
+      "order_date",
+      "product_id",
+      "quantity",
+      "line_revenue",
+      "currency",
+      "eligibility_status"
+    ],
+    "supported_claims": [],
+    "unsupported_conclusions": []
+  },
+  "confirmed_schema_mapping": {
+    "Order ID": "order_id",
+    "Order Line ID": "order_line_id",
+    "Order Date": "order_date",
+    "Product ID": "product_id",
+    "Quantity": "quantity",
+    "Revenue": "line_revenue",
+    "Currency": "currency",
+    "Order Status": "eligibility_status"
+  },
+  "without_coverage": {
+    "claim_decisions": [],
+    "rendered_text": "Insufficient evidence to conclude.\nLimitations\n- required evidence is missing: global source authority\n- required evidence is missing: revenue_change authority\n- explicit coverage evidence does not span the baseline period\n- explicit coverage evidence does not span the comparison period",
+    "request_id": "req_c2a6b2fc03c643eea313d81d9667cc8d",
+    "response": {
+      "additional_evidence_needed": [],
+      "blocked": true,
+      "clarification_required": [],
+      "coverage_provenance": [],
+      "evidence_summary": [],
+      "insufficient_evidence_message": "Insufficient evidence to conclude.",
+      "limitations": [
+        "required evidence is missing: global source authority",
+        "required evidence is missing: revenue_change authority",
+        "explicit coverage evidence does not span the baseline period",
+        "explicit coverage evidence does not span the comparison period"
+      ],
+      "mapping_proposals": [],
+      "required_mapping_fields": [],
+      "supported_claims": [],
+      "unsupported_conclusions": []
+    },
+    "run_id": "run_9d0e48dcc4ed4972b58ed460bb3fcd70",
+    "run_status": "blocked",
+    "validated_results_summary": []
+  },
+  "coverage_confirmation_summary": {
+    "choices": [
+      "Confirm",
+      "Correct",
+      "I don't know"
+    ],
+    "confirmation_summary": {
+      "data_completeness_cutoff": "Ask the user; unknown until explicitly supplied",
+      "eligibility": [
+        {
+          "normalized_status": "Eligible",
+          "source_value": "paid"
+        },
+        {
+          "normalized_status": "Excluded",
+          "source_value": "cancelled"
+        }
+      ],
+      "file": "noncanonical.csv",
+      "filters": "no_additional_filters",
+      "population": {
+        "description": null,
+        "filters": [],
+        "population_ref": null,
+        "scope_id": "all_eligible"
+      },
+      "requested_periods": [
+        {
+          "date_convention_ref": "order_date_utc",
+          "end_date": "2025-09-30",
+          "label": "Q3 2025",
+          "period_id": "baseline",
+          "start_date": "2025-07-01"
+        },
+        {
+          "date_convention_ref": "order_date_utc",
+          "end_date": "2025-12-31",
+          "label": "Q4 2025",
+          "period_id": "comparison",
+          "start_date": "2025-10-01"
+        }
+      ],
+      "sheet": null,
+      "time_boundary": "Inclusive UTC calendar dates; availability cutoff at or after the next UTC midnight"
+    },
+    "declaration_template": {
+      "actor_session_ref": null,
+      "authority_type": "USER_DECLARED",
+      "completeness_assertion": null,
+      "content_fingerprint": "c0991df61c22e8be138f561a9bd891177516f2900608833a4f05295e421c8950",
+      "context_fingerprint": "2401b7dabd336ede08f6b2b437459bec4aecb85dde60efe0d2e43e936720a327",
+      "covered_end": "2025-12-31",
+      "covered_start": "2025-07-01",
+      "data_availability_cutoff": null,
+      "dataset_id": "ds_5e5b26e5fd7d9486ce1dc968",
+      "date_convention_ref": "order_date_utc",
+      "declaration_id": null,
+      "extracted_at": null,
+      "filters_status": "no_additional_filters",
+      "policy_version": "public_user_declared_coverage_v1",
+      "recorded_at": null,
+      "scope": {
+        "description": null,
+        "filters": [],
+        "population_ref": null,
+        "scope_id": "all_eligible"
+      },
+      "selected_sheet": null,
+      "selected_table": null,
+      "source_basis": null,
+      "source_basis_detail": null,
+      "source_filename": "noncanonical.csv",
+      "source_type": "csv"
+    },
+    "disclosure": "Coverage is based on your declaration and has not been independently verified by CommerceLens.",
+    "status": "coverage_confirmation_required"
+  },
+  "unknown_confirmation": {
+    "error": "coverage is unconfirmed; Correct or I don't know requires clarification",
+    "declaration_created": false,
+    "material_result": false
+  },
+  "confirmed_result": {
+    "claim_decisions": [
+      {
+        "artifact_ref": null,
+        "baseline_period_ref": "baseline",
+        "baseline_population_fingerprint": "347645add3621d5bcea27b45df8cda91c043dfe7b75e8edb2771ca47bb780ac5",
+        "baseline_population_ref": "pop_347645add3621d5bcea27b45",
+        "claim_candidate_ref": "clmcand_public_v0_1_b700b3424f06410fa196eb551ab108eb",
+        "claim_decision_id": "clmdec_7362942759904fc5ae0f706c5669b78b",
+        "claim_id": "claim_public_v0_1_1474d2c75e404967a5c04c4ce901a7f5",
+        "claim_state": "Admissible",
+        "comparison_period_ref": "comparison",
+        "comparison_population_fingerprint": "b545b31b6145c531a812f8ac54181ec3898e885cac2b87c4dad3e50ee82ed2f2",
+        "comparison_population_ref": "pop_b545b31b6145c531a812f8ac",
+        "decided_at": "2026-09-18T16:14:08.044900Z",
+        "decision_fingerprint": "6104e75169c8a197c7b30a5d30d5238dc5ac9715f9fb155e9e442d36f6dbc757",
+        "decision_id": "clmdec_7362942759904fc5ae0f706c5669b78b",
+        "failure_code": null,
+        "period_ref": "comparison",
+        "period_role": "baseline_and_comparison",
+        "policy_id": "commerce_lens_p8_claim_admissibility",
+        "policy_version": "p8_001_v1",
+        "population_fingerprint": "b545b31b6145c531a812f8ac54181ec3898e885cac2b87c4dad3e50ee82ed2f2",
+        "population_ref": "pop_b545b31b6145c531a812f8ac",
+        "reason": "structured descriptive Claim matches authentic persisted AdmissibleEvidence",
+        "required_qualifications": [],
+        "scope": {
+          "description": null,
+          "filters": [],
+          "population_ref": null,
+          "scope_id": "all_eligible"
+        },
+        "supporting_evidence_refs": [
+          "ev_2456b18094aaab6ad3370cf6"
+        ],
+        "supporting_validated_result_refs": [
+          "valres_66162f2c8dea44daac6aaa0a53b97f5f"
+        ]
+      }
+    ],
+    "rendered_text": "Supported Claims / Answer\n- Revenue Change for Q4 2025: 60.00 USD.\nEvidence Summary\n- Revenue Change; Q4 2025; MetricState=Valid; ClaimState=Admissible; source=noncanonical.csv\nLimitations\n- Coverage is based on a user-provided declaration and has not been independently verified by CommerceLens.",
+    "request_id": "req_805988759ac34b7db9e3a6bfe6ea68fc",
+    "response": {
+      "additional_evidence_needed": [],
+      "blocked": false,
+      "clarification_required": [],
+      "coverage_provenance": [
+        {
+          "actor_session_ref": "synthetic-local-qa",
+          "artifact": {
+            "artifact_id": "art_f3395a417f54684f2565e462",
+            "fingerprint": "f3395a417f54684f2565e462f205e436cd181b752d7af0dae46c5e26938ccae1",
+            "media_type": "application/json",
+            "path": "runs/coverage_declarations/ds_5e5b26e5fd7d9486ce1dc968/f3395a417f54684f2565e462f205e436cd181b752d7af0dae46c5e26938ccae1.json",
+            "size_bytes": 1181
+          },
+          "authority_type": "USER_DECLARED",
+          "completeness_assertion": "I confirm this export is complete for the declared period, population and filters through the declared data-availability cutoff.",
+          "content_fingerprint": "c0991df61c22e8be138f561a9bd891177516f2900608833a4f05295e421c8950",
+          "context_fingerprint": "2401b7dabd336ede08f6b2b437459bec4aecb85dde60efe0d2e43e936720a327",
+          "covered_end": "2025-12-31",
+          "covered_start": "2025-07-01",
+          "data_availability_cutoff": "2026-01-01T00:00:00Z",
+          "dataset_id": "ds_5e5b26e5fd7d9486ce1dc968",
+          "date_convention_ref": "order_date_utc",
+          "declaration_id": "qa-closed-2025-confirmed",
+          "extracted_at": null,
+          "filters_status": "no_additional_filters",
+          "policy_version": "public_user_declared_coverage_v1",
+          "recorded_at": "2026-09-18T16:14:07.879903Z",
+          "scope": {
+            "description": null,
+            "filters": [],
+            "population_ref": null,
+            "scope_id": "all_eligible"
+          },
+          "selected_sheet": null,
+          "selected_table": null,
+          "source_basis": "reviewed_export_controls",
+          "source_basis_detail": "I reviewed the export date range, population/status filters, all pages and export completion status against this declaration.",
+          "source_filename": "noncanonical.csv",
+          "source_type": "csv"
+        }
+      ],
+      "evidence_summary": [
+        {
+          "claim_state": "Admissible",
+          "evidence_status": "passed",
+          "metric_definition_version": "metric_dictionary_v1",
+          "metric_display_name": "Revenue Change",
+          "metric_ref": "revenue_change",
+          "metric_state": "Valid",
+          "period_label": "Q4 2025",
+          "period_role": "baseline_and_comparison",
+          "source_filename": "noncanonical.csv",
+          "source_type": "csv",
+          "validation_status": "passed"
+        }
+      ],
+      "insufficient_evidence_message": null,
+      "limitations": [
+        "Coverage is based on a user-provided declaration and has not been independently verified by CommerceLens."
+      ],
+      "mapping_proposals": [],
+      "required_mapping_fields": [],
+      "supported_claims": [
+        {
+          "claim_state": "Admissible",
+          "currency": "USD",
+          "metric_display_name": "Revenue Change",
+          "metric_ref": "revenue_change",
+          "metric_state": "Valid",
+          "period_label": "Q4 2025",
+          "period_role": "baseline_and_comparison",
+          "public_disposition": "supported_descriptive_value",
+          "undefined_reason": null,
+          "unit": "money",
+          "value": "60.00"
+        }
+      ],
+      "unsupported_conclusions": []
+    },
+    "run_id": "run_8712470b05f948ea84ec01bddb5bb1f6",
+    "run_status": "completed",
+    "validated_results_summary": [
+      {
+        "actual_state": "Valid",
+        "actual_value": "120.00",
+        "currency": "USD",
+        "metric_ref": "revenue",
+        "period_ref": "baseline",
+        "period_role": "baseline",
+        "validated_result_ref": "valres_da9da7cefa754f0ca63ce26363ffcdd5",
+        "validation_rule_id": "validation:revenue_sum",
+        "validation_status": "passed"
+      },
+      {
+        "actual_state": "Valid",
+        "actual_value": "180.00",
+        "currency": "USD",
+        "metric_ref": "revenue",
+        "period_ref": "comparison",
+        "period_role": "comparison",
+        "validated_result_ref": "valres_7f6704de8e6f45cbac067af0909ac3ea",
+        "validation_rule_id": "validation:revenue_sum",
+        "validation_status": "passed"
+      },
+      {
+        "actual_state": "Valid",
+        "actual_value": "60.00",
+        "currency": "USD",
+        "metric_ref": "revenue_change",
+        "period_ref": "comparison",
+        "period_role": "baseline_and_comparison",
+        "validated_result_ref": "valres_66162f2c8dea44daac6aaa0a53b97f5f",
+        "validation_rule_id": "validation:revenue_change_from_validated_revenues",
+        "validation_status": "passed"
+      }
+    ]
+  },
+  "retention": "Temporary runner stores were deleted; artifact references in this QA output are not persistent audit records."
+}

@@ -74,6 +74,7 @@ class PublicResponse:
     clarification_required: tuple[str, ...] = ()
     blocked: bool = False
     insufficient_evidence_message: str | None = None
+    coverage_provenance: tuple[dict, ...] = ()
 
     def render_text(self) -> str:
         if self.clarification_required:

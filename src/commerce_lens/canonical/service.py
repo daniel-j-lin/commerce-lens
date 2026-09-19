@@ -1193,29 +1193,32 @@ def _write_parquet(rows: list[CanonicalLineRecord], artifact_path: Path) -> None
             )
             """
         )
-        conn.executemany(
-            """
-            INSERT INTO canonical_lines VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    row.source_row_number,
-                    row.order_id,
-                    row.order_line_id,
-                    row.order_date,
-                    row.product_id,
-                    row.product_name,
-                    row.category_id,
-                    row.category_name,
-                    row.quantity,
-                    row.line_revenue,
-                    row.currency,
-                    row.eligibility_status.value,
-                    row.unit_price,
-                )
-                for row in rows
-            ],
-        )
+        # DuckDB rejects an empty executemany batch. Preserve the empty canonical
+        # table so existing coverage/currency/sufficiency gates decide admissibility.
+        if rows:
+            conn.executemany(
+                """
+                INSERT INTO canonical_lines VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        row.source_row_number,
+                        row.order_id,
+                        row.order_line_id,
+                        row.order_date,
+                        row.product_id,
+                        row.product_name,
+                        row.category_id,
+                        row.category_name,
+                        row.quantity,
+                        row.line_revenue,
+                        row.currency,
+                        row.eligibility_status.value,
+                        row.unit_price,
+                    )
+                    for row in rows
+                ],
+            )
         conn.execute("COPY canonical_lines TO ? (FORMAT PARQUET)", (str(artifact_path),))
     finally:
         conn.close()

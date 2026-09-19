@@ -44,8 +44,8 @@ mapping authority, and unsupported claim types fail closed.
 
 Missing `available_evidence` or `period_coverage_evidence` is not synthesized
 from an intent. The sufficiency gate blocks unsupported claims. The Python
-API retains its explicit authority parameters; the CLI has no authority-input
-interface yet. The example below demonstrates the API shape and now returns a
+API retains its explicit trusted authority parameters; external declarations use
+`coverage_declarations` or CLI `--coverage-declaration` and deterministic validation. The example below demonstrates the API shape and now returns a
 governed block without independently supplied evidence.
 
 Positive fixture tests explicitly declare complete Q3/Q4 2026 synthetic exports
@@ -144,3 +144,32 @@ local environment, install this local package, and invoke the deterministic
 runner. Do not hide bootstrap failures. If Python or package dependencies cannot
 be installed, report the installation/runtime failure. Never respond by having
 the LLM calculate material metrics itself.
+
+
+## F1-B external intake boundary
+
+The owner-approved additive specification is
+`docs/amendments/F1-B-coverage-authority-v1.md`. The external versioned model and
+validator live in `skill/coverage_intake.py`, with Skill/API/runner integration in
+`skill/integration.py`. External fields never select requirement IDs. Projection
+supplies only req_global plus PeriodCoverageEvidence; the separate confirmed
+canonical mapping/registry input gate supplies only the requested req_metric.
+Canonicalization, currency, eligibility, execution and validation remain the
+existing gates. Trusted Python callers are unchanged; mixing external and trusted
+inputs fails closed.
+
+The availability cutoff is exclusive UTC and the runtime clock is internal. There
+is no user-controlled now/as-of flag. Q3/Q4 2026 positive tests explicitly patch
+the test clock to 2027-01-03; actual September 2026 execution must block Q4.
+The tests execute the actual runner and engine, without fixture authority injection.
+Run `.venv/bin/python -m pytest tests/skill/test_coverage_intake.py`.
+
+Confirmation uses the exact `COMPLETENESS_ASSERTION` and
+`SOURCE_BASIS_ASSERTION` constants. V1 accepts only the reviewed-export-controls
+basis. A host must show the basis and obtain explicit confirmation that export
+date range, population/status filters, all pages and completion status were
+reviewed; do not convert arbitrary prose into this assertion. Unsupported basis
+or uncertainty remains blocked. These assertions record user knowledge, not
+independent verification. Full mappings (including IDs) are conservatively bound;
+even equivalent remapping can require a new declaration/store. Retained unresolved
+conflicts block; temporary runs cannot discover declarations in deleted stores.

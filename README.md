@@ -86,15 +86,17 @@ or cash collected. The authoritative definition remains the
 Canonical column names and confirmed field mappings do not independently verify
 upstream business semantics; source values must already meet that definition.
 
-The current checkout requires independently supplied `available_evidence` and
-`period_coverage_evidence` through the existing Python integration API. Missing
-authority is evaluated by the sufficiency gate and blocks material claims;
-requested dates and observed transaction dates do not prove complete coverage.
-The CLI runner currently has no authority-input interface, so the bare-file
-commands below return a governed block, even for correctly mapped files.
-Positive synthetic examples are complete-fixture controls with explicitly
-supplied authority, not evidence that a supplied file alone is complete.
-No new authority acceptance policy is defined here.
+Public descriptive coverage can use an explicit **USER_DECLARED** export
+attestation under the [F1-B amendment](docs/amendments/F1-B-coverage-authority-v1.md).
+Schema mapping confirmation and coverage confirmation are separate. The runner's
+`--prepare-coverage` produces an unconfirmed summary/template;
+`--coverage-declaration FILE` validates the confirmed JSON against current bytes,
+sheet/type, scope/filters, mapping/eligibility, closed periods and cutoff.
+Coverage is based on a user-provided declaration and has not been independently
+verified by CommerceLens. Bare-file commands remain blocked without authority.
+Request dates and observed transaction dates never prove complete coverage.
+Existing trusted Python evidence inputs remain supported; fixture helpers are
+not a production intake. See [coverage intake usage](docs/USAGE.md#f1-b-user-declared-coverage-intake).
 
 Important governed behaviors:
 

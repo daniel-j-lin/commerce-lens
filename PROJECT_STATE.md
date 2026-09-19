@@ -1578,3 +1578,14 @@ number for packaging or input work does not deliver that backlog item. Reference
 to a phase should include its title and dated evidence rather than its number
 alone. This comparison does not renumber either history, authorize analytical
 breadth, designate a new governance authority, or choose the next milestone.
+
+
+## 2026-09-18 F1-B owner-approved coverage policy amendment
+
+The narrowly scoped [Public coverage authority amendment v1](docs/amendments/F1-B-coverage-authority-v1.md)
+is additive authority for USER_DECLARED Public descriptive coverage, approved by
+the F1-B task owner. It clarifies independence from the analytical request versus
+independent external verification. Historical Frozen files remain unchanged.
+Implementation and verification are tracked in `tasks/F1-B-governed-coverage-intake.md`.
+Existing missing-authority blocks, trusted Python caller behavior and separate
+non-coverage gates are preserved. No release, commit or deployment is authorized.

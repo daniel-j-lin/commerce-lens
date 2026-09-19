@@ -89,12 +89,11 @@ The existing Python `run_public_analysis` API accepts `available_evidence` and
 existing sufficiency gate as empty evidence. A requested period, required ID,
 or earliest/latest transaction date does not establish source completeness.
 
-The current CLI has no interface for supplying this authority. Consequently,
-the example commands below produce a governed block rather than a supported
-KPI when evidence is unavailable. Mapping confirmation alone does not change
-that outcome. Positive synthetic test controls explicitly supply fixture
-authority through the existing Python API; they do not define a policy for
-accepting real-world coverage declarations.
+The CLI accepts a bounded external declaration via `--coverage-declaration` under
+the owner-approved F1-B policy below. Without it, the examples remain blocked.
+Mapping confirmation alone does not establish coverage. Existing trusted Python
+callers may continue supplying evidence separately; do not mix those inputs with
+external declarations.
 
 ## Schema Mapping
 
@@ -206,3 +205,58 @@ source eligibility value is not explicitly mapped
 ```
 
 This is expected evidence governance, not a crash.
+
+## F1-B USER_DECLARED coverage intake
+
+Authority: [versioned owner amendment](amendments/F1-B-coverage-authority-v1.md).
+Use the normal runner arguments plus `--prepare-coverage` after schema mapping
+is resolved (select an XLSX sheet explicitly). The returned template binds the
+DatasetRegistry ID and SHA-256 source bytes to the actual mapping/eligibility
+context. Filename is for identification only. Preview never executes analysis.
+
+The Skill separately asks for cutoff/source basis and shows file/sheet, inclusive
+UTC dates, population, eligibility and exact filters. Only explicit Confirm of
+that complete summary records the assertion. Correct requires another summary;
+I don't know, vague replies and silence remain blocked. For programmatic Skill
+hosts, call `coverage_intake.confirm_declaration(template, response="Confirm",
+recorded_at=actual_utc_time, declaration_id=local_unique_id,
+data_availability_cutoff=user_cutoff, source_basis_detail=user_basis)` and write
+`model_dump_json()` to a temporary file. This helper records a declaration, not
+trusted evidence; the runner still validates it. No personal identity is needed.
+
+Add `--coverage-declaration /path/to/coverage.json` to the normal invocation.
+The same validator accepts a manifest; v1 accepts one declaration or up to 16
+consistent declarations, at most 64 KiB with duplicate keys rejected. Unknown
+fields/provenance/policy and unresolved conflicting declarations fail closed.
+A retained store also checks prior accepted declarations for that dataset.
+There is no latest-wins or supersession policy in v1.
+
+The schema is `CoverageDeclaration` in `commerce_lens.skill.coverage_intake`.
+Policy `public_user_declared_coverage_v1` permits only USER_DECLARED. Explicit
+`no_additional_filters` is required for an empty filter set. Filtered scopes must
+match exactly; semantic subset inference is not supported. The declaration must
+contain both required AnalysisRequest periods. Cutoff is an exclusive UTC instant
+at/after midnight following coverage end and at/before recorded confirmation and
+the current runtime clock. Known extraction must be between cutoff and recording.
+Future/open periods cannot be attested as complete. Optional unknown extraction
+requires a reviewed-export basis, not source min/max inference.
+
+Coverage supplies only source authority. Separate mapping input authority and
+existing canonicalization, currency, eligibility, sufficiency, execution,
+validation and ClaimDecision checks remain mandatory. The trusted Python API
+remains compatible. No new ClaimDecision state or permanent retention is added.
+
+Results include `response.coverage_provenance` with the declaration and artifact
+reference, and the visible disclosure: Coverage is based on a user-provided
+declaration and has not been independently verified by CommerceLens.
+Temporary store cleanup deletes that artifact; stdout carries the record but
+does not establish persistent auditability. Use paired explicit stores only when
+retention is wanted. Delete temporary declaration-input files after use.
+
+
+V1's source basis is deliberately bounded: before confirmation, show the user
+“I reviewed the export date range, population/status filters, all pages and export
+completion status against this declaration.” Record the exact
+`SOURCE_BASIS_ASSERTION` constant only if they explicitly confirm it. If this is
+not their basis or they are uncertain, ask for clarification and remain blocked.
+Do not paraphrase uncertain/free-form replies into the fixed assertion.

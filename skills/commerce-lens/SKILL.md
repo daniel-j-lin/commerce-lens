@@ -118,15 +118,72 @@ silent renaming, guessed mapping, or generic dataframe analysis.
 
 ## Deterministic Runner
 
-Missing evidence must remain unknown. The existing Python integration accepts
-`available_evidence` and `period_coverage_evidence`; the current CLI does not
-expose an authority-input interface. The bare-file commands below therefore
-block at sufficiency when authority is absent, even with confirmed mapping.
-Never manufacture authority from request dates, required IDs, transaction
-min/max dates, or a mapping confirmation. Do not replace a blocked response
-with historical demo numbers. Real-world coverage acceptance policy is not
-defined by this remediation.
+Missing evidence remains unknown. The existing Python `available_evidence` and
+`period_coverage_evidence` inputs remain trusted programmatic-caller boundaries.
+External user declarations use `--coverage-declaration path/to/coverage.json`
+and the same deterministic validator for interactive confirmation and manifests.
+Never construct trusted coverage/evidence objects from external user input.
+Bare-file commands still block without accepted coverage. Request dates,
+transaction min/max dates, mapping confirmation, and silence are not coverage.
+The narrowly approved policy is documented in
+`docs/amendments/F1-B-coverage-authority-v1.md`.
 
+### Separate coverage confirmation
+
+After identity mapping or explicit schema mapping confirmation, run the same
+arguments with `--prepare-coverage`. This returns an unconfirmed template and a
+confirmation summary; it does not execute analysis. For XLSX, explicitly select
+the relevant sheet. Do not fill confirmation fields from the analytical question.
+The proposed dates describe what to confirm, not evidence of completeness.
+
+Ask the user for the data-availability cutoff and how they know the export is
+complete (reviewed export range, pagination and status/filter controls). Do not
+infer these from filenames, platforms, observed dates, or current time. Unknown
+cutoff or source basis requires clarification. No names, email, credentials or
+identity verification are needed. Extraction time is optional when unknown.
+
+Present a concise separate coverage summary, for example:
+
+> File: orders.csv; sheet: none. Period: 1 July–31 December 2026, inclusive UTC
+> dates. Population: all eligible order lines (paid included; cancelled excluded).
+> Additional filters: none. Data complete through: [user-supplied cutoff].
+> Coverage is based on your declaration and has not been independently verified
+> by CommerceLens. Choose **Confirm**, **Correct**, or **I don't know**.
+
+Use actual values from the prepared summary and the user's cutoff/basis. For a
+filtered scope enumerate the exact filters. Do not merge this question with
+“This column means Revenue”. Source values must separately conform to the
+canonical Revenue definition; coverage never establishes Revenue semantics.
+
+Only an explicit **Confirm** to the complete summary may record an attestation.
+“Correct” means revise the summary and ask again. “I don't know if this export is
+complete”, silence, “probably”, “I think so” and “should be complete” leave coverage
+unknown: report clarification/blocked and no material result. Do not translate
+uncertainty into Confirm.
+
+After confirmation use `commerce_lens.skill.coverage_intake.confirm_declaration`
+with the prepared `declaration_template`, exact response `Confirm`, a local
+unique declaration ID, actual UTC recorded time, the user-supplied cutoff,
+source-basis detail, optional extraction time and optional local session ref.
+Serialize the resulting untrusted declaration with `model_dump_json()` into a
+local temporary file, then pass `--coverage-declaration` to the normal runner.
+The helper rejects non-confirmation; the runner independently validates current
+dataset bytes, sheet/type, mapping/eligibility context, scope/filters, closed dates,
+cutoff and provenance before projecting coverage into the existing engine.
+A standalone manifest must provide the identical versioned declaration schema;
+never accept a user assertion of EXTERNALLY_VERIFIED, SOURCE_DECLARED or TEST_FIXTURE.
+
+`--prepare-coverage` leaves confirmation, ID, time, cutoff and basis unset on
+purpose. Do not use its JSON as accepted evidence. No `--complete` bypass exists.
+V1 supports only `order_date_utc` inclusive dates and a cutoff at/after the next
+UTC midnight following coverage end, no later than the actual confirmation/run.
+As of September 2026, Q4 2026 is open and cannot pass this check.
+
+Render the runner's provenance disclosure alongside every dependent result.
+Temporary runs delete local artifacts, including the declaration; remove the
+Skill's temporary input file when finished. Explicit paired stores preserve
+local records only at the user's chosen location. Do not promise permanent
+retention or cross-run auditability after temporary cleanup.
 
 Use `skills/commerce-lens/scripts/run_public_analysis.py` as the first-run
 command surface. It translates structured arguments into:
@@ -231,3 +288,11 @@ Evidence Needed, Clarification Required, and Blocked / Insufficient Evidence.
 
 Do not create new Metric values, formulas, Evidence, validation results,
 Findings, Alternative Explanations, or Recommendations in the response.
+
+
+V1's source basis is deliberately bounded: before confirmation, show the user
+“I reviewed the export date range, population/status filters, all pages and export
+completion status against this declaration.” Record the exact
+`SOURCE_BASIS_ASSERTION` constant only if they explicitly confirm it. If this is
+not their basis or they are uncertain, ask for clarification and remain blocked.
+Do not paraphrase uncertain/free-form replies into the fixed assertion.

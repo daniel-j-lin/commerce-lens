@@ -86,10 +86,22 @@ def main(argv: list[str] | None = None) -> int:
         )
         with _runtime_paths(args) as (artifact_path, metadata_path):
             metadata_store = MetadataStore(metadata_path)
+            if args.prepare_coverage:
+                if args.coverage_declaration:
+                    raise ValueError("prepare coverage and declaration input are mutually exclusive")
+                from commerce_lens.skill.integration import prepare_public_coverage
+                payload = prepare_public_coverage(intent, artifact_store=ArtifactStore(artifact_path))
+                print(json.dumps(payload, indent=2, sort_keys=True, default=_json_default))
+                return 0
+            external_intake = {}
+            if args.coverage_declaration:
+                from commerce_lens.skill.coverage_intake import load_declarations
+                external_intake["coverage_declarations"] = load_declarations(args.coverage_declaration)
             outcome = run_public_analysis(
                 intent,
                 artifact_store=ArtifactStore(artifact_path),
                 metadata_store=metadata_store,
+                **external_intake,
             )
             payload = _outcome_payload(outcome, metadata_store)
         print(json.dumps(payload, indent=2, sort_keys=True, default=_json_default))
@@ -121,6 +133,8 @@ def _parser() -> argparse.ArgumentParser:
         help='Confirmed source-to-canonical mapping JSON, e.g. {"Order ID":"order_id"}.',
     )
     parser.add_argument("--mapping-file", help="Path to a JSON file containing confirmed source-to-canonical mapping.")
+    parser.add_argument("--coverage-declaration", help="Bounded USER_DECLARED JSON file; deterministic validation is mandatory.")
+    parser.add_argument("--prepare-coverage", action="store_true", help="Return an unconfirmed coverage summary/template without executing analysis.")
     parser.add_argument("--artifact-store")
     parser.add_argument("--metadata-store")
     return parser
