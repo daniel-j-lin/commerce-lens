@@ -112,6 +112,16 @@ Important governed behaviors:
 - SQLite exists in the lower-level kernel, but CSV/XLSX are the headline Public
   v0.1.3 workflow.
 
+### Evidence retention
+
+Temporary cleanup remains the default. Use the explicit
+`--retention-root ROOT` runner option to persist a self-contained local run
+package containing the evidence artifacts, metadata, `AnalysisResult`, and
+`PublicResponse`; inspect and verify it across processes, or delete the
+selected run. Retention does not upgrade `USER_DECLARED` authority or alter
+ClaimDecision. It is local plaintext storage with no TTL, encryption, or secure
+erase. The detailed contract is in the [F2-A amendment](docs/amendments/F2-A-evidence-persistence-retention-v1.md).
+
 ## How It Works
 
 The public workflow follows the same governed chain used by the deterministic

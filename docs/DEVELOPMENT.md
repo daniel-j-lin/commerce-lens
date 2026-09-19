@@ -112,6 +112,13 @@ outcome = run_public_analysis(
 print(outcome.response.render_text())
 ```
 
+The paired `ArtifactStore`/`MetadataStore` example above is component-store
+persistence only. It is not an F2-A finalized Evidence Bundle: a retained
+bundle is complete only when its self-contained run manifest, persisted
+artifact/record linkages, integrity checks, and final `complete.marker` all
+agree. Runs without that finalization state remain visible as incomplete or
+failed and must not be treated as retained evidence.
+
 The supported answer is absolute Revenue Change. Public v0.1.3 does not add a
 percentage, causal explanation, or recommendation.
 

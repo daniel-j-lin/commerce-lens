@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 import importlib
 import json
 import subprocess
@@ -26,6 +27,43 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if (args.artifact_store is None) != (args.metadata_store is None):
         parser.error("--artifact-store and --metadata-store must be supplied together")
+    if args.retention_root and (args.artifact_store or args.metadata_store):
+        parser.error("--retention-root cannot be combined with explicit artifact/metadata stores")
+    if args.retention_mode == "retained" and not args.retention_root:
+        parser.error("--retention-mode retained requires --retention-root")
+    if args.retention_mode == "temporary" and args.retention_root:
+        parser.error("--retention-mode temporary cannot be combined with --retention-root")
+
+    operation = args.list_retained or args.inspect_run or args.verify_run or args.delete_run
+    if operation:
+        if not args.retention_root:
+            parser.error("retention operations require --retention-root")
+        if len([value for value in (args.list_retained, args.inspect_run, args.verify_run, args.delete_run) if value]) != 1:
+            parser.error("choose exactly one retention operation")
+        store = _retention_store(args.retention_root)
+        if args.list_retained:
+            print(json.dumps(store.list_runs(), indent=2, sort_keys=True))
+        elif args.inspect_run:
+            print(json.dumps(store.inspect_run(args.inspect_run), indent=2, sort_keys=True))
+        elif args.verify_run:
+            checks, errors = store.verify_run(args.verify_run)
+            print(json.dumps({"checks": checks, "errors": errors, "valid": not errors}, indent=2, sort_keys=True))
+            return 0 if not errors else 1
+        else:
+            store.delete_run(args.delete_run)
+            print(json.dumps({"deleted_run_id": args.delete_run, "secure_erase": False}, sort_keys=True))
+        return 0
+
+    missing = [
+        name for name in (
+            "source", "source_type", "question_class", "metric", "baseline_label", "baseline_start",
+            "baseline_end", "comparison_label", "comparison_start", "comparison_end",
+        ) if getattr(args, name) is None
+    ]
+    if missing:
+        parser.error("analysis requires: " + ", ".join(f"--{item.replace('_', '-')}" for item in missing))
+    if args.prepare_coverage and args.retention_root:
+        parser.error("--prepare-coverage does not create a retained run; use temporary or paired stores")
 
     runtime = _load_runtime()
     if runtime is None:
@@ -43,6 +81,7 @@ def main(argv: list[str] | None = None) -> int:
         run_public_analysis,
     ) = runtime
 
+    retained_session = None
     try:
         source_type = _source_type(args.source_type, SourceType)
         claim_intents = tuple(
@@ -84,13 +123,23 @@ def main(argv: list[str] | None = None) -> int:
             result_period_role=args.result_period_role,
             claim_intents=claim_intents,
         )
-        with _runtime_paths(args) as (artifact_path, metadata_path):
-            metadata_store = MetadataStore(metadata_path)
+        if args.retention_root:
+            from commerce_lens.persistence.retention import RetainedRunSession
+            retained_session = RetainedRunSession.begin(args.retention_root)
+            artifact_store = retained_session.artifact_store
+            metadata_store = retained_session.metadata_store
+            runtime_context = nullcontext((artifact_store.root, metadata_store.db_path))
+        else:
+            runtime_context = _runtime_paths(args)
+        with runtime_context as (artifact_path, metadata_path):
+            if retained_session is None:
+                metadata_store = MetadataStore(metadata_path)
+                artifact_store = ArtifactStore(artifact_path)
             if args.prepare_coverage:
                 if args.coverage_declaration:
                     raise ValueError("prepare coverage and declaration input are mutually exclusive")
                 from commerce_lens.skill.integration import prepare_public_coverage
-                payload = prepare_public_coverage(intent, artifact_store=ArtifactStore(artifact_path))
+                payload = prepare_public_coverage(intent, artifact_store=artifact_store)
                 print(json.dumps(payload, indent=2, sort_keys=True, default=_json_default))
                 return 0
             external_intake = {}
@@ -99,31 +148,51 @@ def main(argv: list[str] | None = None) -> int:
                 external_intake["coverage_declarations"] = load_declarations(args.coverage_declaration)
             outcome = run_public_analysis(
                 intent,
-                artifact_store=ArtifactStore(artifact_path),
+                artifact_store=artifact_store,
                 metadata_store=metadata_store,
+                run_id=retained_session.run_id if retained_session is not None else None,
+                retention_session=retained_session,
                 **external_intake,
             )
-            payload = _outcome_payload(outcome, metadata_store)
+            payload = _outcome_payload(
+                outcome,
+                metadata_store,
+                retention_status="legacy_incomplete" if args.artifact_store else "temporary",
+            )
+            if retained_session is not None:
+                retained_session.finalize(outcome, public_payload=payload, plugin_version="0.1.3")
+                payload["retention_status"] = "retained_complete"
+                payload["retained_run_id"] = retained_session.run_id
+                payload["retained_evidence_location"] = str(retained_session.run_root)
+                payload["raw_source_retained"] = True
+                payload["canonical_data_retained"] = True
+                payload["replay_support"] = False
+                payload["persistent_auditability"] = True
         print(json.dumps(payload, indent=2, sort_keys=True, default=_json_default))
         return 0
     except Exception as exc:
+        if retained_session is not None:
+            try:
+                retained_session.fail(str(exc))
+            except Exception:
+                pass
         print(f"CommerceLens runner failed: {exc}", file=sys.stderr)
         return 1
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run CommerceLens Public v0.1 governed analysis.")
-    parser.add_argument("--source", required=True, help="CSV or XLSX source path.")
-    parser.add_argument("--source-type", required=True, choices=("csv", "xlsx", "excel_xlsx"))
+    parser.add_argument("--source", help="CSV or XLSX source path.")
+    parser.add_argument("--source-type", choices=("csv", "xlsx", "excel_xlsx"))
     parser.add_argument("--selected-sheet", help="Required when an XLSX file needs explicit sheet selection.")
-    parser.add_argument("--question-class", required=True)
-    parser.add_argument("--metric", required=True)
-    parser.add_argument("--baseline-label", required=True)
-    parser.add_argument("--baseline-start", required=True)
-    parser.add_argument("--baseline-end", required=True)
-    parser.add_argument("--comparison-label", required=True)
-    parser.add_argument("--comparison-start", required=True)
-    parser.add_argument("--comparison-end", required=True)
+    parser.add_argument("--question-class")
+    parser.add_argument("--metric")
+    parser.add_argument("--baseline-label")
+    parser.add_argument("--baseline-start")
+    parser.add_argument("--baseline-end")
+    parser.add_argument("--comparison-label")
+    parser.add_argument("--comparison-start")
+    parser.add_argument("--comparison-end")
     parser.add_argument("--date-convention-ref", default="order_date_utc")
     parser.add_argument("--result-period-role", choices=("baseline", "comparison"))
     parser.add_argument("--claim-type", action="append", default=["descriptive"])
@@ -137,6 +206,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--prepare-coverage", action="store_true", help="Return an unconfirmed coverage summary/template without executing analysis.")
     parser.add_argument("--artifact-store")
     parser.add_argument("--metadata-store")
+    parser.add_argument("--retention-root", help="Create or operate on self-contained retained runs under this directory.")
+    parser.add_argument("--retention-mode", choices=("temporary", "retained"))
+    parser.add_argument("--list-retained", action="store_true")
+    parser.add_argument("--inspect-run")
+    parser.add_argument("--verify-run")
+    parser.add_argument("--delete-run")
     return parser
 
 
@@ -152,6 +227,7 @@ def _load_runtime() -> tuple[Any, ...] | None:
             )
             print(str(first_error), file=sys.stderr)
             return None
+
         src_path = repo_root / "src"
         if str(src_path) not in sys.path:
             sys.path.insert(0, str(src_path))
@@ -175,6 +251,20 @@ def _load_runtime() -> tuple[Any, ...] | None:
             print("CommerceLens runtime remains unavailable after bootstrap install.", file=sys.stderr)
             print(str(second_error), file=sys.stderr)
             return None
+
+
+def _retention_store(retention_root: str):
+    try:
+        from commerce_lens.persistence.retention import RetentionStore
+    except ImportError:
+        repo_root = _repo_root()
+        if repo_root is None:
+            raise
+        src_path = repo_root / "src"
+        if str(src_path) not in sys.path:
+            sys.path.insert(0, str(src_path))
+        from commerce_lens.persistence.retention import RetentionStore
+    return RetentionStore(retention_root)
 
 
 def _import_runtime() -> tuple[Any, ...]:
@@ -298,7 +388,12 @@ class _runtime_paths:
             self._temporary.cleanup()
 
 
-def _outcome_payload(outcome, metadata_store) -> dict[str, Any]:
+def _outcome_payload(
+    outcome,
+    metadata_store,
+    *,
+    retention_status: str = "temporary",
+) -> dict[str, Any]:
     return {
         "rendered_text": outcome.response.render_text(),
         "response": asdict(outcome.response),
@@ -309,6 +404,11 @@ def _outcome_payload(outcome, metadata_store) -> dict[str, Any]:
         "validated_results_summary": (
             _validated_results_summary(metadata_store) if outcome.analysis_result is not None else ()
         ),
+        "retention_status": retention_status,
+        "persistent_auditability": False,
+        "raw_source_retained": False,
+        "canonical_data_retained": False,
+        "replay_support": False,
     }
 
 

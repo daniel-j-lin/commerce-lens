@@ -16,6 +16,7 @@ from commerce_lens.contracts.common import (
     RunStatus,
 )
 from commerce_lens.contracts.evidence import ClaimDecision
+from commerce_lens.contracts.plans import ExecutionPlan
 from commerce_lens.contracts.sufficiency import SufficiencyState
 
 
@@ -51,3 +52,4 @@ class AnalysisResult(ContractBase):
     limitations: tuple[Limitation, ...] = ()
     blocked_metric_refs: tuple[str, ...] = ()
     artifacts: tuple[ArtifactReference, ...] = ()
+    execution_plan: ExecutionPlan | None = None

@@ -159,6 +159,8 @@ def run_public_analysis(
     available_evidence: tuple[AvailableEvidence, ...] | None = None,
     period_coverage_evidence: tuple[PeriodCoverageEvidence, ...] | None = None,
     coverage_declarations: object | None = None,
+    run_id: str | None = None,
+    retention_session: object | None = None,
 ) -> PublicAnalysisOutcome:
     """Run the approved Public v0.1 integration chain.
 
@@ -212,6 +214,12 @@ def run_public_analysis(
     )
     request = _analysis_request(intent, dataset.dataset_id)
     canonicalization_request = _canonicalization_request(intent, dataset.dataset_id, source_headers)
+    if retention_session is not None:
+        retention_session.capture_context(
+            intent=intent,
+            request=request,
+            canonicalization_request=canonicalization_request,
+        )
     coverage_provenance = ()
     if coverage_declarations is not None:
         try:
@@ -229,6 +237,8 @@ def run_public_analysis(
                 f"runs/coverage_declarations/{dataset.dataset_id}/{fingerprint}.json", payload,
             )
             metadata_store.insert_artifact_reference(artifact)
+            if retention_session is not None:
+                retention_session.capture_declaration(declaration, artifact)
             coverage_authority, coverage = project_coverage(declaration, artifact.path)
             available_evidence = (coverage_authority, semantic_evidence)
             period_coverage_evidence = (coverage,)
@@ -256,6 +266,7 @@ def run_public_analysis(
             if period_coverage_evidence is not None
             else ()
         ),
+        run_id=run_id,
     )
 
     evaluated: list[EvaluatedClaimAuthority] = []

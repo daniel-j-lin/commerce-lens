@@ -124,11 +124,22 @@ CommerceLens does not expose a standalone `commerce-lens` shell CLI or hosted
 API in Public v0.1.3. The repository includes a deterministic runner script used
 by the Skill and developer verification.
 
-For retained local results, supply `--artifact-store` and `--metadata-store`
-together. Supplying only one fails before analysis with a nonzero exit code.
-Supplying neither retains the existing temporary mode: stores are removed when
-the runner exits. Supplying both retains them. This does not change the default
-retention policy or make stdout summaries a complete evidence bundle.
+The default is temporary: without `--retention-root`, isolated stores are
+removed when the runner exits. To explicitly retain a self-contained evidence
+package, supply `--retention-root ROOT` before analysis. The package is written
+under `ROOT/<run_id>/` with `manifest.json`, `complete.marker`, `artifacts/`,
+and `metadata.sqlite`; finalization failure exits nonzero and is never reported
+as complete.
+
+`--artifact-store` and `--metadata-store` remain a paired low-level component
+store interface for compatibility. They are not the F2-A retained-run package
+and are reported as legacy/incomplete for retention purposes. Supplying only
+one fails before analysis.
+
+Use `--list-retained`, `--inspect-run RUN_ID`, `--verify-run RUN_ID`, and
+`--delete-run RUN_ID` with `--retention-root` for cross-process operations.
+Verification reads stored data only; it does not replay or rerun analysis.
+Retention is local plaintext storage without TTL, encryption, or secure erase.
 
 Canonical CSV example:
 
@@ -250,8 +261,9 @@ Results include `response.coverage_provenance` with the declaration and artifact
 reference, and the visible disclosure: Coverage is based on a user-provided
 declaration and has not been independently verified by CommerceLens.
 Temporary store cleanup deletes that artifact; stdout carries the record but
-does not establish persistent auditability. Use paired explicit stores only when
-retention is wanted. Delete temporary declaration-input files after use.
+does not establish persistent auditability. Use the explicit F2-A retention
+root when a self-contained local evidence package is wanted. Delete temporary
+declaration-input files after use. See the [F2-A amendment](amendments/F2-A-evidence-persistence-retention-v1.md).
 
 
 V1's source basis is deliberately bounded: before confirmation, show the user

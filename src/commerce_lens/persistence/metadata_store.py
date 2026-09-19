@@ -23,13 +23,15 @@ from commerce_lens.contracts.sufficiency import DataSufficiencyResult
 from commerce_lens.contracts.validation import ValidationRecord
 from commerce_lens.evidence.identifiers import canonical_json_fingerprint, sha256_file
 from commerce_lens.persistence.artifact_store import ArtifactStore
+from commerce_lens.persistence.manifests import RetainedRunRecord
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 PHASE2_SCHEMA_VERSION = 2
 PHASE3_SCHEMA_VERSION = 3
 PHASE4_SCHEMA_VERSION = 4
 PHASE5_SCHEMA_VERSION = 5
+PHASE6_SCHEMA_VERSION = 6
 
 _PHASE1_TABLE_COLUMNS = {
     "dataset_registrations": {
@@ -189,6 +191,21 @@ _PHASE6_TABLE_COLUMNS = {
     },
 }
 
+_PHASE7_TABLE_COLUMNS = {
+    "retained_runs": {
+        "run_id",
+        "request_id",
+        "lifecycle_status",
+        "retention_status",
+        "analysis_run_status",
+        "manifest_path",
+        "manifest_fingerprint",
+        "created_at",
+        "finalized_at",
+        "record_json",
+    },
+}
+
 
 class MetadataStore:
     """Small SQLite registry for Phase 1 and Phase 2 metadata."""
@@ -217,6 +234,8 @@ class MetadataStore:
                 self._create_phase5_tables(conn)
                 self._create_phase6_tables(conn)
                 self._verify_phase6_schema(conn)
+                self._create_phase7_tables(conn)
+                self._verify_phase7_schema(conn)
                 conn.execute("INSERT INTO schema_version (id, version) VALUES (1, ?)", (SCHEMA_VERSION,))
                 return
 
@@ -227,27 +246,36 @@ class MetadataStore:
                 self._migrate_v3_to_v4(conn)
                 self._migrate_v4_to_v5(conn)
                 self._migrate_v5_to_v6(conn)
+                self._migrate_v6_to_v7(conn)
                 return
             if stored_version == PHASE2_SCHEMA_VERSION:
                 self._migrate_v2_to_v3(conn)
                 self._migrate_v3_to_v4(conn)
                 self._migrate_v4_to_v5(conn)
                 self._migrate_v5_to_v6(conn)
+                self._migrate_v6_to_v7(conn)
                 return
             if stored_version == PHASE3_SCHEMA_VERSION:
                 self._migrate_v3_to_v4(conn)
                 self._migrate_v4_to_v5(conn)
                 self._migrate_v5_to_v6(conn)
+                self._migrate_v6_to_v7(conn)
                 return
             if stored_version == PHASE4_SCHEMA_VERSION:
                 self._migrate_v4_to_v5(conn)
                 self._migrate_v5_to_v6(conn)
+                self._migrate_v6_to_v7(conn)
                 return
             if stored_version == PHASE5_SCHEMA_VERSION:
                 self._migrate_v5_to_v6(conn)
+                self._migrate_v6_to_v7(conn)
+                return
+            if stored_version == PHASE6_SCHEMA_VERSION:
+                self._migrate_v6_to_v7(conn)
                 return
             if stored_version == SCHEMA_VERSION:
                 self._verify_phase6_schema(conn)
+                self._verify_phase7_schema(conn)
                 return
             raise RuntimeError(
                 f"metadata schema version mismatch: stored={stored_version} expected={SCHEMA_VERSION}"
@@ -342,6 +370,93 @@ class MetadataStore:
             rows = conn.execute("SELECT record_json FROM dataset_registrations ORDER BY dataset_id").fetchall()
         return [DatasetReference.model_validate(json.loads(row["record_json"])) for row in rows]
 
+    def list_artifact_references(self) -> list[ArtifactReference]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT record_json FROM artifact_references ORDER BY artifact_id"
+            ).fetchall()
+        return [ArtifactReference.model_validate(json.loads(row["record_json"])) for row in rows]
+
+    def insert_retained_run(self, record: RetainedRunRecord) -> RetainedRunRecord:
+        payload = record.model_dump(mode="json")
+        with self._connect() as conn:
+            existing = conn.execute(
+                "SELECT record_json FROM retained_runs WHERE run_id = ?", (record.run_id,)
+            ).fetchone()
+            if existing is not None:
+                if json.loads(existing["record_json"]) != payload:
+                    raise RuntimeError(f"retained run record conflict for {record.run_id}")
+                return record
+            conn.execute(
+                """
+                INSERT INTO retained_runs (
+                    run_id, request_id, lifecycle_status, retention_status,
+                    analysis_run_status, manifest_path, manifest_fingerprint,
+                    created_at, finalized_at, record_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record.run_id,
+                    record.request_id,
+                    record.lifecycle_status.value,
+                    record.retention_status.value,
+                    record.analysis_run_status,
+                    record.manifest_path,
+                    record.manifest_fingerprint,
+                    record.created_at.isoformat(),
+                    record.finalized_at.isoformat() if record.finalized_at else None,
+                    json.dumps(payload, sort_keys=True),
+                ),
+            )
+        return record
+
+    def update_retained_run(self, record: RetainedRunRecord) -> RetainedRunRecord:
+        payload = record.model_dump(mode="json")
+        with self._connect() as conn:
+            result = conn.execute(
+                """
+                UPDATE retained_runs SET request_id = ?, lifecycle_status = ?,
+                    retention_status = ?, analysis_run_status = ?, manifest_path = ?,
+                    manifest_fingerprint = ?, created_at = ?, finalized_at = ?, record_json = ?
+                WHERE run_id = ?
+                """,
+                (
+                    record.request_id,
+                    record.lifecycle_status.value,
+                    record.retention_status.value,
+                    record.analysis_run_status,
+                    record.manifest_path,
+                    record.manifest_fingerprint,
+                    record.created_at.isoformat(),
+                    record.finalized_at.isoformat() if record.finalized_at else None,
+                    json.dumps(payload, sort_keys=True),
+                    record.run_id,
+                ),
+            )
+            if result.rowcount != 1:
+                raise RuntimeError(f"retained run record missing for {record.run_id}")
+        return record
+
+    def get_retained_run(self, run_id: str) -> RetainedRunRecord | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT record_json FROM retained_runs WHERE run_id = ?", (run_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        return RetainedRunRecord.model_validate(json.loads(row["record_json"]))
+
+    def list_retained_runs(self) -> list[RetainedRunRecord]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT record_json FROM retained_runs ORDER BY created_at, run_id"
+            ).fetchall()
+        return [RetainedRunRecord.model_validate(json.loads(row["record_json"])) for row in rows]
+
+    def delete_retained_run(self, run_id: str) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM retained_runs WHERE run_id = ?", (run_id,))
+
     def insert_canonical_dataset(
         self,
         canonical_dataset: CanonicalDatasetReference,
@@ -386,6 +501,13 @@ class MetadataStore:
         if row is None:
             return None
         return CanonicalDatasetReference.model_validate(json.loads(row["record_json"]))
+
+    def list_canonical_datasets(self) -> list[CanonicalDatasetReference]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT record_json FROM canonical_dataset_registrations ORDER BY canonical_dataset_id"
+            ).fetchall()
+        return [CanonicalDatasetReference.model_validate(json.loads(row["record_json"])) for row in rows]
 
     def insert_canonicalization_record(
         self,
@@ -432,6 +554,13 @@ class MetadataStore:
         if row is None:
             return None
         return CanonicalizationRecord.model_validate(json.loads(row["record_json"]))
+
+    def list_canonicalization_records(self) -> list[CanonicalizationRecord]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT record_json FROM canonicalization_records ORDER BY canonicalization_id"
+            ).fetchall()
+        return [CanonicalizationRecord.model_validate(json.loads(row["record_json"])) for row in rows]
 
     def insert_execution_record(self, execution_record: ExecutionRecord) -> ExecutionRecord:
         payload = execution_record.model_dump_json()
@@ -689,6 +818,21 @@ class MetadataStore:
             if row[key] != expected:
                 raise RuntimeError(f"data sufficiency indexed authority mismatch for {sufficiency_id}")
         return result
+
+    def list_data_sufficiency_results(
+        self,
+        artifact_store: ArtifactStore | None = None,
+    ) -> list[DataSufficiencyResult]:
+        artifact_store = self._authority_artifact_store(artifact_store)
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT sufficiency_id FROM data_sufficiency_results ORDER BY sufficiency_id"
+            ).fetchall()
+        return [
+            item
+            for row in rows
+            if (item := self.get_data_sufficiency_result(row["sufficiency_id"], artifact_store)) is not None
+        ]
 
     def insert_evidence_admissibility_record(
         self,
@@ -1106,6 +1250,12 @@ class MetadataStore:
         self._verify_phase5_schema(conn)
         self._create_phase6_tables(conn)
         self._verify_phase6_schema(conn)
+        conn.execute("UPDATE schema_version SET version = ? WHERE id = 1", (PHASE6_SCHEMA_VERSION,))
+
+    def _migrate_v6_to_v7(self, conn: sqlite3.Connection) -> None:
+        self._verify_phase6_schema(conn)
+        self._create_phase7_tables(conn)
+        self._verify_phase7_schema(conn)
         conn.execute("UPDATE schema_version SET version = ? WHERE id = 1", (SCHEMA_VERSION,))
 
     def _create_phase1_tables(self, conn: sqlite3.Connection) -> None:
@@ -1308,6 +1458,24 @@ class MetadataStore:
             """
         )
 
+    def _create_phase7_tables(self, conn: sqlite3.Connection) -> None:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS retained_runs (
+                run_id TEXT PRIMARY KEY,
+                request_id TEXT,
+                lifecycle_status TEXT NOT NULL,
+                retention_status TEXT NOT NULL,
+                analysis_run_status TEXT,
+                manifest_path TEXT NOT NULL,
+                manifest_fingerprint TEXT,
+                created_at TEXT NOT NULL,
+                finalized_at TEXT,
+                record_json TEXT NOT NULL
+            )
+            """
+        )
+
     def _verify_phase1_schema(self, conn: sqlite3.Connection) -> None:
         for table, expected_columns in _PHASE1_TABLE_COLUMNS.items():
             actual_columns = self._table_columns(conn, table)
@@ -1348,6 +1516,13 @@ class MetadataStore:
             actual_columns = self._table_columns(conn, table)
             if actual_columns != expected_columns:
                 raise RuntimeError(f"metadata schema version 6 is incompatible: {table}")
+
+    def _verify_phase7_schema(self, conn: sqlite3.Connection) -> None:
+        self._verify_phase6_schema(conn)
+        for table, expected_columns in _PHASE7_TABLE_COLUMNS.items():
+            actual_columns = self._table_columns(conn, table)
+            if actual_columns != expected_columns:
+                raise RuntimeError(f"metadata schema version 7 is incompatible: {table}")
 
     def _table_columns(self, conn: sqlite3.Connection, table: str) -> set[str]:
         rows = conn.execute(f"PRAGMA table_info({self._quote_literal(table)})").fetchall()

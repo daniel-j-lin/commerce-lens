@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +52,19 @@ class ArtifactStore:
             if sha256_file(destination) != expected_fingerprint:
                 raise ValueError("existing source snapshot fingerprint mismatch")
         else:
-            shutil.copy2(source, destination)
+            temporary_path: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    prefix=f".{destination.name}.", dir=destination.parent, delete=False
+                ) as temporary:
+                    temporary_path = Path(temporary.name)
+                shutil.copy2(source, temporary_path)
+                with temporary_path.open("rb") as copied:
+                    os.fsync(copied.fileno())
+                os.replace(temporary_path, destination)
+            finally:
+                if temporary_path is not None and temporary_path.exists():
+                    temporary_path.unlink()
         snapshot_fingerprint = sha256_file(destination)
         if snapshot_fingerprint != expected_fingerprint:
             raise ValueError("source snapshot fingerprint mismatch after copy")
@@ -79,7 +93,7 @@ class ArtifactStore:
             if existing != content:
                 raise ValueError("existing JSON artifact content mismatch")
         else:
-            destination.write_bytes(content)
+            self._atomic_write_bytes(destination, content)
         artifact_fingerprint = sha256_file(destination)
         return ArtifactReference(
             artifact_id=stable_content_id("art", artifact_fingerprint),
@@ -88,3 +102,19 @@ class ArtifactStore:
             media_type=media_type,
             size_bytes=destination.stat().st_size,
         )
+
+    @staticmethod
+    def _atomic_write_bytes(destination: Path, content: bytes) -> None:
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                prefix=f".{destination.name}.", dir=destination.parent, delete=False
+            ) as temporary:
+                temporary_path = Path(temporary.name)
+                temporary.write(content)
+                temporary.flush()
+                os.fsync(temporary.fileno())
+            os.replace(temporary_path, destination)
+        finally:
+            if temporary_path is not None and temporary_path.exists():
+                temporary_path.unlink()

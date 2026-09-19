@@ -68,6 +68,7 @@ def run_analysis(
     available_evidence: tuple[AvailableEvidence, ...] = (),
     period_coverage_evidence: tuple[PeriodCoverageEvidence, ...] = (),
     clarification_items: tuple[ClarificationItem, ...] = (),
+    run_id: str | None = None,
 ) -> AnalysisResult:
     """Run governed analysis through current P1-P8 production authorities."""
     metadata_store.initialize()
@@ -117,6 +118,7 @@ def run_analysis(
             validated_results=(),
             evidence_records=(),
             evidence_failures=(),
+            run_id=run_id,
         )
 
     plan = build_execution_plan(persisted_request, sufficiency)
@@ -148,6 +150,7 @@ def run_analysis(
         validated_results=validated_results,
         evidence_records=tuple(evidence_records),
         evidence_failures=tuple(evidence_failures),
+        run_id=run_id,
     )
 
 
@@ -386,6 +389,7 @@ def _analysis_result(
     validated_results: tuple[ValidatedResult, ...],
     evidence_records: tuple[EvidenceAdmissibilityRecord, ...],
     evidence_failures: tuple[FailureDetail, ...],
+    run_id: str | None = None,
 ) -> AnalysisResult:
     metric_results = tuple(
         _metric_result(
@@ -406,7 +410,7 @@ def _analysis_result(
     )
     return AnalysisResult(
         request_id=request.request_id,
-        run_id=generate_id("run"),
+        run_id=run_id or generate_id("run"),
         traceability_id=sufficiency.sufficiency_id,
         run_status=_run_status(metric_results, sufficiency, execution_records, validation_records),
         data_sufficiency_ref=sufficiency.sufficiency_id,
@@ -440,6 +444,7 @@ def _analysis_result(
             validation_records=validation_records,
             evidence_records=evidence_records,
         ),
+        execution_plan=plan,
     )
 
 

@@ -181,9 +181,13 @@ As of September 2026, Q4 2026 is open and cannot pass this check.
 
 Render the runner's provenance disclosure alongside every dependent result.
 Temporary runs delete local artifacts, including the declaration; remove the
-Skill's temporary input file when finished. Explicit paired stores preserve
-local records only at the user's chosen location. Do not promise permanent
-retention or cross-run auditability after temporary cleanup.
+Skill's temporary input file when finished. F2-A retention is explicit: pass
+`--retention-root ROOT` before execution to create a self-contained local run
+package with manifest, raw snapshot, canonical data, metadata, AnalysisResult,
+PublicResponse, and linkage. It has no TTL and remains until the user deletes
+that selected run. Verification does not replay analysis; deletion is not
+secure erase and never targets the original source. See
+`docs/amendments/F2-A-evidence-persistence-retention-v1.md`.
 
 Use `skills/commerce-lens/scripts/run_public_analysis.py` as the first-run
 command surface. It translates structured arguments into:
@@ -196,9 +200,11 @@ The runner automatically creates temporary `ArtifactStore` and `MetadataStore`
 locations when none are supplied. These are implementation details; the user
 does not need to construct them.
 
-If explicit store paths are supplied, `--artifact-store` and `--metadata-store`
-must be supplied together; one alone fails before analysis. Both preserve
-results, while neither preserves the existing temporary cleanup behavior.
+If explicit component store paths are supplied, `--artifact-store` and
+`--metadata-store` must be supplied together; one alone fails before analysis.
+They preserve low-level component records for compatibility but are not a
+`retained_complete` F2-A package. Use `--retention-root` for explicit retained
+evidence and the list/inspect/verify/delete operations.
 
 Example:
 
