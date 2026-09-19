@@ -13,6 +13,7 @@ MARKETPLACE = REPO_ROOT / ".agents" / "plugins" / "marketplace.json"
 PLUGIN_MANIFEST = REPO_ROOT / ".codex-plugin" / "plugin.json"
 SKILL = REPO_ROOT / "skills" / "commerce-lens" / "SKILL.md"
 RUNNER = REPO_ROOT / "skills" / "commerce-lens" / "scripts" / "run_public_analysis.py"
+FIXTURE_RUNNER = REPO_ROOT / "tests" / "fixture_authority_runner.py"
 ORDERS_CSV = REPO_ROOT / "examples" / "public_v0_1" / "orders.csv"
 AOV_UNDEFINED_CSV = REPO_ROOT / "examples" / "public_v0_1" / "aov_undefined.csv"
 
@@ -97,7 +98,7 @@ def test_no_second_independent_analytical_implementation_is_packaged() -> None:
     assert not (REPO_ROOT / "plugins").exists()
 
 
-def test_runner_revenue_change_csv_preserves_expected_result() -> None:
+def test_runner_revenue_change_csv_preserves_expected_result_with_fixture_authority() -> None:
     payload = _run_json(
         "--source",
         str(ORDERS_CSV),
@@ -143,7 +144,7 @@ def test_runner_revenue_change_csv_preserves_expected_result() -> None:
     assert "Recommendation" not in rendered
 
 
-def test_runner_diagnostic_revenue_drop_preserves_bounded_refusal() -> None:
+def test_runner_diagnostic_revenue_drop_preserves_bounded_refusal_with_fixture_authority() -> None:
     payload = _run_json(
         "--source",
         str(ORDERS_CSV),
@@ -179,7 +180,7 @@ def test_runner_diagnostic_revenue_drop_preserves_bounded_refusal() -> None:
         assert prohibited not in rendered.lower()
 
 
-def test_runner_zero_order_aov_preserves_metric_state_undefined() -> None:
+def test_runner_zero_order_aov_preserves_metric_state_undefined_with_fixture_authority() -> None:
     payload = _run_json(
         "--source",
         str(AOV_UNDEFINED_CSV),
@@ -280,8 +281,9 @@ def test_runner_unsupported_question_does_not_produce_speculative_output() -> No
 
 
 def _run_json(*args: str) -> dict:
+    """Exercise runner components with explicitly declared synthetic fixture authority."""
     completed = subprocess.run(
-        [sys.executable, str(RUNNER), *args],
+        [sys.executable, str(FIXTURE_RUNNER), *args],
         cwd=REPO_ROOT,
         check=True,
         text=True,

@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import contextlib
 import csv
-import importlib.util
 import io
 import json
-import sys
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
@@ -25,6 +23,8 @@ from commerce_lens.skill.integration import (
     validate_public_intent,
 )
 from commerce_lens.skill.schema_mapping import assess_schema_mapping, confirmed_mapping_from_source_to_canonical
+
+from tests.public_fixture_authority import q3_q4_fixture_authority, run_fixture_runner
 
 
 CANONICAL_HEADERS = (
@@ -350,9 +350,11 @@ def test_validate_mapping_is_invoked_for_confirmed_mapping(tmp_path: Path, monke
 
 
 def _run(tmp_path: Path, intent: PublicAnalysisIntent):
+    artifacts = ArtifactStore(Path(tmp_path) / "runtime")
     return run_public_analysis(
         intent,
-        artifact_store=ArtifactStore(Path(tmp_path) / "runtime"),
+        artifact_store=artifacts,
+        **q3_q4_fixture_authority(intent.source, artifacts),
         metadata_store=MetadataStore(Path(tmp_path) / "metadata.sqlite"),
     )
 
@@ -415,17 +417,9 @@ def _write_xlsx(path: Path, rows: tuple[dict[str, object], ...], *, headers: tup
 
 
 def _run_public_analysis_script(argv: list[str]) -> tuple[int, str]:
-    script = Path(__file__).resolve().parents[2] / "skills" / "commerce-lens" / "scripts" / "run_public_analysis.py"
-    module_name = "p12_run_public_analysis_script"
-    spec = importlib.util.spec_from_file_location(module_name, script)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
     stdout = io.StringIO()
     stderr = io.StringIO()
     with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-        returncode = module.main(argv)
+        returncode = run_fixture_runner(argv)
     assert stderr.getvalue() == ""
     return returncode, stdout.getvalue()

@@ -36,6 +36,8 @@ from commerce_lens.skill.integration import (
     validate_public_intent,
 )
 
+from tests.public_fixture_authority import q3_q4_fixture_authority
+
 
 def test_csv_revenue_orders_and_numeric_aov_supported(tmp_path) -> None:
     cases = (
@@ -269,8 +271,16 @@ def test_claim_candidate_exact_ref_binding_and_equal_value_substitution_rejected
     )
     artifact_store = ArtifactStore(tmp_path / "runtime")
     metadata_store = MetadataStore(tmp_path / "metadata.sqlite")
-    first = run_public_analysis(_single_intent(first_source, "revenue"), artifact_store=artifact_store, metadata_store=metadata_store)
-    second = run_public_analysis(_single_intent(second_source, "revenue"), artifact_store=artifact_store, metadata_store=metadata_store)
+    first_intent = _single_intent(first_source, "revenue")
+    first = run_public_analysis(
+        first_intent, artifact_store=artifact_store, metadata_store=metadata_store,
+        **q3_q4_fixture_authority(first_intent.source, artifact_store),
+    )
+    second_intent = _single_intent(second_source, "revenue")
+    second = run_public_analysis(
+        second_intent, artifact_store=artifact_store, metadata_store=metadata_store,
+        **q3_q4_fixture_authority(second_intent.source, artifact_store),
+    )
 
     assert first.claim_candidates[0].claimed_value == second.claim_candidates[0].claimed_value == Decimal("75.00")
     assert first.claim_candidates[0].supporting_evidence_refs[0] in first.analysis_result.admissible_evidence_refs
@@ -309,7 +319,10 @@ def test_bind_claim_candidate_uses_analysis_result_refs_not_metric_name_search(t
     artifact_store = ArtifactStore(tmp_path / "runtime")
     metadata_store = MetadataStore(tmp_path / "metadata.sqlite")
     intent = _single_intent(source, "revenue")
-    outcome = run_public_analysis(intent, artifact_store=artifact_store, metadata_store=metadata_store)
+    outcome = run_public_analysis(
+        intent, artifact_store=artifact_store, metadata_store=metadata_store,
+        **q3_q4_fixture_authority(intent.source, artifact_store),
+    )
     assert outcome.analysis_result is not None
 
     stripped = outcome.analysis_result.model_copy(
@@ -334,11 +347,14 @@ def test_bind_claim_candidate_uses_analysis_result_refs_not_metric_name_search(t
 
 
 def _run(tmp_path, intent, **kwargs):
+    artifacts = ArtifactStore(Path(tmp_path) / "runtime")
+    authority = q3_q4_fixture_authority(intent.source, artifacts)
+    authority.update(kwargs)  # Explicit negative-test overrides must remain effective.
     return run_public_analysis(
         intent,
-        artifact_store=ArtifactStore(Path(tmp_path) / "runtime"),
+        artifact_store=artifacts,
         metadata_store=MetadataStore(Path(tmp_path) / "metadata.sqlite"),
-        **kwargs,
+        **authority,
     )
 
 

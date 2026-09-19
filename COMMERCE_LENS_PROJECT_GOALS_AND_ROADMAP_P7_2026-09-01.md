@@ -1,3 +1,11 @@
+> **Historical snapshot notice — 2026-09-18.** The original 2026-09-01
+> roadmap below is preserved unchanged. Its “current” and P10–P15 labels refer
+> to that dated baseline, not automatically to the v0.1.3 implementation at
+> `92eea1b887df0560231d31131459aed52f0ca36b`. See the
+> [dated HEAD facts and phase-label comparison](PROJECT_STATE.md#2026-09-18-head-facts-and-historical-phase-labels).
+> This notice does not renumber phases, amend Frozen authority, or select the
+> owner's next milestone.
+
 # CommerceLens Project Goals, Accomplishments, and Roadmap
 
 > Language: English canonical version.

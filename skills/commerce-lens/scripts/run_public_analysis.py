@@ -22,6 +22,11 @@ def main(argv: list[str] | None = None) -> int:
         print("CommerceLens requires Python >=3.11.", file=sys.stderr)
         return 2
 
+    parser = _parser()
+    args = parser.parse_args(argv)
+    if (args.artifact_store is None) != (args.metadata_store is None):
+        parser.error("--artifact-store and --metadata-store must be supplied together")
+
     runtime = _load_runtime()
     if runtime is None:
         return 2
@@ -37,9 +42,6 @@ def main(argv: list[str] | None = None) -> int:
         confirmed_mapping_from_source_to_canonical,
         run_public_analysis,
     ) = runtime
-
-    parser = _parser()
-    args = parser.parse_args(argv)
 
     try:
         source_type = _source_type(args.source_type, SourceType)

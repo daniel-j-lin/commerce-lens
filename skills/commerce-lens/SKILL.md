@@ -118,6 +118,16 @@ silent renaming, guessed mapping, or generic dataframe analysis.
 
 ## Deterministic Runner
 
+Missing evidence must remain unknown. The existing Python integration accepts
+`available_evidence` and `period_coverage_evidence`; the current CLI does not
+expose an authority-input interface. The bare-file commands below therefore
+block at sufficiency when authority is absent, even with confirmed mapping.
+Never manufacture authority from request dates, required IDs, transaction
+min/max dates, or a mapping confirmation. Do not replace a blocked response
+with historical demo numbers. Real-world coverage acceptance policy is not
+defined by this remediation.
+
+
 Use `skills/commerce-lens/scripts/run_public_analysis.py` as the first-run
 command surface. It translates structured arguments into:
 
@@ -128,6 +138,10 @@ command surface. It translates structured arguments into:
 The runner automatically creates temporary `ArtifactStore` and `MetadataStore`
 locations when none are supplied. These are implementation details; the user
 does not need to construct them.
+
+If explicit store paths are supplied, `--artifact-store` and `--metadata-store`
+must be supplied together; one alone fails before analysis. Both preserve
+results, while neither preserves the existing temporary cleanup behavior.
 
 Example:
 

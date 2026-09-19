@@ -155,7 +155,11 @@ def run_public_analysis(
     available_evidence: tuple[AvailableEvidence, ...] | None = None,
     period_coverage_evidence: tuple[PeriodCoverageEvidence, ...] | None = None,
 ) -> PublicAnalysisOutcome:
-    """Run the approved Public v0.1 integration chain."""
+    """Run the approved Public v0.1 integration chain.
+
+    Missing authority stays unknown for the existing sufficiency gate. Request
+    dates, requirements, and observed transaction dates do not establish it.
+    """
     validation_failures = validate_public_intent(intent)
     if validation_failures:
         return PublicAnalysisOutcome(
@@ -209,11 +213,11 @@ def run_public_analysis(
         source_type=intent.source.source_type,
         selected_sheet=intent.source.selected_sheet,
         selected_table=intent.source.selected_table,
-        available_evidence=available_evidence if available_evidence is not None else _available_evidence(request),
+        available_evidence=available_evidence if available_evidence is not None else (),
         period_coverage_evidence=(
             period_coverage_evidence
             if period_coverage_evidence is not None
-            else _period_coverage_evidence(request)
+            else ()
         ),
     )
 
@@ -401,29 +405,6 @@ def _requirements(metrics: tuple[str, ...]) -> tuple[EvidenceRequirement, ...]:
         *(
             EvidenceRequirement(requirement_id=f"req_{metric}", description=f"{metric} authority", metric_ref=metric)
             for metric in metrics
-        ),
-    )
-
-
-def _available_evidence(request: AnalysisRequest) -> tuple[AvailableEvidence, ...]:
-    return (
-        AvailableEvidence(
-            evidence_id="avail_source",
-            description="governed source and period coverage",
-            source_ref=request.dataset_ref_id,
-            satisfies_requirement_ids=tuple(requirement.requirement_id for requirement in request.required_evidence),
-        ),
-    )
-
-
-def _period_coverage_evidence(request: AnalysisRequest) -> tuple[PeriodCoverageEvidence, ...]:
-    return (
-        PeriodCoverageEvidence(
-            coverage_ref_id="coverage_all",
-            dataset_ref_id=request.dataset_ref_id,
-            observed_start_date=min(request.baseline_period.start_date, request.comparison_period.start_date),
-            observed_end_date=max(request.baseline_period.end_date, request.comparison_period.end_date),
-            date_convention_ref=request.baseline_period.date_convention_ref,
         ),
     )
 

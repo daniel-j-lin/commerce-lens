@@ -42,6 +42,19 @@ The current integration expects explicit governed periods, a supported metric,
 claim intent. Unsupported metrics, unsupported grouping, ambiguous period or
 mapping authority, and unsupported claim types fail closed.
 
+Missing `available_evidence` or `period_coverage_evidence` is not synthesized
+from an intent. The sufficiency gate blocks unsupported claims. The Python
+API retains its explicit authority parameters; the CLI has no authority-input
+interface yet. The example below demonstrates the API shape and now returns a
+governed block without independently supplied evidence.
+
+Positive fixture tests explicitly declare complete Q3/Q4 2026 synthetic exports
+using `tests/public_fixture_authority.py`. Runner component tests opt into
+`tests/fixture_authority_runner.py`, which supplies that test-only authority at
+the existing Python API boundary and runs the real gates. Real CLI regressions
+separately verify missing-authority blocking and both retention modes. These
+helpers are not a production coverage policy or a supported user entry point.
+
 ## Developer Python API Example
 
 This example uses the tracked synthetic CSV at

@@ -6,6 +6,10 @@ This file records the current implementation and governance state of CommerceLen
 
 It is an operational project-state ledger.
 
+For the 2026-09-18 code/release snapshot and historical phase-label differences,
+see [the dated HEAD facts below](#2026-09-18-head-facts-and-historical-phase-labels).
+Earlier entries retain their original dates and milestone meanings.
+
 It does not replace, amend, reinterpret, or override any Approved / Frozen specification under `docs/frozen/`.
 
 If this file conflicts with a Frozen governing document, the Frozen governing document prevails.
@@ -1533,3 +1537,44 @@ governance recording.
 Next required step:
 
 GitHub Profile Finalization
+
+
+---
+
+## 2026-09-18 HEAD facts and historical phase labels
+
+This is a factual snapshot of `main` at
+`92eea1b887df0560231d31131459aed52f0ca36b` (`docs: refactor public README for
+v0.1.3`), not a replacement roadmap or new milestone approval. `pyproject.toml`
+and `.codex-plugin/plugin.json` both declare `0.1.3`. Subsequent uncommitted
+remediation changes are not represented as already released by this snapshot.
+
+At this HEAD the public implementation supports CSV/XLSX, canonical identity
+mapping and explicitly confirmed mappings, and four descriptive metrics:
+Revenue, Orders, AOV, and absolute Revenue Change. See
+[public integration](src/commerce_lens/skill/integration.py),
+[packaging tests](tests/skill/test_native_plugin_packaging.py), and
+[P14 fixture inventory](tests/fixtures/p14/README.md).
+Independent review reproduced missing-authority acceptance and default temporary
+evidence cleanup at this HEAD; the release snapshot is not evidence that those
+reliability gaps were fixed.
+
+The historical [English roadmap](COMMERCE_LENS_PROJECT_GOALS_AND_ROADMAP_P7_2026-09-01.md)
+and [Traditional Chinese roadmap](COMMERCE_LENS_PROJECT_GOALS_AND_ROADMAP_P7_2026-09-01.zh-TW.md)
+use analytical backlog labels that differ from later packaging/input-test usage:
+
+| Label | Historical 2026-09-01 roadmap meaning | Later implementation / review usage and evidence |
+| --- | --- | --- |
+| P10 | Revenue Change Percentage | Native Skill packaging in the later review vocabulary; packaging exists in `592123a` / `88ef877` and `tests/skill/test_native_plugin_packaging.py`. This is not percentage-metric completion. |
+| P11 | Entity Performance | Input robustness characterization: `tests/p11/test_input_robustness_characterization.py`. This is not entity-performance completion. |
+| P12 | Contribution and Ranking | Explicit schema mapping: `f887fe2`, `tests/p12/test_schema_mapping_ux.py`. |
+| P13 | Findings and Alternative Explanations | Date/money normalization: `fe291e2`, `tests/p13/test_common_date_money_formats.py`. |
+| P14 | Recommendation Governance | Realistic synthetic export fixtures: `732f643`, `tests/fixtures/p14/README.md`. |
+| P15 | Application Boundary | No completed first-use acceptance is established by this HEAD snapshot; this note does not adopt a new P15 definition. |
+
+Earlier “P10 Revenue Change Percentage; NOT STARTED; numbering preserved”
+entries remain historical statements about the analytical backlog. Reuse of a
+number for packaging or input work does not deliver that backlog item. References
+to a phase should include its title and dated evidence rather than its number
+alone. This comparison does not renumber either history, authorize analytical
+breadth, designate a new governance authority, or choose the next milestone.

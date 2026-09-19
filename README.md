@@ -77,6 +77,25 @@ evidence.
 | Descriptive positive material claims | Marketplace/vendor connectors |
 | Fail-closed unsupported conclusions | Hosted SaaS or REST API |
 
+### Revenue meaning and evidence boundary
+
+Revenue is **post-discount eligible merchandise value**, excluding **tax and
+shipping**, within the governed scope and period. It is not accounting revenue
+or cash collected. The authoritative definition remains the
+[Frozen Metric Dictionary §11](docs/frozen/CANONICAL_DATASET_AND_METRIC_DICTIONARY.md#11-revenue-definition).
+Canonical column names and confirmed field mappings do not independently verify
+upstream business semantics; source values must already meet that definition.
+
+The current checkout requires independently supplied `available_evidence` and
+`period_coverage_evidence` through the existing Python integration API. Missing
+authority is evaluated by the sufficiency gate and blocks material claims;
+requested dates and observed transaction dates do not prove complete coverage.
+The CLI runner currently has no authority-input interface, so the bare-file
+commands below return a governed block, even for correctly mapped files.
+Positive synthetic examples are complete-fixture controls with explicitly
+supplied authority, not evidence that a supplied file alone is complete.
+No new authority acceptance policy is defined here.
+
 Important governed behaviors:
 
 - `AOV` is `Undefined` when `Orders = 0`; it is not reported as numeric zero.
@@ -177,7 +196,8 @@ mapping, and the deterministic `validate_mapping(...)` authority must pass
 before CommerceLens can produce material analysis.
 
 The P14 generic marketplace-style synthetic fixture verifies this behavior:
-without confirmation it blocks; with confirmed mapping it produces the same
+without confirmation it blocks; with confirmed mapping and explicit fixture
+authority it produces the same
 governed KPIs as the canonical control fixture.
 
 ## Public Examples

@@ -71,6 +71,31 @@ Public v0.1.3 supports:
 
 Grouping is `NONE`. Positive material claims are descriptive only.
 
+## Revenue Meaning
+
+Revenue means **post-discount eligible merchandise value**, excluding **tax and
+shipping**, for the governed scope and period. It is **not accounting revenue
+or cash collected**. The authoritative semantics remain in the
+[Frozen Metric Dictionary §11](frozen/CANONICAL_DATASET_AND_METRIC_DICTIONARY.md#11-revenue-definition).
+A canonical field name or confirmed source-to-canonical mapping does not mean
+CommerceLens independently verified upstream business semantics. Source values
+must conform to the canonical definition; renaming a field does not establish
+that conformity.
+
+## Evidence Required Before Material Claims
+
+The existing Python `run_public_analysis` API accepts `available_evidence` and
+`period_coverage_evidence`. Omitted or `None` inputs remain unknown and reach the
+existing sufficiency gate as empty evidence. A requested period, required ID,
+or earliest/latest transaction date does not establish source completeness.
+
+The current CLI has no interface for supplying this authority. Consequently,
+the example commands below produce a governed block rather than a supported
+KPI when evidence is unavailable. Mapping confirmation alone does not change
+that outcome. Positive synthetic test controls explicitly supply fixture
+authority through the existing Python API; they do not define a policy for
+accepting real-world coverage declarations.
+
 ## Schema Mapping
 
 When source headers differ from the CommerceLens canonical schema, the Skill may
@@ -99,6 +124,12 @@ confirmation and deterministic validation.
 CommerceLens does not expose a standalone `commerce-lens` shell CLI or hosted
 API in Public v0.1.3. The repository includes a deterministic runner script used
 by the Skill and developer verification.
+
+For retained local results, supply `--artifact-store` and `--metadata-store`
+together. Supplying only one fails before analysis with a nonzero exit code.
+Supplying neither retains the existing temporary mode: stores are removed when
+the runner exits. Supplying both retains them. This does not change the default
+retention policy or make stdout summaries a complete evidence bundle.
 
 Canonical CSV example:
 

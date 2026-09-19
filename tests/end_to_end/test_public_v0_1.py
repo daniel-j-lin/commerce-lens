@@ -16,6 +16,8 @@ from commerce_lens.skill.integration import (
     run_public_analysis,
 )
 
+from tests.public_fixture_authority import q3_q4_fixture_authority
+
 
 def test_public_v0_1_killer_demos_and_aov_undefined_end_to_end(tmp_path) -> None:
     source = _write_csv(
@@ -32,6 +34,7 @@ def test_public_v0_1_killer_demos_and_aov_undefined_end_to_end(tmp_path) -> None
         _intent(source, "How did revenue change from Q3 2026 to Q4 2026?"),
         artifact_store=artifact_store,
         metadata_store=metadata_store,
+        **q3_q4_fixture_authority(PublicSourceSelection(source, SourceType.CSV), artifact_store),
     )
     demo_2 = run_public_analysis(
         _intent(
@@ -45,6 +48,7 @@ def test_public_v0_1_killer_demos_and_aov_undefined_end_to_end(tmp_path) -> None
         ),
         artifact_store=artifact_store,
         metadata_store=metadata_store,
+        **q3_q4_fixture_authority(PublicSourceSelection(source, SourceType.CSV), artifact_store),
     )
     aov_source = _write_csv(
         tmp_path / "aov_zero.csv",
@@ -65,6 +69,7 @@ def test_public_v0_1_killer_demos_and_aov_undefined_end_to_end(tmp_path) -> None
         ),
         artifact_store=ArtifactStore(tmp_path / "aov-runtime"),
         metadata_store=MetadataStore(tmp_path / "aov-metadata.sqlite"),
+        **q3_q4_fixture_authority(PublicSourceSelection(aov_source, SourceType.CSV), ArtifactStore(tmp_path / "aov-runtime")),
     )
 
     assert demo_1.response.supported_claims[0].metric_ref == "revenue_change"

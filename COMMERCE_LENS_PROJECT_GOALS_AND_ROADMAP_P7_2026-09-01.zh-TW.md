@@ -1,3 +1,9 @@
+> **歷史快照註記 — 2026-09-18。** 下方 2026-09-01 roadmap 原文完整保留。
+> 其中「目前」及 P10–P15 編號是當時基線的描述，不應直接當作
+> `92eea1b887df0560231d31131459aed52f0ca36b`（v0.1.3）的實作狀態。
+> 請對照 [附日期的 HEAD 事實及編號對照](PROJECT_STATE.md#2026-09-18-head-facts-and-historical-phase-labels)。
+> 本註記不重編階段、不修改 Frozen 權威，也不替 owner 指定下一 milestone。
+
 # CommerceLens 專案目標、成果與 Roadmap
 
 > Language: Traditional Chinese.

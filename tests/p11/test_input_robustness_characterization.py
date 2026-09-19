@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import csv
 import contextlib
-import importlib.util
 import io
 import json
-import sys
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -24,6 +22,8 @@ from commerce_lens.skill.integration import (
     PublicSourceSelection,
     run_public_analysis,
 )
+
+from tests.public_fixture_authority import q3_q4_fixture_authority, run_fixture_runner
 
 
 CANONICAL_HEADERS = (
@@ -468,9 +468,12 @@ def _observe(
     mapping: CanonicalMapping | None = None,
 ) -> Observed:
     try:
+        intent = _intent(source, metric=metric, source_type=source_type, selected_sheet=selected_sheet, mapping=mapping)
+        artifacts = ArtifactStore(source.parent / "artifacts")
         outcome = run_public_analysis(
-            _intent(source, metric=metric, source_type=source_type, selected_sheet=selected_sheet, mapping=mapping),
-            artifact_store=ArtifactStore(source.parent / "artifacts"),
+            intent,
+            artifact_store=artifacts,
+            **q3_q4_fixture_authority(intent.source, artifacts),
             metadata_store=MetadataStore(source.parent / "metadata.sqlite"),
         )
     except Exception:
@@ -487,18 +490,10 @@ def _observe(
 
 
 def _run_public_analysis_script(argv: list[str]) -> tuple[int, str]:
-    script = Path(__file__).resolve().parents[2] / "skills" / "commerce-lens" / "scripts" / "run_public_analysis.py"
-    module_name = "p11_run_public_analysis_script"
-    spec = importlib.util.spec_from_file_location(module_name, script)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
     stdout = io.StringIO()
     stderr = io.StringIO()
     with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-        returncode = module.main(argv)
+        returncode = run_fixture_runner(argv)
     assert stderr.getvalue() == ""
     return returncode, stdout.getvalue()
 

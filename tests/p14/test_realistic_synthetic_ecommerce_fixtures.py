@@ -21,10 +21,12 @@ from commerce_lens.skill.integration import (
 )
 from commerce_lens.skill.schema_mapping import assess_schema_mapping, confirmed_mapping_from_source_to_canonical
 
+from tests.public_fixture_authority import q3_q4_fixture_authority
+
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests" / "fixtures" / "p14"
-RUNNER = ROOT / "skills" / "commerce-lens" / "scripts" / "run_public_analysis.py"
+FIXTURE_RUNNER = ROOT / "tests" / "fixture_authority_runner.py"
 
 EXPECTED_REVENUE_CHANGE = Decimal("-20.00")
 EXPECTED_Q4_REVENUE = Decimal("100.00")
@@ -224,10 +226,10 @@ def test_p14_order_grain_export_fails_closed_without_line_level_authority() -> N
     assert "Confirm or correct" in " ".join(assessment.clarification_required)
 
 
-def test_p14_skill_runner_e2e_representative_fixtures() -> None:
+def test_p14_skill_runner_with_explicit_authority_representative_fixtures() -> None:
     required = ("P14-B", "P14-C", "P14-E", "P14-G", "P14-H")
     for fixture_id in required:
-        payload = _run_runner(fixture_id, confirmed=True)
+        payload = _run_runner_with_fixture_authority(fixture_id, confirmed=True)
 
         if fixture_id == "P14-H":
             assert payload["response"]["blocked"] is True
@@ -242,7 +244,7 @@ def test_p14_skill_runner_e2e_representative_fixtures() -> None:
 
 
 def test_p14_skill_runner_blocks_unconfirmed_material_mapping() -> None:
-    payload = _run_runner("P14-B", confirmed=False)
+    payload = _run_runner_with_fixture_authority("P14-B", confirmed=False)
 
     assert payload["request_id"] is None
     assert payload["response"]["blocked"] is True
@@ -298,9 +300,11 @@ def _intent(fixture_id: str, metric: str, *, confirmed: bool = False) -> PublicA
 
 
 def _run(tmp_path: Path, intent: PublicAnalysisIntent):
+    artifacts = ArtifactStore(tmp_path / "artifacts")
     return run_public_analysis(
         intent,
-        artifact_store=ArtifactStore(tmp_path / "artifacts"),
+        artifact_store=artifacts,
+        **q3_q4_fixture_authority(intent.source, artifacts),
         metadata_store=MetadataStore(tmp_path / "metadata.sqlite"),
     )
 
@@ -321,11 +325,11 @@ def _headers_for(fixture_id: str) -> tuple[str, ...]:
         return tuple(file_obj.readline().rstrip("\n").split(","))
 
 
-def _run_runner(fixture_id: str, *, confirmed: bool) -> dict:
+def _run_runner_with_fixture_authority(fixture_id: str, *, confirmed: bool) -> dict:
     filename, source_type = FILES[fixture_id]
     args = [
         sys.executable,
-        str(RUNNER),
+        str(FIXTURE_RUNNER),
         "--source",
         str(FIXTURES / filename),
         "--source-type",
