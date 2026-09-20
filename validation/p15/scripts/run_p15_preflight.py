@@ -7,8 +7,10 @@ import json
 import subprocess
 import sys
 import tempfile
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
+
+from commerce_lens.contracts.common import PeriodDefinition
 
 ROOT = Path(__file__).parents[3]
 DATA = ROOT / "validation" / "p15" / "data"
@@ -23,6 +25,27 @@ MAPPING = {
     "Currency": "currency",
     "Order Status": "eligibility_status",
 }
+DATASET_A_COVERAGE_CONTEXT = {
+    "all_pages_included": True,
+    "all_records_included": True,
+    "paid_included": True,
+    "cancelled_excluded": True,
+    "no_additional_hidden_filters": True,
+    # Keep the source-owner representation from task-s1.md. The generic runner
+    # must normalize this explicit UTC form rather than requiring the
+    # participant to restate it in canonical ISO syntax.
+    "data_availability_cutoff": "2026-04-01 00:00 UTC",
+}
+
+
+def _period_from_payload(payload: dict) -> PeriodDefinition:
+    return PeriodDefinition(
+        period_id=payload["period_id"],
+        label=payload["label"],
+        start_date=date.fromisoformat(payload["start_date"]),
+        end_date=date.fromisoformat(payload["end_date"]),
+        date_convention_ref=payload["date_convention_ref"],
+    )
 
 
 def _base_args(
@@ -94,14 +117,46 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="p15_preflight_") as temp:
         temp_root = Path(temp)
         revenue_args = _base_args(a_source)
-        prepare_code, preview, prepare_error = _run(revenue_args + ["--prepare-coverage"])
-        if prepare_code != 0 or preview.get("status") != "coverage_confirmation_required":
+        prepare_code, preview, prepare_error = _run(
+            revenue_args + [
+                "--prepare-coverage",
+                "--coverage-context-json",
+                json.dumps(DATASET_A_COVERAGE_CONTEXT, sort_keys=True),
+            ]
+        )
+        if prepare_code != 0 or preview.get("status") != "coverage_confirmation_ready":
             raise AssertionError(f"Dataset A coverage preparation failed: {prepare_error or preview}")
+        if preview.get("confirmation_prompt") != "請確認以上資訊是否正確。":
+            raise AssertionError(f"Dataset A did not render the consolidated confirmation prompt: {preview}")
+        if preview.get("missing_facts"):
+            raise AssertionError(f"Dataset A still has missing coverage facts: {preview}")
+        confirmation_text = preview.get("confirmation_text", "")
+        if confirmation_text.count("Coverage proposal:") != 1:
+            raise AssertionError(f"Dataset A proposal was not rendered once: {preview}")
+        if confirmation_text.count("請確認以上資訊是否正確。") != 1:
+            raise AssertionError(f"Dataset A confirmation prompt was duplicated: {preview}")
+        if "yes/no" in confirmation_text.lower() or "unknown" in confirmation_text.lower():
+            raise AssertionError(f"Dataset A rendered field questions instead of a proposal: {preview}")
+        if "Data available through: 2026-04-01T00:00:00Z." not in confirmation_text:
+            raise AssertionError(f"Dataset A cutoff was not rendered canonically: {preview}")
+        if "Authority: USER_DECLARED" not in confirmation_text:
+            raise AssertionError(f"Dataset A authority disclosure was omitted: {preview}")
+        if "not independently verified by CommerceLens" not in confirmation_text:
+            raise AssertionError(f"Dataset A verification disclosure was omitted: {preview}")
+        if "確認完整性" in confirmation_text or "確認完整匯出" in confirmation_text:
+            raise AssertionError(f"Dataset A rendered a special confirmation phrase: {preview}")
+        if "data-availability cutoff (UTC)" in confirmation_text:
+            raise AssertionError(f"Dataset A cutoff was re-requested: {preview}")
 
         from commerce_lens.skill.coverage_intake import confirm_declaration
 
         declaration = confirm_declaration(
             preview["declaration_template"], response="Confirm",
+            proposal_fingerprint=preview["proposal_fingerprint"],
+            requested_periods=(
+                _period_from_payload(preview["confirmation_summary"]["requested_periods"][0]),
+                _period_from_payload(preview["confirmation_summary"]["requested_periods"][1]),
+            ),
             declaration_id="p15_preflight_declaration",
             recorded_at=datetime.now(UTC),
             data_availability_cutoff=datetime(2026, 4, 1, tzinfo=UTC),

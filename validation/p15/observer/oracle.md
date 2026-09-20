@@ -33,6 +33,21 @@ Public v0.1 descriptive comparison.
 - Coverage is USER_DECLARED only when the participant explicitly confirms the
   complete coverage summary and source basis.
 
+### S1 source-owner context
+
+The participant-facing S1 task sheet supplies the following factual basis from
+the dataset owner. The owner reviewed the export conditions: both requested
+periods were closed before the export was produced; the export includes all
+pages and records for the stated scope; paid orders are included; cancelled
+orders are excluded according to the stated export scope; no additional hidden
+date or status filters were applied beyond the stated scope; and the data is
+complete through at least 2026-04-01 00:00 UTC.
+
+This context is intentionally factual and does not tell the participant which
+coverage response to select. Do not add coaching or replace it with expected
+product behavior. Dataset B must continue to use its separate uncertain-source
+context.
+
 ### Expected deterministic values
 
 | Metric | Baseline | Comparison |

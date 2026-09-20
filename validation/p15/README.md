@@ -15,6 +15,11 @@ task sheets, and reproducibility checks.
 - Pilot sequence: P01 first; proceed toward P02/P03 only after the P01 gate
 - F3 is out of scope and does not block this package
 - Single-period KPI is excluded from the P15 pass gate
+- P00 protocol correction applied: S1 now includes neutral, reviewed
+  Dataset A source-owner context sufficient to assess export completeness;
+  the internal S1–S5 rehearsal is complete; P01 has not been run
+- P00: **PASS** as an internal expert protocol rehearsal with 0 external participants
+- P15: **NOT PASS**
 - Current readiness: **READY FOR P01**
 - Approved period correction: baseline 2025-01-01–2025-03-31 and comparison
   2026-01-01–2026-03-31; both are 90 calendar days inclusive.
@@ -53,3 +58,22 @@ internal project material.
 
 No participant data, credentials, customer data, or employer-confidential data
 may be collected.
+
+## P00 protocol correction
+
+The P00 rehearsal confirmed that CommerceLens correctly kept mapping
+confirmation separate from coverage authority and correctly remained blocked
+when the participant could not establish source completeness. The failure was
+in the S1 protocol materials: the participant had no factual source-owner basis
+or cutoff for deciding whether Dataset A was complete.
+
+S1 now provides the dataset owner's reviewed export conditions in plain
+language. This context describes the closed periods, all-pages/all-records
+scope, paid and cancelled status treatment, absence of additional hidden
+date/status filters, and completeness through at least `2026-04-01 00:00 UTC`.
+It contains no expected metric values and no instruction about which product
+choice to make. Dataset B's unknown-coverage context is unchanged.
+
+The corrected S1–S5 paths passed the internal P00 rehearsal. This result does
+not count as external participant evidence. P01 remains the next gate, and P15
+remains incomplete until the unchanged external-participant thresholds are met.

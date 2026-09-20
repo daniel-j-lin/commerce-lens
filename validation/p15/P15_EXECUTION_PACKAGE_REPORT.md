@@ -3,14 +3,36 @@
 ## 1. Decision and scope
 
 The equal-period fixture correction was already approved by the owner. This
-work applies that correction only; it does not change CommerceLens product
-behavior, equal-duration validation, Metric semantics, or F3.
+work preserves equal-duration validation, Metric semantics, and F3 scope while
+fixing the P00 S1 consolidated coverage rendering path.
 
 - Starting HEAD: `0d4c92d3cfe50e723856b95a998bff6150014989`
 - Branch: `codex/f1-b-governed-coverage-intake`
-- Product behavior changed: no
+- Product behavior changed: yes — complete source context now renders as one
+  declarative coverage proposal with one final confirmation prompt
 - Human participant session: not run
-- Repository closeout: one P15-only commit; no push/tag/release/deploy
+- P00 protocol correction: participant/observer documentation and the
+  host-facing coverage renderer updated; F1-B policy and dataset bytes unchanged
+- P00 code-under-test commit: `07fbce38556e7eaccbbb4338ba7a8072cdff942c`
+- Repository closeout: local commits only; no push/tag/release/deploy
+
+### P00 protocol correction
+
+The P00 rehearsal was classified as a test-protocol defect. CommerceLens
+correctly proposed mapping, kept mapping confirmation separate from coverage
+authority, requested explicit coverage confirmation, and remained blocked with
+no Revenue Change claim when the participant truthfully lacked a completeness
+basis. The defect was that the S1 participant task did not provide the factual
+source-owner context or cutoff needed for a Dataset A owner to determine
+completeness.
+
+The S1 task now provides the dataset owner's reviewed statement that both
+requested periods were closed before export, all pages and records for the
+stated scope are included, paid orders are included, cancelled orders are
+excluded under the stated scope, no additional hidden date/status filters were
+applied, and the data is complete through at least `2026-04-01 00:00 UTC`.
+This is a neutral source basis, not an instruction about the product action.
+Dataset B's uncertain-source context remains unchanged. P01 has not been run.
 
 ## 2. Current frozen periods
 
@@ -96,8 +118,8 @@ identifiers.
 
 ### Dataset A CommerceLens preflight
 
-Passed through the actual governed public runner at HEAD
-`0d4c92d3cfe50e723856b95a998bff6150014989`:
+Passed through the actual governed public runner at P00 code-under-test commit
+`07fbce38556e7eaccbbb4338ba7a8072cdff942c`:
 
 1. confirmed non-canonical source mapping;
 2. prepared and confirmed USER_DECLARED coverage;
@@ -134,6 +156,10 @@ Passed. Participant-facing files do not expose expected values, expected
 success/failure, expected refusal, Confirm/I don't know instructions, or
 observer-only USER_DECLARED explanations.
 
+The added S1 source-owner context contains only export conditions and the
+completeness cutoff. It does not contain expected Revenue, Orders, AOV, or
+Revenue Change values, nor does it identify which coverage response to select.
+
 ### Formatting and package review
 
 Passed:
@@ -146,11 +172,14 @@ Passed:
 
 ## 6. Readiness
 
-**READY FOR P01.**
+**P00 INTERNAL REHEARSAL COMPLETE — READY FOR P01.**
 
 This status is based on all required preparation gates above. It does not mean
-P15 has been run and does not imply general usability or product-market fit.
+P15 has passed and does not imply general usability or product-market fit.
 
-No product change is required before P01. The moderator must still use the
-separate moderator/product-session setup and must not expose observer-only
-material to the participant.
+P00 S1–S5 completed the internal expert rehearsal. The corrected task sheet
+feeds complete structured context into the renderer, which shows one
+declarative proposal and accepts plain `確認`. External participant contribution
+remains zero. P01 has not been run, P15 is **NOT PASS**, and the moderator must
+still use the separate moderator/product-session setup without exposing
+observer-only material to the participant.

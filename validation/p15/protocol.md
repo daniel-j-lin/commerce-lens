@@ -43,8 +43,12 @@ Periods:
 - Comparison: 2026-01-01 through 2026-03-31 inclusive
 
 The source uses non-canonical headers, USD only, `paid` as eligible, and
-`cancelled` as excluded. The source is intentionally not accompanied by an
-oracle or implementation explanation in participant material.
+`cancelled` as excluded. S1 is accompanied by a neutral participant-facing
+source-owner statement covering period closure, all pages and records for the
+stated scope, paid and cancelled status treatment, the absence of additional
+hidden date/status filters, and completeness through at least
+`2026-04-01 00:00 UTC`. The statement provides factual source basis only; it
+does not include an oracle value or expected product action.
 
 ### Dataset B
 
@@ -52,6 +56,10 @@ oracle or implementation explanation in participant material.
 same public source shape. The participant-facing context truthfully states
 that they do not know whether all pages, relevant status filters, and complete
 records are present. No accepted coverage declaration is supplied.
+
+The Dataset B context remains intentionally different from S1: it does not
+provide the source-owner completeness basis used for Dataset A and must remain
+blocked or clarification-required.
 
 The expected authority outcome is blocked or clarification-required, with no
 material Revenue, Orders, AOV, or Revenue Change claim.
@@ -166,3 +174,19 @@ the final report:
 - `git diff --check`.
 
 No human participant may be run as part of this preparation goal.
+
+## 12. P00 protocol correction
+
+The P00 rehearsal showed that the product correctly separated mapping
+confirmation from coverage authority and correctly remained blocked when the
+participant could not establish source completeness. The protocol defect was
+that S1 did not provide enough truthful source-owner context for a Dataset A
+owner to determine completeness. The S1 task sheet now supplies that context
+without instructing a UI choice or exposing the private oracle. This is a
+test-protocol correction only; CommerceLens behavior and F1-B coverage policy
+are unchanged.
+
+The corrected S1–S5 paths subsequently passed P00 as an internal expert
+protocol rehearsal. External participant contribution is zero. P01 has not
+been run, and the P00 result does not satisfy or reduce any P15 participant
+threshold. P15 remains **NOT PASS**.

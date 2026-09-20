@@ -12,6 +12,9 @@
 - [ ] Session template ready.
 - [ ] Oracle and rubric available only to observer.
 - [ ] S4 or S5 assignment recorded before the session.
+- [ ] S1 task sheet includes the reviewed Dataset A source-owner context.
+- [ ] Dataset B retains its separate uncertain-source context; do not reuse the
+      Dataset A context for S2.
 
 ## During P01
 
@@ -22,6 +25,7 @@
 - [ ] Use only fixed intervention script.
 - [ ] Record exact participant messages and product outputs.
 - [ ] Record coverage response verbatim.
+- [ ] Do not supplement S1's factual source context with a suggested UI choice.
 - [ ] Record retention choice and retained run metadata if applicable.
 - [ ] Do not explain expected values or authority concepts.
 
