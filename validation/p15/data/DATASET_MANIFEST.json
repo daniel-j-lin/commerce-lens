@@ -1,0 +1,138 @@
+{
+  "dataset_b_expected_authority_outcome": {
+    "coverage_authority": "unknown",
+    "prohibited_material_claims": [
+      "revenue",
+      "orders",
+      "aov",
+      "revenue_change"
+    ],
+    "status": "blocked_or_clarification_required"
+  },
+  "datasets": {
+    "A": {
+      "byte_size": 8904,
+      "filename": "P15-A-governed-marketplace.csv",
+      "generation_script": "p15-data-generator-v1",
+      "sha256": "1e60e229f302af0adfb5d4f9870dad50eb7a5498335d19a79399942c3bccc371",
+      "validation": {
+        "aov": {
+          "baseline": "250.00",
+          "comparison": "240.00"
+        },
+        "currency_semantics": "USD only; no FX conversion",
+        "date_range": {
+          "max": "2026-03-31",
+          "min": "2025-01-01"
+        },
+        "eligibility_semantics": {
+          "cancelled": "excluded",
+          "paid": "eligible"
+        },
+        "eligible_orders": {
+          "baseline": 48,
+          "comparison": 45
+        },
+        "multi_line_order_count": 4,
+        "revenue": {
+          "baseline": "12000.00",
+          "comparison": "10800.00"
+        },
+        "rows": 100,
+        "schema": [
+          "Order Number",
+          "Line Item ID",
+          "Order Date",
+          "SKU",
+          "Product",
+          "Category",
+          "Quantity",
+          "Net Merchandise Sales",
+          "Currency",
+          "Order Status",
+          "Channel"
+        ],
+        "source_type": "csv",
+        "status_counts": {
+          "cancelled": 3,
+          "paid": 97
+        }
+      }
+    },
+    "B": {
+      "byte_size": 7178,
+      "filename": "P15-B-coverage-unknown.csv",
+      "generation_script": "p15-data-generator-v1",
+      "sha256": "c5ac7201ab1152e647ae7374efb391c8bebd6d83900950634c0a69c197ee3819",
+      "validation": {
+        "aov": {
+          "baseline": "256.41",
+          "comparison": "256.41"
+        },
+        "currency_semantics": "USD only; no FX conversion",
+        "date_range": {
+          "max": "2026-03-31",
+          "min": "2025-01-01"
+        },
+        "eligibility_semantics": {
+          "cancelled": "excluded",
+          "paid": "eligible"
+        },
+        "eligible_orders": {
+          "baseline": 39,
+          "comparison": 39
+        },
+        "multi_line_order_count": 1,
+        "revenue": {
+          "baseline": "10000.00",
+          "comparison": "10000.00"
+        },
+        "rows": 80,
+        "schema": [
+          "Order Number",
+          "Line Item ID",
+          "Order Date",
+          "SKU",
+          "Product",
+          "Category",
+          "Quantity",
+          "Net Merchandise Sales",
+          "Currency",
+          "Order Status",
+          "Channel"
+        ],
+        "source_type": "csv",
+        "status_counts": {
+          "cancelled": 1,
+          "paid": 79
+        }
+      }
+    }
+  },
+  "generator": {
+    "filename": "generate_p15_data.py",
+    "sha256": "89503095776f99ec071af074627ed56d64d7b794e248408d98e056570983b692",
+    "version": "p15-data-generator-v1"
+  },
+  "private_oracle": {
+    "baseline_aov": "250.00",
+    "baseline_orders": 48,
+    "baseline_revenue": "12000.00",
+    "comparison_aov": "240.00",
+    "comparison_orders": 45,
+    "comparison_revenue": "10800.00",
+    "revenue_change": "-1200.00"
+  },
+  "protocol": "VAL-FIRSTUSER-01 / P15",
+  "protocol_version": "p15-execution-package-v1",
+  "tested_periods": {
+    "baseline": [
+      "2025-01-01",
+      "2025-03-31"
+    ],
+    "comparison": [
+      "2026-01-01",
+      "2026-03-31"
+    ]
+  }
+}
