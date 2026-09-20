@@ -119,15 +119,14 @@ artifact/record linkages, integrity checks, and final `complete.marker` all
 agree. Runs without that finalization state remain visible as incomplete or
 failed and must not be treated as retained evidence.
 
-The supported answer is absolute Revenue Change. Public v0.1.3 does not add a
+The supported answer is absolute Revenue Change. CommerceLens v0.2.0 does not add a
 percentage, causal explanation, or recommendation.
 
 ## Verification
 
-Current v0.1.3 verification evidence recorded in the README describes a
-specific 2026-09-04 Python 3.11.9 run, including a full repository suite result
-of `601 passed`. Test counts are evidence from that verification run, not a
-permanent contract.
+CommerceLens v0.2.0 release verification records the exact focused and full
+suite results in the local release report. Test counts are evidence from a
+specific run, not a permanent contract.
 
 Useful focused checks:
 
@@ -136,6 +135,8 @@ python -m pytest tests/p14
 python -m pytest tests/skill/test_native_plugin_packaging.py tests/skill/test_integration.py tests/skill/test_public_response.py tests/end_to_end/test_public_v0_1.py
 python -m pytest tests/fixture_runner
 python -m pytest tests/application
+python -m pytest -p no:cacheprovider tests/docs/test_readme_bilingual_parity.py
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python validation/p15/scripts/run_p15_preflight.py
 python -m pytest
 git diff --check
 ```
@@ -173,10 +174,78 @@ Run `.venv/bin/python -m pytest tests/skill/test_coverage_intake.py`.
 
 Confirmation uses the exact `COMPLETENESS_ASSERTION` and
 `SOURCE_BASIS_ASSERTION` constants. V1 accepts only the reviewed-export-controls
-basis. A host must show the basis and obtain explicit confirmation that export
-date range, population/status filters, all pages and completion status were
-reviewed; do not convert arbitrary prose into this assertion. Unsupported basis
-or uncertainty remains blocked. These assertions record user knowledge, not
-independent verification. Full mappings (including IDs) are conservatively bound;
-even equivalent remapping can require a new declaration/store. Retained unresolved
-conflicts block; temporary runs cannot discover declarations in deleted stores.
+basis. The host shows that basis inside one complete proposal and normalizes
+affirmative language to the canonical confirmation intent; it does not require a
+second audit-wording response. Do not convert arbitrary prose or uncertainty
+into this assertion. Unsupported basis or uncertainty remains blocked. These
+assertions record user-declared coverage, not independent verification. Full
+mappings (including IDs) are conservatively bound; even equivalent remapping can
+require a new declaration/store. Retained unresolved conflicts block; temporary
+runs cannot discover declarations in deleted stores.
+
+## Coverage authority and renderer contract
+
+Mapping authority answers what a source field means. Coverage authority answers
+whether the governed periods, population, and filters are complete. Neither
+authority substitutes for the other. `PublicCoverageContext` carries reviewed
+host facts only into proposal rendering; it is not Evidence. The user-confirmed
+proposal creates `USER_DECLARED` authority only after deterministic validation.
+
+`coverage_proposal_fingerprint(...)` binds the complete displayed proposal to
+the current source, mapping/eligibility context, scope, periods, cutoff, and
+governed assertions. A stale or mismatched fingerprint fails closed. Explicit
+timezone offsets canonicalize to UTC; naive timestamps are rejected. The
+renderer displays complete known facts once and lists only genuinely missing
+facts. It must never manufacture completeness from request dates or observed
+dataset dates.
+
+## Canonical, runtime, and installed Skill roles
+
+- `skills/commerce-lens/SKILL.md` is the canonical public plugin instruction.
+- `src/commerce_lens/skill/SKILL.md` is the runtime/source distribution copy
+  with a more compact role-specific presentation.
+- An installed user or isolated Skill is derived distribution state, never the
+  place to fix release behavior.
+
+The two repository Skills require behavioral parity for mapping/coverage
+separation, consolidated confirmation, `USER_DECLARED` disclosure, cutoff and
+missing-fact behavior, proposal binding, temporary/retained routing,
+`list`/`inspect`/`verify`, diagnostic refusal, and fail-closed behavior. They do
+not need byte-for-byte identity. The deterministic parity test is
+`tests/skill/test_skill_distribution_parity.py`.
+
+## Retention lifecycle
+
+The host selects temporary or retained mode before execution. Retained mode
+creates the run, persists source and canonical artifacts, writes metadata and
+public/result artifacts, validates linkage and hashes from disk, writes the
+`retained_complete` manifest, and writes `complete.marker` last. A completion
+marker must never precede verified persistence. Failure records a failed state
+and returns nonzero; it cannot silently become complete.
+
+`list`, `inspect`, and `verify` operate across processes. Verification checks
+persistence integrity and does not replay analysis. Retention does not alter
+`ClaimDecision`, source authority, or Metric semantics. Temporary mode creates
+no retained run.
+
+## P15 and release verification
+
+P00 is a completed internal protocol rehearsal with zero external participants.
+P01 has not been run, and P15 remains NOT PASS. Run preflight with:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src \
+  .venv/bin/python validation/p15/scripts/run_p15_preflight.py
+```
+
+The release gate also requires focused coverage and retention tests, packaging
+and diagnostic refusal regressions, README parity, the complete suite,
+`git diff --check`, data-safety review, and an isolated install from the exact
+candidate commit.
+
+For the isolated gate, use a clean clone or worktree and a separate
+`AUDIT_CODEX_HOME`; never overwrite the developer's configured Codex home or
+patch an installed cache directly. Verify plugin version, canonical/installed
+Skill and runner hashes, Dataset A temporary and retained behavior, Dataset B
+blocking, diagnostic refusal, and absence of a retained run in temporary mode.
+Any divergence is fixed in canonical repository source, committed, and retested.

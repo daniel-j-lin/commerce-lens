@@ -1,7 +1,8 @@
 # CommerceLens Public Usage
 
 This document keeps operational details out of the main README while preserving
-the current Public v0.1.3 usage surface.
+the current CommerceLens v0.2.0 usage surface while preserving the Public v0.1
+analytical contract.
 
 ## Install The Codex Plugin
 
@@ -35,8 +36,7 @@ The repository distribution files are:
 - `skills/commerce-lens/scripts/run_public_analysis.py`
 
 After installation, restart or reload Codex if your surface requires it. In a
-fresh Codex session, provide a CSV or XLSX file and ask a supported Public
-v0.1.3 question.
+fresh Codex session, provide a CSV or XLSX file and ask a supported question.
 
 ## Local Checkout Installation
 
@@ -62,7 +62,7 @@ Why did revenue drop from Q3 2026 to Q4 2026?
 What was AOV in Q4 2026?
 ```
 
-Public v0.1.3 supports:
+CommerceLens v0.2.0 supports:
 
 - single-period Revenue;
 - single-period Orders;
@@ -121,15 +121,17 @@ confirmation and deterministic validation.
 ## Deterministic Runner
 
 CommerceLens does not expose a standalone `commerce-lens` shell CLI or hosted
-API in Public v0.1.3. The repository includes a deterministic runner script used
+API in CommerceLens v0.2.0. The repository includes a deterministic runner script used
 by the Skill and developer verification.
 
 The default is temporary: without `--retention-root`, isolated stores are
-removed when the runner exits. To explicitly retain a self-contained evidence
-package, supply `--retention-root ROOT` before analysis. The package is written
-under `ROOT/<run_id>/` with `manifest.json`, `complete.marker`, `artifacts/`,
-and `metadata.sqlite`; finalization failure exits nonzero and is never reported
-as complete.
+removed when the runner exits. When a user explicitly asks the host to retain
+the full evidence for later inspection, the host passes `--retain-evidence`
+and `--retention-root ROOT` before analysis. The package is written under
+`ROOT/<run_id>/` with `manifest.json`, `complete.marker`, `artifacts/`, and
+`metadata.sqlite`; finalization failure exits nonzero and is never reported as
+complete. The deterministic runner does not parse the user's prose; the host
+must make the explicit retention decision before invoking it.
 
 `--artifact-store` and `--metadata-store` remain a paired low-level component
 store interface for compatibility. They are not the F2-A retained-run package
@@ -225,15 +227,49 @@ is resolved (select an XLSX sheet explicitly). The returned template binds the
 DatasetRegistry ID and SHA-256 source bytes to the actual mapping/eligibility
 context. Filename is for identification only. Preview never executes analysis.
 
-The Skill separately asks for cutoff/source basis and shows file/sheet, inclusive
-UTC dates, population, eligibility and exact filters. Only explicit Confirm of
-that complete summary records the assertion. Correct requires another summary;
-I don't know, vague replies and silence remain blocked. For programmatic Skill
-hosts, call `coverage_intake.confirm_declaration(template, response="Confirm",
+The Skill assembles one complete proposal showing file/sheet, inclusive UTC
+dates, population, eligibility, exact filters, all-pages/all-records
+completeness basis, and cutoff. Only one explicit confirmation of that exact
+summary records the assertion. Missing, ambiguous, or contradictory facts
+trigger targeted clarification only. Host language such as `確認`, `沒問題`, or
+`Yes` is normalized to `confirmation_intent="confirmed"`; arbitrary free-form
+text is not sent to deterministic intake. For programmatic Skill hosts, compute
+`coverage_intake.coverage_proposal_fingerprint(template,
+requested_periods=(baseline_period, comparison_period),
+data_availability_cutoff=user_cutoff)`, then call
+`coverage_intake.confirm_declaration(template,
+confirmation_intent="confirmed", proposal_fingerprint=proposal_fingerprint,
+requested_periods=(baseline_period, comparison_period),
 recorded_at=actual_utc_time, declaration_id=local_unique_id,
-data_availability_cutoff=user_cutoff, source_basis_detail=user_basis)` and write
-`model_dump_json()` to a temporary file. This helper records a declaration, not
-trusted evidence; the runner still validates it. No personal identity is needed.
+data_availability_cutoff=user_cutoff)` and write `model_dump_json()` to a
+temporary file. This helper records a declaration, not trusted evidence; the
+runner still validates it. No personal identity is needed.
+
+For a reviewed export, proposal preparation may receive structured host context:
+
+```bash
+python3.11 skills/commerce-lens/scripts/run_public_analysis.py \
+  --source validation/p15/data/P15-A-governed-marketplace.csv \
+  --source-type csv \
+  --question-class revenue_change \
+  --metric revenue_change \
+  --baseline-label "Q1 2025" \
+  --baseline-start 2025-01-01 \
+  --baseline-end 2025-03-31 \
+  --comparison-label "Q1 2026" \
+  --comparison-start 2026-01-01 \
+  --comparison-end 2026-03-31 \
+  --mapping-file path/to/confirmed-mapping.json \
+  --prepare-coverage \
+  --coverage-context-json '{"all_pages_included":true,"all_records_included":true,"paid_included":true,"cancelled_excluded":true,"no_additional_hidden_filters":true,"data_availability_cutoff":"2026-04-01T00:00:00Z"}'
+```
+
+A complete response contains one declarative `confirmation_text` ending in
+`請確認以上資訊是否正確。`. Plain `確認` is sufficient at the host layer. The host
+must not ask for `確認完整性`, `確認完整匯出`, `Confirm coverage`, or `Confirm
+complete export`. If only the cutoff is missing, ask only for the cutoff; do not
+repeat already resolved pages, records, status, or filter questions. A
+timezone-free or contradictory cutoff fails closed.
 
 Add `--coverage-declaration /path/to/coverage.json` to the normal invocation.
 The same validator accepts a manifest; v1 accepts one declaration or up to 16
@@ -255,7 +291,8 @@ requires a reviewed-export basis, not source min/max inference.
 Coverage supplies only source authority. Separate mapping input authority and
 existing canonicalization, currency, eligibility, sufficiency, execution,
 validation and ClaimDecision checks remain mandatory. The trusted Python API
-remains compatible. No new ClaimDecision state or permanent retention is added.
+remains compatible. No new ClaimDecision state is added. Explicit retained mode
+uses the separate F2-A lifecycle; temporary remains the default.
 
 Results include `response.coverage_provenance` with the declaration and artifact
 reference, and the visible disclosure: Coverage is based on a user-provided
@@ -266,9 +303,24 @@ root when a self-contained local evidence package is wanted. Delete temporary
 declaration-input files after use. See the [F2-A amendment](amendments/F2-A-evidence-persistence-retention-v1.md).
 
 
-V1's source basis is deliberately bounded: before confirmation, show the user
-“I reviewed the export date range, population/status filters, all pages and export
-completion status against this declaration.” Record the exact
-`SOURCE_BASIS_ASSERTION` constant only if they explicitly confirm it. If this is
-not their basis or they are uncertain, ask for clarification and remain blocked.
-Do not paraphrase uncertain/free-form replies into the fixed assertion.
+V1's source basis is deliberately bounded: show the governed completeness basis
+inside the consolidated proposal and derive the exact `SOURCE_BASIS_ASSERTION`
+from that confirmed proposal. The user does not need to repeat the same audit
+wording separately. If the basis is missing or uncertain, ask for clarification
+and remain blocked. Do not paraphrase uncertain/free-form replies into the fixed
+assertion.
+
+## Common blocked outcomes and diagnostic refusal
+
+- Missing or unconfirmed mapping: clarify or confirm the mapping; do not run
+  material analysis.
+- Missing coverage facts: ask only for the unresolved facts; do not infer them
+  from request dates, observed dates, row count, or filename.
+- Stale proposal fingerprint: rebuild and redisplay the complete proposal.
+- Unknown Dataset B-style coverage: remain blocked with zero supported material
+  claims.
+- Retention finalization failure: report the failure; never emit
+  `retained_complete`.
+- Diagnostic “why” request: the descriptive Revenue Change may be supported,
+  but the explanation must be refused with `Insufficient evidence to conclude
+  why Revenue declined.`

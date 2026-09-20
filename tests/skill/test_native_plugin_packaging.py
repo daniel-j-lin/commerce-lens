@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -16,6 +17,9 @@ RUNNER = REPO_ROOT / "skills" / "commerce-lens" / "scripts" / "run_public_analys
 FIXTURE_RUNNER = REPO_ROOT / "tests" / "fixture_authority_runner.py"
 ORDERS_CSV = REPO_ROOT / "examples" / "public_v0_1" / "orders.csv"
 AOV_UNDEFINED_CSV = REPO_ROOT / "examples" / "public_v0_1" / "aov_undefined.csv"
+PYPROJECT = REPO_ROOT / "pyproject.toml"
+PACKAGE_INIT = REPO_ROOT / "src" / "commerce_lens" / "__init__.py"
+RETENTION_MANIFESTS = REPO_ROOT / "src" / "commerce_lens" / "persistence" / "manifests.py"
 
 
 def test_codex_repo_marketplace_exists_parses_and_exposes_commerce_lens() -> None:
@@ -48,7 +52,7 @@ def test_codex_plugin_manifest_exists_parses_and_points_to_skills() -> None:
     payload = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))
 
     assert payload["name"] == "commerce-lens"
-    assert payload["version"] == "0.1.3"
+    assert payload["version"] == "0.2.0"
     assert payload["skills"] == "./skills/"
     assert "evidence-governed" in payload["description"].lower()
     assert payload["author"]["name"] == "CommerceLens"
@@ -58,6 +62,20 @@ def test_codex_plugin_manifest_exists_parses_and_points_to_skills() -> None:
     assert "deterministic governed runner" in payload["interface"]["longDescription"]
     assert "apps" not in payload
     assert "mcpServers" not in payload
+
+
+def test_active_product_versions_are_synchronized_without_schema_renumbering() -> None:
+    plugin = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    package_init = PACKAGE_INIT.read_text(encoding="utf-8")
+    runner = RUNNER.read_text(encoding="utf-8")
+    retention_manifests = RETENTION_MANIFESTS.read_text(encoding="utf-8")
+
+    assert plugin["version"] == "0.2.0"
+    assert project["project"]["version"] == "0.2.0"
+    assert '__version__ = "0.2.0"' in package_init
+    assert 'plugin_version="0.2.0"' in runner
+    assert 'manifest_version: str = "f2_a_retention_v1"' in retention_manifests
 
 
 def test_installable_skill_exists_and_frontmatter_parses() -> None:

@@ -1,7 +1,7 @@
 # VAL-FIRSTUSER-01 / P15 Execution Package
 
 This directory is the frozen preparation package for external first-user
-validation of CommerceLens Public v0.1.3.
+validation of CommerceLens v0.2.0 while preserving the Public v0.1 analytical contract.
 
 This package does not modify product behavior and does not run a participant
 session. It contains synthetic data, private observer material, participant
