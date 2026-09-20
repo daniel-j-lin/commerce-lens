@@ -7,11 +7,12 @@ import argparse
 from contextlib import nullcontext
 import importlib
 import json
+import re
 import subprocess
 import sys
 import tempfile
 from dataclasses import asdict, is_dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
@@ -31,8 +32,12 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--retention-root cannot be combined with explicit artifact/metadata stores")
     if args.retention_mode == "retained" and not args.retention_root:
         parser.error("--retention-mode retained requires --retention-root")
-    if args.retention_mode == "temporary" and args.retention_root:
-        parser.error("--retention-mode temporary cannot be combined with --retention-root")
+    if args.retention_mode == "temporary" and (args.retention_root or args.retain_evidence):
+        parser.error("--retention-mode temporary cannot be combined with retained evidence")
+    if args.retain_evidence and not args.retention_root:
+        parser.error("--retain-evidence requires --retention-root")
+    if args.retention_root and args.retention_mode not in (None, "retained"):
+        parser.error("--retention-root selects retained mode; do not select temporary mode")
 
     operation = args.list_retained or args.inspect_run or args.verify_run or args.delete_run
     if operation:
@@ -138,8 +143,15 @@ def main(argv: list[str] | None = None) -> int:
             if args.prepare_coverage:
                 if args.coverage_declaration:
                     raise ValueError("prepare coverage and declaration input are mutually exclusive")
-                from commerce_lens.skill.integration import prepare_public_coverage
-                payload = prepare_public_coverage(intent, artifact_store=artifact_store)
+                from commerce_lens.skill.integration import (
+                    PublicCoverageContext,
+                    prepare_public_coverage,
+                )
+                payload = prepare_public_coverage(
+                    intent,
+                    artifact_store=artifact_store,
+                    coverage_context=_coverage_context(args, PublicCoverageContext),
+                )
                 print(json.dumps(payload, indent=2, sort_keys=True, default=_json_default))
                 return 0
             external_intake = {}
@@ -160,7 +172,14 @@ def main(argv: list[str] | None = None) -> int:
                 retention_status="legacy_incomplete" if args.artifact_store else "temporary",
             )
             if retained_session is not None:
-                retained_session.finalize(outcome, public_payload=payload, plugin_version="0.1.3")
+                from commerce_lens.persistence.retention import RetentionError
+                finalized_manifest = retained_session.finalize(
+                    outcome, public_payload=payload, plugin_version="0.1.3"
+                )
+                if finalized_manifest.retention_status.value != "retained_complete":
+                    raise RetentionError(
+                        "retained workflow returned without retained_complete finalization"
+                    )
                 payload["retention_status"] = "retained_complete"
                 payload["retained_run_id"] = retained_session.run_id
                 payload["retained_evidence_location"] = str(retained_session.run_root)
@@ -176,7 +195,8 @@ def main(argv: list[str] | None = None) -> int:
                 retained_session.fail(str(exc))
             except Exception:
                 pass
-        print(f"CommerceLens runner failed: {exc}", file=sys.stderr)
+        prefix = "Retention failed" if retained_session is not None else "CommerceLens runner failed"
+        print(f"{prefix}: {exc}", file=sys.stderr)
         return 1
 
 
@@ -204,10 +224,34 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--mapping-file", help="Path to a JSON file containing confirmed source-to-canonical mapping.")
     parser.add_argument("--coverage-declaration", help="Bounded USER_DECLARED JSON file; deterministic validation is mandatory.")
     parser.add_argument("--prepare-coverage", action="store_true", help="Return an unconfirmed coverage summary/template without executing analysis.")
+    parser.add_argument(
+        "--coverage-context-json",
+        help=(
+            "Host-provided, non-authoritative JSON facts for the complete coverage proposal; "
+            "confirmation and deterministic declaration validation remain required."
+        ),
+    )
+    parser.add_argument(
+        "--coverage-context-file",
+        help="Path to host-provided, non-authoritative JSON facts for coverage proposal preparation.",
+    )
+    parser.add_argument(
+        "--data-availability-cutoff",
+        help="UTC ISO cutoff for coverage proposal preparation (convenience form of coverage context).",
+    )
+    parser.add_argument("--extracted-at", help="Optional UTC ISO extraction time for coverage proposal preparation.")
     parser.add_argument("--artifact-store")
     parser.add_argument("--metadata-store")
     parser.add_argument("--retention-root", help="Create or operate on self-contained retained runs under this directory.")
     parser.add_argument("--retention-mode", choices=("temporary", "retained"))
+    parser.add_argument(
+        "--retain-evidence",
+        action="store_true",
+        help=(
+            "Host-confirmed explicit user request to retain the complete evidence package; "
+            "requires --retention-root."
+        ),
+    )
     parser.add_argument("--list-retained", action="store_true")
     parser.add_argument("--inspect-run")
     parser.add_argument("--verify-run")
@@ -308,6 +352,71 @@ def _mapping(args: argparse.Namespace, factory) -> Any | None:
     if not isinstance(parsed, dict) or not all(isinstance(key, str) and isinstance(value, str) for key, value in parsed.items()):
         raise ValueError("mapping JSON must be a source-to-canonical object with string keys and values")
     return factory(parsed)
+
+
+def _coverage_context(args: argparse.Namespace, context_cls):
+    if args.coverage_context_json and args.coverage_context_file:
+        raise ValueError("use either --coverage-context-json or --coverage-context-file, not both")
+    raw = args.coverage_context_json
+    if args.coverage_context_file:
+        raw = Path(args.coverage_context_file).read_text(encoding="utf-8")
+    payload = json.loads(raw) if raw else {}
+    if not isinstance(payload, dict):
+        raise ValueError("coverage context must be a JSON object")
+    allowed = {
+        "all_pages_included",
+        "all_records_included",
+        "paid_included",
+        "cancelled_excluded",
+        "no_additional_hidden_filters",
+        "data_availability_cutoff",
+        "extracted_at",
+    }
+    unknown = sorted(set(payload) - allowed)
+    if unknown:
+        raise ValueError(f"unsupported coverage context fields: {', '.join(unknown)}")
+    for key in (
+        "all_pages_included",
+        "all_records_included",
+        "paid_included",
+        "cancelled_excluded",
+        "no_additional_hidden_filters",
+    ):
+        if key in payload and not isinstance(payload[key], bool):
+            raise ValueError(f"coverage context field {key} must be boolean")
+    for key in ("data_availability_cutoff", "extracted_at"):
+        if key in payload and not isinstance(payload[key], str):
+            raise ValueError(f"coverage context field {key} must be an ISO timestamp")
+    cutoff = args.data_availability_cutoff or payload.get("data_availability_cutoff")
+    extracted_at = args.extracted_at or payload.get("extracted_at")
+    if cutoff is not None:
+        if "data_availability_cutoff" in payload and args.data_availability_cutoff:
+            raise ValueError("data-availability cutoff supplied twice")
+        payload["data_availability_cutoff"] = _utc_datetime(cutoff)
+    if extracted_at is not None:
+        if "extracted_at" in payload and args.extracted_at:
+            raise ValueError("extraction time supplied twice")
+        payload["extracted_at"] = _utc_datetime(extracted_at)
+    if not payload:
+        return None
+    return context_cls(**payload)
+
+
+def _utc_datetime(value: str) -> datetime:
+    normalized = value.strip()
+    if re.search(r"\sUTC$", normalized, flags=re.IGNORECASE):
+        normalized = re.sub(r"\sUTC$", "+00:00", normalized, flags=re.IGNORECASE)
+    elif normalized.endswith(("Z", "z")):
+        normalized = normalized[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise ValueError(
+            "coverage timestamps require an unambiguous ISO timestamp with an explicit timezone"
+        ) from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("coverage timestamps require an explicit timezone")
+    return parsed.astimezone(UTC)
 
 
 def _looks_like_canonical_mapping(parsed: Any) -> bool:

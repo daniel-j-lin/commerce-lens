@@ -24,6 +24,7 @@ POLICY_VERSION = "public_user_declared_coverage_v1"
 COMPLETENESS_ASSERTION = "I confirm this export is complete for the declared period, population and filters through the declared data-availability cutoff."
 DISCLOSURE = "Coverage is based on a user-provided declaration and has not been independently verified by CommerceLens."
 SOURCE_BASIS_ASSERTION = "I reviewed the export date range, population/status filters, all pages and export completion status against this declaration."
+CONFIRMED_INTENT = "confirmed"
 MAX_DECLARATION_BYTES = 65536
 
 
@@ -126,22 +127,95 @@ def declaration_template(dataset: DatasetReference, context: CanonicalizationReq
     }
 
 
-def confirm_declaration(template: dict, *, response: str, recorded_at: datetime,
+def _utc_iso(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("coverage timestamps require an explicit timezone")
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def complete_coverage_proposal(template: dict, *, data_availability_cutoff: datetime,
+                               source_basis_detail: str = SOURCE_BASIS_ASSERTION,
+                               extracted_at: datetime | None = None) -> dict:
+    """Build the exact structured facts that may be shown and confirmed.
+
+    The result is still a proposal, not evidence. Required authority fields are
+    deliberately populated only from explicit host-provided coverage facts.
+    """
+    if not data_availability_cutoff:
+        raise ValueError("a complete coverage proposal requires a data-availability cutoff")
+    if source_basis_detail != SOURCE_BASIS_ASSERTION:
+        raise ValueError("coverage source basis must use the governed reviewed-export-controls assertion")
+    return {
+        **template,
+        "data_availability_cutoff": _utc_iso(data_availability_cutoff),
+        "extracted_at": _utc_iso(extracted_at),
+        "source_basis": "reviewed_export_controls",
+        "source_basis_detail": source_basis_detail,
+        "completeness_assertion": COMPLETENESS_ASSERTION,
+    }
+
+
+def _proposal_binding(proposal: dict, requested_periods: tuple[PeriodDefinition, ...]) -> dict:
+    """Return all displayed semantic facts, excluding run-local identity fields."""
+    binding = {
+        key: value for key, value in proposal.items()
+        if key not in {"declaration_id", "recorded_at", "actor_session_ref"}
+    }
+    binding["requested_periods"] = [period.model_dump(mode="json") for period in requested_periods]
+    return binding
+
+
+def coverage_proposal_fingerprint(template: dict, *, requested_periods: tuple[PeriodDefinition, ...],
+                                  data_availability_cutoff: datetime,
+                                  source_basis_detail: str = SOURCE_BASIS_ASSERTION,
+                                  extracted_at: datetime | None = None) -> str:
+    """Fingerprint the complete proposal before any USER_DECLARED authority exists."""
+    proposal = complete_coverage_proposal(
+        template,
+        data_availability_cutoff=data_availability_cutoff,
+        source_basis_detail=source_basis_detail,
+        extracted_at=extracted_at,
+    )
+    return canonical_json_fingerprint(_proposal_binding(proposal, requested_periods))
+
+
+def confirm_declaration(template: dict, *, response: str | None = None,
+                        confirmation_intent: str | None = None,
+                        proposal_fingerprint: str | None = None,
+                        requested_periods: tuple[PeriodDefinition, ...],
+                        recorded_at: datetime,
                         declaration_id: str, data_availability_cutoff: datetime,
-                        source_basis_detail: str, extracted_at: datetime | None = None,
+                        source_basis_detail: str = SOURCE_BASIS_ASSERTION,
+                        extracted_at: datetime | None = None,
                         actor_session_ref: str | None = None) -> CoverageDeclaration:
-    """Record only an explicit Confirm, separately from schema mapping confirmation.
+    """Record only a canonical confirmation of one complete displayed proposal.
 
     This creates an untrusted declaration, NOT coverage evidence. Intake must still
     validate it against the current bytes/context/period and clock before use.
     """
-    if response != "Confirm":
-        raise ValueError("coverage is unconfirmed; Correct or I don't know requires clarification")
+    if confirmation_intent is not None and confirmation_intent != CONFIRMED_INTENT:
+        raise ValueError("coverage is unconfirmed; correction or uncertainty requires clarification")
+    if confirmation_intent is None and response != "Confirm":
+        raise ValueError("coverage is unconfirmed; affirmative language must be normalized to confirmed")
+    if confirmation_intent is not None and response not in (None, "Confirm"):
+        raise ValueError("free-form confirmation text must be normalized by the host")
+    if not proposal_fingerprint:
+        raise ValueError("complete displayed coverage proposal fingerprint is required")
+
+    proposal = complete_coverage_proposal(
+        template,
+        data_availability_cutoff=data_availability_cutoff,
+        source_basis_detail=source_basis_detail,
+        extracted_at=extracted_at,
+    )
+    expected_fingerprint = canonical_json_fingerprint(_proposal_binding(proposal, requested_periods))
+    if proposal_fingerprint != expected_fingerprint:
+        raise ValueError("coverage confirmation proposal fingerprint does not match the displayed proposal")
     return CoverageDeclaration.model_validate({
-        **template, "declaration_id": declaration_id, "recorded_at": recorded_at,
-        "data_availability_cutoff": data_availability_cutoff, "extracted_at": extracted_at,
-        "source_basis": "reviewed_export_controls", "source_basis_detail": source_basis_detail,
-        "completeness_assertion": COMPLETENESS_ASSERTION, "actor_session_ref": actor_session_ref,
+        **proposal, "declaration_id": declaration_id, "recorded_at": recorded_at,
+        "actor_session_ref": actor_session_ref,
     })
 
 

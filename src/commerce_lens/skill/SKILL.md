@@ -75,6 +75,22 @@ unsupported diagnostic proposition. The descriptive portion may proceed through
 submitted only as an unsupported Claim intent and rendered as refused if the
 ClaimDecision is inadmissible.
 
+Retention is decided by the host before execution. When the user explicitly
+asks to retain the full evidence for later inspection, the host passes the
+structured `--retain-evidence` control together with a configured
+`--retention-root`; the deterministic runner does not parse natural-language
+retention requests. Without that explicit control, the temporary default is
+unchanged. A failed retained finalization must be surfaced as a retention
+failure and never presented as `retained_complete`.
+
+Formal retained mode writes the completion marker only after persistence
+integrity passes. A completed retained run must remain available across
+processes through the governed `list`, `inspect`, and `verify` operations.
+These operations establish persistence integrity only: retention never upgrades
+`USER_DECLARED`, changes a `ClaimDecision`, or makes an analytical claim more
+correct. Without an explicit retention request, use temporary mode and create no
+retained run.
+
 Use this exact bounded refusal where applicable:
 
 Insufficient evidence to conclude why Revenue declined.
@@ -96,3 +112,40 @@ Evidence Needed, Clarification Required, and Blocked / Insufficient Evidence.
 
 Do not create new Metric values, formulas, Evidence, validation results,
 Findings, Alternative Explanations, or Recommendations in the response.
+
+## Consolidated coverage confirmation
+
+Schema mapping confirmation and coverage confirmation remain separate. After
+mapping is resolved, the host assembles one complete structured coverage
+proposal containing the source binding, requested periods, scope, population and
+eligibility, explicit filters, completeness basis, data-availability cutoff, and the
+USER_DECLARED disclosure. The host displays that proposal once and may
+normalize ordinary affirmative language to the canonical
+`confirmation_intent="confirmed"` value. Corrections, uncertainty, negatives,
+missing facts, ambiguity, contradiction, and scope mismatch invalidate the prior
+proposal and require a rebuilt proposal.
+
+The deterministic intake layer is language-agnostic. It requires the exact
+proposal fingerprint and validates the proposal against the current dataset,
+mapping context, scope, periods, cutoff, and clock before creating
+`USER_DECLARED` authority. A generic affirmative, request dates, or dataset
+min/max dates never supply missing coverage facts. Coverage remains
+`USER_DECLARED`, never `EXTERNALLY_VERIFIED`, and retains the existing
+disclosure that source completeness has not been independently verified by
+CommerceLens.
+
+When the host already has reviewed source context, it must pass that context to
+proposal preparation and render one complete proposal containing all-pages/all-
+records completeness, paid-included and cancelled-excluded status semantics, no
+additional hidden filters, the UTC cutoff, source/scope binding, and the
+independent-verification disclosure. Once complete, the only follow-up is
+`請確認以上資訊是否正確。`; ordinary `確認` is normalized to the canonical
+confirmation intent. If a required fact is absent, ask only for that fact.
+Normalize an unambiguous explicit-timezone cutoff into the structured context;
+for example, `2026-04-01 00:00 UTC` and `2026-04-01T00:00:00Z` denote the same
+proposal fact and render canonically as `2026-04-01T00:00:00Z`. A timezone-free
+or otherwise ambiguous cutoff remains unresolved and requires clarification.
+Use the prepared `confirmation_text` as the single host-facing rendering. Do
+not turn `coverage_facts` or `missing_facts` into separate yes/no/unknown
+questions. Complete context is rendered as declarative statements once;
+genuinely missing context is listed narrowly and remains fail-closed.

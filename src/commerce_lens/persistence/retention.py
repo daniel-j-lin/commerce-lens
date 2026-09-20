@@ -112,7 +112,9 @@ class RetainedRunSession:
         analysis_result = getattr(outcome, "analysis_result", None)
         request = getattr(outcome, "request", None)
         if analysis_result is None or request is None:
-            return self._fail("retained runs require a persisted AnalysisResult and AnalysisRequest")
+            reason = "retained runs require a persisted AnalysisResult and AnalysisRequest"
+            self._fail(reason)
+            raise RetentionError(reason)
         try:
             result_artifact = self.artifact_store.write_json_artifact(
                 Path("runs") / self.run_id / "final" / "analysis_result.json",

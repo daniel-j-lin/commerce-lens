@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
+from typing import Any, Mapping
 
 from commerce_lens.application import evaluate_claim, run_analysis
 from commerce_lens.canonical import CanonicalizationRequest, EligibilityMode, EligibilityState, EligibilityValueMapping
@@ -50,7 +52,9 @@ from commerce_lens.skill.public_response import (
 )
 from commerce_lens.skill.schema_mapping import assess_schema_mapping
 from commerce_lens.skill.coverage_intake import (
-    DISCLOSURE, declaration_template, validate_declarations, project_coverage,
+    DISCLOSURE, SOURCE_BASIS_ASSERTION, complete_coverage_proposal,
+    coverage_proposal_fingerprint, declaration_template, validate_declarations,
+    project_coverage,
 )
 
 
@@ -86,6 +90,52 @@ class PublicSourceSelection:
 class PublicClaimIntent:
     claim_type: ClaimType = ClaimType.DESCRIPTIVE
     proposed_meaning: str = "Public v0.1 governed descriptive Metric claim"
+
+
+@dataclass(frozen=True)
+class PublicCoverageContext:
+    """Host-supplied facts used only to render a complete coverage proposal.
+
+    These facts are deliberately not trusted evidence.  The resulting proposal
+    still has to be explicitly confirmed and pass ``CoverageDeclaration``
+    validation before it can authorize analysis.
+    """
+
+    all_pages_included: bool | None = None
+    all_records_included: bool | None = None
+    paid_included: bool | None = None
+    cancelled_excluded: bool | None = None
+    no_additional_hidden_filters: bool | None = None
+    data_availability_cutoff: datetime | None = None
+    extracted_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        for field_name in ("data_availability_cutoff", "extracted_at"):
+            value = getattr(self, field_name)
+            if value is None:
+                continue
+            if value.tzinfo is None or value.utcoffset() is None:
+                raise ValueError("coverage timestamps require an explicit timezone")
+            object.__setattr__(self, field_name, value.astimezone(UTC))
+
+    def missing_facts(self) -> tuple[str, ...]:
+        missing = []
+        for name in (
+            "all_pages_included",
+            "all_records_included",
+            "paid_included",
+            "cancelled_excluded",
+            "no_additional_hidden_filters",
+        ):
+            if getattr(self, name) is not True:
+                missing.append(name)
+        if self.data_availability_cutoff is None:
+            missing.append("data_availability_cutoff")
+        return tuple(missing)
+
+    @property
+    def complete(self) -> bool:
+        return not self.missing_facts()
 
 
 @dataclass(frozen=True)
@@ -335,8 +385,20 @@ def _public_mapping_evidence(intent, context, headers) -> AvailableEvidence:
     )
 
 
-def prepare_public_coverage(intent: PublicAnalysisIntent, *, artifact_store: ArtifactStore) -> dict:
+def prepare_public_coverage(
+    intent: PublicAnalysisIntent,
+    *,
+    artifact_store: ArtifactStore,
+    coverage_context: PublicCoverageContext | None = None,
+    data_availability_cutoff: datetime | None = None,
+    extracted_at: datetime | None = None,
+) -> dict:
     """Inspect binding and propose a confirmation summary; never attest or execute."""
+    coverage_context = _merge_coverage_context(
+        coverage_context,
+        data_availability_cutoff=data_availability_cutoff,
+        extracted_at=extracted_at,
+    )
     failures = validate_public_intent(intent)
     if failures:
         raise ValueError("; ".join(failures))
@@ -353,20 +415,281 @@ def prepare_public_coverage(intent: PublicAnalysisIntent, *, artifact_store: Art
     _public_mapping_evidence(intent, context, headers)
     template = declaration_template(dataset, context, intent.scope,
                                     (intent.baseline_period, intent.comparison_period))
-    return {
-        "status": "coverage_confirmation_required", "declaration_template": template,
-        "confirmation_summary": {
-            "file": dataset.original_name, "sheet": dataset.selected_sheet,
-            "requested_periods": [p.model_dump(mode="json") for p in (intent.baseline_period, intent.comparison_period)],
-            "time_boundary": "Inclusive UTC calendar dates; availability cutoff at or after the next UTC midnight",
-            "population": intent.scope.model_dump(mode="json"),
-            "eligibility": [item.model_dump(mode="json") for item in context.eligibility_value_mapping],
-            "filters": template["filters_status"],
-            "data_completeness_cutoff": "Ask the user; unknown until explicitly supplied",
-        },
-        "choices": ["Confirm", "Correct", "I don't know"],
-        "disclosure": "Coverage is based on your declaration and has not been independently verified by CommerceLens.",
+    proposal = None
+    proposal_fingerprint = None
+    if coverage_context is not None and coverage_context.complete:
+        proposal = complete_coverage_proposal(
+            template,
+            data_availability_cutoff=coverage_context.data_availability_cutoff,
+            extracted_at=coverage_context.extracted_at,
+        )
+        proposal_fingerprint = coverage_proposal_fingerprint(
+            template, requested_periods=(intent.baseline_period, intent.comparison_period),
+            data_availability_cutoff=coverage_context.data_availability_cutoff,
+            extracted_at=coverage_context.extracted_at,
+        )
+    display_facts = _coverage_display_facts(
+        intent=intent,
+        context=context,
+        template=template,
+        coverage_context=coverage_context,
+    )
+    if coverage_context is not None:
+        missing_facts = coverage_context.missing_facts()
+    else:
+        missing_facts = (
+            "all_pages_included",
+            "all_records_included",
+            "paid_included",
+            "cancelled_excluded",
+            "no_additional_hidden_filters",
+            "data_availability_cutoff",
+        )
+    summary = {
+        "file": dataset.original_name,
+        "sheet": dataset.selected_sheet,
+        "requested_periods": [
+            p.model_dump(mode="json") for p in (intent.baseline_period, intent.comparison_period)
+        ],
+        "time_boundary": "Inclusive UTC calendar dates; availability cutoff at or after the next UTC midnight",
+        "population": intent.scope.model_dump(mode="json"),
+        "eligibility": [item.model_dump(mode="json") for item in context.eligibility_value_mapping],
+        "filters": template["filters_status"],
+        "completeness_basis": (
+            SOURCE_BASIS_ASSERTION
+            if coverage_context is not None
+            and all(
+                getattr(coverage_context, name) is True
+                for name in (
+                    "all_pages_included",
+                    "all_records_included",
+                    "paid_included",
+                    "cancelled_excluded",
+                    "no_additional_hidden_filters",
+                )
+            )
+            else None
+        ),
+        "coverage_facts": display_facts,
+        "data_completeness_cutoff": (
+            proposal["data_availability_cutoff"]
+            if proposal is not None
+            else _iso_timestamp(
+                coverage_context.data_availability_cutoff
+                if coverage_context is not None
+                else None
+            )
+        ),
     }
+    prepared = {
+        "status": "coverage_confirmation_ready" if proposal is not None else "coverage_confirmation_required",
+        "declaration_template": template,
+        "coverage_proposal": proposal,
+        "proposal_fingerprint": proposal_fingerprint,
+        "confirmation_summary": summary,
+        "coverage_facts": display_facts,
+        "missing_facts": missing_facts,
+        "confirmation_prompt": (
+            "請確認以上資訊是否正確。"
+            if proposal is not None
+            else "需要補充以下資料後才能建立完整 coverage proposal：" + ", ".join(missing_facts)
+        ),
+        "choices": ["Confirm", "Correct", "I don't know"],
+        "disclosure": DISCLOSURE,
+    }
+    prepared["confirmation_text"] = render_coverage_confirmation(prepared)
+    return prepared
+
+
+def _merge_coverage_context(
+    coverage_context: PublicCoverageContext | None,
+    *,
+    data_availability_cutoff: datetime | None,
+    extracted_at: datetime | None,
+) -> PublicCoverageContext | None:
+    """Merge legacy timestamp inputs into the structured proposal context.
+
+    The timestamp parameters predate ``PublicCoverageContext``. Keeping this
+    merge at the API boundary prevents a supplied cutoff from being discarded
+    while preserving fail-closed handling for conflicting facts.
+    """
+    if coverage_context is None:
+        if data_availability_cutoff is None and extracted_at is None:
+            return None
+        return PublicCoverageContext(
+            data_availability_cutoff=data_availability_cutoff,
+            extracted_at=extracted_at,
+        )
+
+    updates: dict[str, datetime] = {}
+    for field_name, supplied in (
+        ("data_availability_cutoff", data_availability_cutoff),
+        ("extracted_at", extracted_at),
+    ):
+        if supplied is None:
+            continue
+        normalized = PublicCoverageContext(**{field_name: supplied})
+        supplied_utc = getattr(normalized, field_name)
+        existing = getattr(coverage_context, field_name)
+        if existing is not None and existing != supplied_utc:
+            raise ValueError(f"conflicting coverage context field: {field_name}")
+        updates[field_name] = supplied_utc
+    return replace(coverage_context, **updates) if updates else coverage_context
+
+
+def _coverage_display_facts(*, intent, context, template, coverage_context) -> dict[str, Any]:
+    """Build the host-facing facts beside the exact declaration template."""
+    eligibility = {
+        item.source_value: item.normalized_status.value
+        for item in context.eligibility_value_mapping
+    }
+    return {
+        "coverage_period": {
+            "baseline": intent.baseline_period.model_dump(mode="json"),
+            "comparison": intent.comparison_period.model_dump(mode="json"),
+            "date_convention_ref": intent.baseline_period.date_convention_ref,
+        },
+        "all_pages_included": (
+            coverage_context.all_pages_included if coverage_context is not None else None
+        ),
+        "all_records_included": (
+            coverage_context.all_records_included if coverage_context is not None else None
+        ),
+        "status_scope": {
+            "paid": {
+                "mapping": eligibility.get("paid"),
+                "included": (
+                    coverage_context.paid_included if coverage_context is not None else None
+                ),
+            },
+            "cancelled": {
+                "mapping": eligibility.get("cancelled"),
+                "excluded": (
+                    coverage_context.cancelled_excluded if coverage_context is not None else None
+                ),
+            },
+        },
+        "no_additional_hidden_filters": (
+            coverage_context.no_additional_hidden_filters
+            if coverage_context is not None
+            else None
+        ),
+        "data_availability_cutoff": _iso_timestamp(
+            coverage_context.data_availability_cutoff
+            if coverage_context is not None
+            else None
+        ),
+        "scope": template["scope"],
+        "disclosure": DISCLOSURE,
+    }
+
+
+def _iso_timestamp(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("coverage timestamps require an explicit timezone")
+    return value.isoformat().replace("+00:00", "Z")
+
+
+def render_coverage_confirmation(prepared: Mapping[str, Any]) -> str:
+    """Render one host-facing coverage proposal, never one prompt per field.
+
+    A complete proposal is declarative: the facts are displayed as statements
+    and the only follow-up is the single confirmation sentence.  An incomplete
+    proposal reports only the facts that are actually unresolved; it must not
+    turn every proposal field into a yes/no question.
+    """
+    proposal = prepared.get("coverage_proposal")
+    if proposal is None:
+        missing = tuple(prepared.get("missing_facts", ()))
+        labels = {
+            "all_pages_included": "all export pages included",
+            "all_records_included": "all in-scope records included",
+            "paid_included": "paid orders included",
+            "cancelled_excluded": "cancelled orders excluded",
+            "no_additional_hidden_filters": "no additional hidden filters",
+            "data_availability_cutoff": "data-availability cutoff (UTC)",
+        }
+        if not missing:
+            return "需要補充 coverage 資料後才能建立完整 proposal。"
+        if len(missing) == 1:
+            return f"需要補充：{labels.get(missing[0], missing[0])}。"
+        return "需要補充以下 coverage 資料：" + "、".join(
+            labels.get(item, item) for item in missing
+        ) + "。"
+
+    summary = prepared["confirmation_summary"]
+    facts = prepared["coverage_facts"]
+    periods = summary["requested_periods"]
+    baseline, comparison = periods
+    scope = facts["scope"]
+    filters = scope.get("filters") or []
+    filter_text = "none" if not filters else "; ".join(
+        f"{item['field']} {item['operator']} {item['value']}" for item in filters
+    )
+    source_binding = (
+        f"{proposal['source_filename']} ({proposal['source_type']}; "
+        f"dataset {proposal['dataset_id']})"
+    )
+    return "\n".join((
+        "Coverage proposal:",
+        f"- Source: {source_binding}; sheet: {proposal['selected_sheet'] or 'none'}.",
+        f"- Coverage periods: baseline = {baseline['label']}; "
+        f"comparison = {comparison['label']}; "
+        f"{facts['coverage_period']['date_convention_ref']} inclusive.",
+        f"- Scope: {scope['scope_id']}; population: all eligible order lines.",
+        "- Eligibility: paid orders are included; cancelled orders are excluded.",
+        "- Completeness: all export pages and all in-scope records included.",
+        f"- Additional hidden filters: {filter_text}.",
+        f"- Data available through: {proposal['data_availability_cutoff']}.",
+        "- Authority: USER_DECLARED; not independently verified by CommerceLens.",
+        f"- {DISCLOSURE}",
+        "請確認以上資訊是否正確。",
+    ))
+
+
+def normalize_coverage_confirmation(response: str) -> str | None:
+    """Normalize ordinary host-language affirmative replies, without attesting."""
+    normalized = response.strip().casefold()
+    if normalized in {"確認", "是", "沒問題", "正確", "照這個執行", "yes", "looks right", "confirm"}:
+        return "confirmed"
+    return None
+
+
+def confirm_public_coverage(
+    intent: PublicAnalysisIntent,
+    prepared: Mapping[str, Any],
+    *,
+    response: str,
+    recorded_at: datetime,
+    declaration_id: str,
+):
+    """Bind one host confirmation to the exact complete proposal shown."""
+    confirmation_intent = normalize_coverage_confirmation(response)
+    if confirmation_intent != "confirmed":
+        raise ValueError("coverage is unconfirmed; correction or uncertainty requires clarification")
+    proposal = prepared.get("coverage_proposal")
+    if proposal is None or not prepared.get("proposal_fingerprint"):
+        raise ValueError("coverage proposal is incomplete; ask only for its missing facts")
+    from commerce_lens.skill.coverage_intake import confirm_declaration
+
+    return confirm_declaration(
+        prepared["declaration_template"],
+        confirmation_intent=confirmation_intent,
+        proposal_fingerprint=prepared["proposal_fingerprint"],
+        requested_periods=(intent.baseline_period, intent.comparison_period),
+        recorded_at=recorded_at,
+        declaration_id=declaration_id,
+        data_availability_cutoff=datetime.fromisoformat(
+            proposal["data_availability_cutoff"].replace("Z", "+00:00")
+        ),
+        extracted_at=(
+            datetime.fromisoformat(proposal["extracted_at"].replace("Z", "+00:00"))
+            if proposal.get("extracted_at") is not None
+            else None
+        ),
+    )
 
 
 def bind_claim_candidate_from_authority(

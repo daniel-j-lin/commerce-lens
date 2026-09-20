@@ -61,8 +61,13 @@ provenance links declaration, dataset, period, scope/filters, cutoff, policy and
 artifact. Trusted Python evidence inputs remain a distinct caller boundary.
 External JSON must pass this validator before creating trusted evidence objects.
 
-Coverage confirmation is separate from schema confirmation and offers Confirm,
-Correct and I don't know. Silence and uncertain replies never confirm. Existing
-temporary/explicitly retained storage applies; temporary cleanup destroys local
-provenance artifacts. Persistent auditability, F2-A and all non-descriptive or
-additional Metrics remain out of scope.
+Coverage confirmation is separate from schema confirmation and uses one
+consolidated proposal containing the governed coverage facts. The proposal may
+represent the reviewed-export-controls completeness basis directly; the user
+does not need to repeat the same audit wording in a second interaction. Only an
+explicit confirmation bound to that exact complete proposal may record an
+attestation. Corrections, silence, and uncertain replies never confirm. This is
+a UX clarification only: the required facts, deterministic bindings,
+`USER_DECLARED` semantics, independent-verification disclosure, and existing
+temporary/explicitly retained storage remain unchanged. Persistent auditability,
+F2-A and all non-descriptive or additional Metrics remain out of scope.

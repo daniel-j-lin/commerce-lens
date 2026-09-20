@@ -136,11 +136,30 @@ confirmation summary; it does not execute analysis. For XLSX, explicitly select
 the relevant sheet. Do not fill confirmation fields from the analytical question.
 The proposed dates describe what to confirm, not evidence of completeness.
 
-Ask the user for the data-availability cutoff and how they know the export is
-complete (reviewed export range, pagination and status/filter controls). Do not
-infer these from filenames, platforms, observed dates, or current time. Unknown
-cutoff or source basis requires clarification. No names, email, credentials or
-identity verification are needed. Extraction time is optional when unknown.
+When the prompt or an attached participant/source context already supplies the
+reviewed export facts, consume those facts as host context. In particular, do
+not discard an explicit statement that the export has all pages and records,
+includes paid orders, excludes cancelled orders, has no additional hidden
+filters, and is complete through a stated UTC cutoff. Pass those facts to the
+proposal preparation boundary as structured context (the runner accepts
+`--coverage-context-json` or the equivalent `PublicCoverageContext` API). The
+context is proposal input, not trusted Evidence.
+Normalize an unambiguous explicit-timezone cutoff into the structured context;
+for example, `2026-04-01 00:00 UTC` and `2026-04-01T00:00:00Z` denote the same
+proposal fact and render canonically as `2026-04-01T00:00:00Z`. Never omit a
+resolved cutoff merely because its source text is not already in canonical
+rendering syntax. A timezone-free or otherwise ambiguous cutoff remains
+unresolved and requires targeted clarification.
+
+Assemble one complete proposal containing the actual source binding, requested
+periods, population and eligibility semantics, explicit filters (including
+none), all-pages/all-record completeness basis, data-availability cutoff, and
+the disclosure that coverage authority is `USER_DECLARED` and source
+completeness has not been independently verified by CommerceLens.
+Do not infer facts from filenames, platforms, request dates, observed dates, or
+current time. If a required fact is missing, ambiguous, contradictory, or
+outside scope, ask only for that fact, rebuild the proposal, and show the
+complete proposal again.
 
 Present a concise separate coverage summary, for example:
 
@@ -155,21 +174,41 @@ filtered scope enumerate the exact filters. Do not merge this question with
 “This column means Revenue”. Source values must separately conform to the
 canonical Revenue definition; coverage never establishes Revenue semantics.
 
-Only an explicit **Confirm** to the complete summary may record an attestation.
-“Correct” means revise the summary and ask again. “I don't know if this export is
-complete”, silence, “probably”, “I think so” and “should be complete” leave coverage
-unknown: report clarification/blocked and no material result. Do not translate
-uncertainty into Confirm.
+If the complete proposal was assembled, display it once and ask only:
+“請確認以上資訊是否正確。” A plain affirmative such as `確認` is sufficient
+at the host layer; no special coverage phrase or repeated completeness question
+is required. If a fact is genuinely missing, ask only for that fact and rebuild
+the complete proposal before requesting confirmation.
+Use the runner/API `confirmation_text` as the host-facing rendering of the
+prepared proposal. Never iterate over `coverage_facts`, `missing_facts`, or
+other proposal fields to create one yes/no/unknown question per field. A
+complete context must render declarative statements once; an incomplete
+context must mention only the genuinely missing facts and remain fail-closed
+until they are supplied.
 
-After confirmation use `commerce_lens.skill.coverage_intake.confirm_declaration`
-with the prepared `declaration_template`, exact response `Confirm`, a local
-unique declaration ID, actual UTC recorded time, the user-supplied cutoff,
-source-basis detail, optional extraction time and optional local session ref.
+Only one explicit confirmation of the complete summary may record an attestation.
+The host may normalize `確認`, `沒問題`, `照這個執行`, `Yes`, or `Looks right`
+to the canonical structured intent `confirmation_intent="confirmed"`. Do not
+pass arbitrary free-form language to the deterministic authority layer.
+“Correct”, uncertainty, silence, or a negative response invalidates the prior
+proposal and requires a rebuilt summary; none of these may confirm it.
+
+After confirmation compute the proposal fingerprint with
+`coverage_proposal_fingerprint(...)` over the exact complete proposal and use
+`commerce_lens.skill.coverage_intake.confirm_declaration`
+with the prepared `declaration_template`,
+`confirmation_intent="confirmed"`, the exact requested baseline/comparison
+periods, the fingerprint, a local unique declaration ID, actual UTC recorded
+time, the user-supplied cutoff, optional extraction time and optional local
+session ref. The canonical `SOURCE_BASIS_ASSERTION` is
+derived from the displayed and confirmed completeness facts; the user does not
+need to repeat a separate audit ritual.
 Serialize the resulting untrusted declaration with `model_dump_json()` into a
 local temporary file, then pass `--coverage-declaration` to the normal runner.
-The helper rejects non-confirmation; the runner independently validates current
-dataset bytes, sheet/type, mapping/eligibility context, scope/filters, closed dates,
-cutoff and provenance before projecting coverage into the existing engine.
+The helper rejects incomplete, stale, mismatched, or unbound proposals; the
+runner independently validates current dataset bytes, sheet/type,
+mapping/eligibility context, scope/filters, closed dates, cutoff and provenance
+before projecting coverage into the existing engine.
 A standalone manifest must provide the identical versioned declaration schema;
 never accept a user assertion of EXTERNALLY_VERIFIED, SOURCE_DECLARED or TEST_FIXTURE.
 
@@ -181,12 +220,23 @@ As of September 2026, Q4 2026 is open and cannot pass this check.
 
 Render the runner's provenance disclosure alongside every dependent result.
 Temporary runs delete local artifacts, including the declaration; remove the
-Skill's temporary input file when finished. F2-A retention is explicit: pass
-`--retention-root ROOT` before execution to create a self-contained local run
-package with manifest, raw snapshot, canonical data, metadata, AnalysisResult,
-PublicResponse, and linkage. It has no TTL and remains until the user deletes
-that selected run. Verification does not replay analysis; deletion is not
-secure erase and never targets the original source. See
+Skill's temporary input file when finished.
+
+Retention is a host orchestration decision that must be made before execution.
+If the user explicitly asks in natural language to retain the full evidence for
+later inspection, the host must pass the structured `--retain-evidence` control
+and a configured local `--retention-root ROOT` to the runner. Do not infer this
+from a request to merely show, summarize, or cite evidence, and do not parse
+the prose inside the deterministic runner. The runner then enters the existing
+F2-A lifecycle before analysis, finalizes its self-contained package, verifies it
+from disk, and reports `retained_complete` only after the completion marker is
+written. If finalization fails, report the retention failure and do not present
+the result as retained. Without that explicit host control, keep the temporary
+default unchanged. A retained package contains the manifest, raw snapshot,
+canonical data, metadata, AnalysisResult, PublicResponse, and linkage. It has
+no TTL and remains until the user deletes that selected run. Verification does
+not replay analysis; deletion is not secure erase and never targets the
+original source. See
 `docs/amendments/F2-A-evidence-persistence-retention-v1.md`.
 
 Use `skills/commerce-lens/scripts/run_public_analysis.py` as the first-run
@@ -296,9 +346,9 @@ Do not create new Metric values, formulas, Evidence, validation results,
 Findings, Alternative Explanations, or Recommendations in the response.
 
 
-V1's source basis is deliberately bounded: before confirmation, show the user
-“I reviewed the export date range, population/status filters, all pages and export
-completion status against this declaration.” Record the exact
-`SOURCE_BASIS_ASSERTION` constant only if they explicitly confirm it. If this is
-not their basis or they are uncertain, ask for clarification and remain blocked.
-Do not paraphrase uncertain/free-form replies into the fixed assertion.
+V1's source basis remains deliberately bounded: display the governed
+completeness basis as part of the proposal and record the exact
+`SOURCE_BASIS_ASSERTION` constant only when the complete proposal is explicitly
+confirmed. If the basis is missing or uncertain, ask for clarification and
+remain blocked. Do not paraphrase uncertain/free-form replies into the fixed
+assertion.

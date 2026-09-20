@@ -1,4 +1,5 @@
 .venv/
+.venv-commerce-lens-skill/
 venv/
 env/
 __pycache__/

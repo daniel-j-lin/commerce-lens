@@ -14,7 +14,7 @@ from commerce_lens.persistence.artifact_store import ArtifactStore
 from commerce_lens.persistence.metadata_store import MetadataStore
 from commerce_lens.skill import coverage_intake as intake
 from commerce_lens.skill.integration import (
-    prepare_public_coverage, run_public_analysis, PublicSourceSelection,
+    PublicCoverageContext, prepare_public_coverage, run_public_analysis, PublicSourceSelection,
 )
 from commerce_lens.skill.schema_mapping import confirmed_mapping_from_source_to_canonical
 from tests.skill.test_public_authority_regression import _intent, _args
@@ -38,6 +38,11 @@ def case(tmp_path, monkeypatch):
     template = prepare_public_coverage(intent, artifact_store=artifacts)["declaration_template"]
     declaration = intake.confirm_declaration(
         template, response="Confirm", recorded_at=NOW, declaration_id="decl-1",
+        proposal_fingerprint=intake.coverage_proposal_fingerprint(
+            template, requested_periods=(intent.baseline_period, intent.comparison_period),
+            data_availability_cutoff=CUTOFF,
+        ),
+        requested_periods=(intent.baseline_period, intent.comparison_period),
         data_availability_cutoff=CUTOFF, source_basis_detail=BASIS,
     ).model_dump(mode="json")
     return intent, artifacts, metadata, declaration
@@ -220,7 +225,168 @@ def test_valid_coverage_cannot_override_data_quality(case, change):
 def test_only_explicit_confirmation_records_attestation(case, answer):
     with pytest.raises(ValueError, match="unconfirmed"):
         intake.confirm_declaration(case[3], response=answer, recorded_at=NOW, declaration_id="x",
+                                   requested_periods=(case[0].baseline_period, case[0].comparison_period),
                                    data_availability_cutoff=CUTOFF, source_basis_detail=BASIS)
+
+
+def test_complete_proposal_is_displayable_and_fingerprinted(case):
+    intent, artifacts, _, _ = case
+    prepared = prepare_public_coverage(
+        intent,
+        artifact_store=artifacts,
+        coverage_context=PublicCoverageContext(
+            all_pages_included=True,
+            all_records_included=True,
+            paid_included=True,
+            cancelled_excluded=True,
+            no_additional_hidden_filters=True,
+            data_availability_cutoff=CUTOFF,
+        ),
+    )
+
+    assert prepared["status"] == "coverage_confirmation_ready"
+    assert prepared["missing_facts"] == ()
+    assert prepared["coverage_proposal"]["data_availability_cutoff"] == "2027-01-01T00:00:00Z"
+    assert prepared["confirmation_summary"]["completeness_basis"] == BASIS
+    assert prepared["proposal_fingerprint"] == intake.coverage_proposal_fingerprint(
+        prepared["declaration_template"],
+        requested_periods=(intent.baseline_period, intent.comparison_period),
+        data_availability_cutoff=CUTOFF,
+    )
+
+
+def test_missing_cutoff_is_the_only_unresolved_confirmation_fact(case):
+    prepared = prepare_public_coverage(case[0], artifact_store=case[1])
+
+    assert prepared["status"] == "coverage_confirmation_required"
+    assert prepared["missing_facts"] == (
+        "all_pages_included",
+        "all_records_included",
+        "paid_included",
+        "cancelled_excluded",
+        "no_additional_hidden_filters",
+        "data_availability_cutoff",
+    )
+    assert prepared["confirmation_summary"]["completeness_basis"] is None
+
+
+def test_canonical_confirmation_intent_requires_exact_proposal(case):
+    intent, artifacts = case[0], case[1]
+    template = prepare_public_coverage(intent, artifact_store=artifacts)["declaration_template"]
+    periods = (intent.baseline_period, intent.comparison_period)
+    fingerprint = intake.coverage_proposal_fingerprint(
+        template, requested_periods=periods, data_availability_cutoff=CUTOFF,
+    )
+
+    declaration = intake.confirm_declaration(
+        template,
+        confirmation_intent=intake.CONFIRMED_INTENT,
+        proposal_fingerprint=fingerprint,
+        requested_periods=periods,
+        recorded_at=NOW,
+        declaration_id="canonical-intent",
+        data_availability_cutoff=CUTOFF,
+    )
+
+    assert declaration.authority_type == "USER_DECLARED"
+    assert declaration.source_basis_detail == BASIS
+
+
+@pytest.mark.parametrize("alias", ["確認", "是", "沒問題", "正確", "照這個執行", "Yes", "Looks right"])
+def test_natural_language_aliases_must_be_normalized_before_authority(case, alias):
+    intent, artifacts = case[0], case[1]
+    template = prepare_public_coverage(intent, artifact_store=artifacts)["declaration_template"]
+    periods = (intent.baseline_period, intent.comparison_period)
+    fingerprint = intake.coverage_proposal_fingerprint(
+        template, requested_periods=periods, data_availability_cutoff=CUTOFF,
+    )
+
+    with pytest.raises(ValueError, match="normalized"):
+        intake.confirm_declaration(
+            template,
+            response=alias,
+            proposal_fingerprint=fingerprint,
+            requested_periods=periods,
+            recorded_at=NOW,
+            declaration_id="alias-not-canonical",
+            data_availability_cutoff=CUTOFF,
+        )
+
+
+def test_missing_proposal_fingerprint_cannot_create_authority(case):
+    intent, artifacts = case[0], case[1]
+    template = prepare_public_coverage(intent, artifact_store=artifacts)["declaration_template"]
+
+    with pytest.raises(ValueError, match="fingerprint"):
+        intake.confirm_declaration(
+            template,
+            response="Confirm",
+            requested_periods=(intent.baseline_period, intent.comparison_period),
+            recorded_at=NOW,
+            declaration_id="no-displayed-proposal",
+            data_availability_cutoff=CUTOFF,
+        )
+
+
+def test_changed_displayed_fact_invalidates_confirmation(case):
+    intent, artifacts = case[0], case[1]
+    template = prepare_public_coverage(intent, artifact_store=artifacts)["declaration_template"]
+    periods = (intent.baseline_period, intent.comparison_period)
+    fingerprint = intake.coverage_proposal_fingerprint(
+        template, requested_periods=periods, data_availability_cutoff=CUTOFF,
+    )
+
+    with pytest.raises(ValueError, match="fingerprint"):
+        intake.confirm_declaration(
+            template,
+            confirmation_intent=intake.CONFIRMED_INTENT,
+            proposal_fingerprint=fingerprint,
+            requested_periods=periods,
+            recorded_at=NOW,
+            declaration_id="stale-proposal",
+            data_availability_cutoff=datetime(2027, 1, 2, tzinfo=UTC),
+        )
+
+
+def test_changed_requested_period_invalidates_confirmation(case):
+    intent, artifacts = case[0], case[1]
+    template = prepare_public_coverage(intent, artifact_store=artifacts)["declaration_template"]
+    periods = (intent.baseline_period, intent.comparison_period)
+    fingerprint = intake.coverage_proposal_fingerprint(
+        template, requested_periods=periods, data_availability_cutoff=CUTOFF,
+    )
+    changed_periods = (periods[0].model_copy(update={"label": "Q3 revised"}), periods[1])
+
+    with pytest.raises(ValueError, match="fingerprint"):
+        intake.confirm_declaration(
+            template,
+            confirmation_intent=intake.CONFIRMED_INTENT,
+            proposal_fingerprint=fingerprint,
+            requested_periods=changed_periods,
+            recorded_at=NOW,
+            declaration_id="stale-period-proposal",
+            data_availability_cutoff=CUTOFF,
+        )
+
+
+def test_correction_intent_does_not_confirm_previous_proposal(case):
+    intent, artifacts = case[0], case[1]
+    template = prepare_public_coverage(intent, artifact_store=artifacts)["declaration_template"]
+    periods = (intent.baseline_period, intent.comparison_period)
+    fingerprint = intake.coverage_proposal_fingerprint(
+        template, requested_periods=periods, data_availability_cutoff=CUTOFF,
+    )
+
+    with pytest.raises(ValueError, match="unconfirmed"):
+        intake.confirm_declaration(
+            template,
+            confirmation_intent="corrected",
+            proposal_fingerprint=fingerprint,
+            requested_periods=periods,
+            recorded_at=NOW,
+            declaration_id="corrected",
+            data_availability_cutoff=CUTOFF,
+        )
 
 
 def test_bounded_json_and_duplicate_keys(tmp_path):
@@ -255,10 +421,17 @@ def test_skill_path_noncanonical_mapping_then_separate_confirmation(case, capsys
     assert prepared["declaration_template"]["completeness_assertion"] is None
     with pytest.raises(ValueError):
         intake.confirm_declaration(prepared["declaration_template"], response="I don't know",
+                                   requested_periods=(intent.baseline_period, intent.comparison_period),
                                    recorded_at=NOW, declaration_id="unknown", data_availability_cutoff=CUTOFF,
                                    source_basis_detail=BASIS)
     declaration = intake.confirm_declaration(
         prepared["declaration_template"], response="Confirm", recorded_at=NOW, declaration_id="skill-confirmed",
+        proposal_fingerprint=intake.coverage_proposal_fingerprint(
+            prepared["declaration_template"],
+            requested_periods=(intent.baseline_period, intent.comparison_period),
+            data_availability_cutoff=CUTOFF,
+        ),
+        requested_periods=(intent.baseline_period, intent.comparison_period),
         data_availability_cutoff=CUTOFF, source_basis_detail=BASIS,
     )
     declaration_file = path.with_name("coverage.json")
@@ -359,6 +532,11 @@ def test_real_cli_retains_user_provenance_or_cleans_temp(case, tmp_path):
         comparison_period=intent.comparison_period.model_copy(update={"start_date": date(2025, 10, 1), "end_date": date(2025, 12, 31)}))
     template = prepare_public_coverage(intent, artifact_store=artifacts)["declaration_template"]
     declaration = intake.confirm_declaration(template, response="Confirm", declaration_id="production-clock",
+        proposal_fingerprint=intake.coverage_proposal_fingerprint(
+            template, requested_periods=(intent.baseline_period, intent.comparison_period),
+            data_availability_cutoff=datetime(2026, 1, 1, tzinfo=UTC),
+        ),
+        requested_periods=(intent.baseline_period, intent.comparison_period),
         recorded_at=datetime.now(UTC), data_availability_cutoff=datetime(2026, 1, 1, tzinfo=UTC),
         source_basis_detail=BASIS)
     path = tmp_path / "coverage.json"; path.write_text(declaration.model_dump_json())

@@ -213,6 +213,11 @@ def _retained_user_declared_case(tmp_path, monkeypatch):
     declaration = coverage_intake.confirm_declaration(
         template,
         response="Confirm",
+        proposal_fingerprint=coverage_intake.coverage_proposal_fingerprint(
+            template, requested_periods=(intent.baseline_period, intent.comparison_period),
+            data_availability_cutoff=cutoff,
+        ),
+        requested_periods=(intent.baseline_period, intent.comparison_period),
         recorded_at=now,
         declaration_id="retained-declaration",
         data_availability_cutoff=cutoff,
@@ -371,6 +376,11 @@ def test_early_artifact_failures_leave_no_complete_run(tmp_path, monkeypatch, fa
         template = prepare_public_coverage(intent, artifact_store=session.artifact_store)["declaration_template"]
         declaration = coverage_intake.confirm_declaration(
             template, response="Confirm", recorded_at=now, declaration_id="decl-failure",
+            proposal_fingerprint=coverage_intake.coverage_proposal_fingerprint(
+                template, requested_periods=(intent.baseline_period, intent.comparison_period),
+                data_availability_cutoff=datetime(2027, 1, 1, tzinfo=UTC),
+            ),
+            requested_periods=(intent.baseline_period, intent.comparison_period),
             data_availability_cutoff=datetime(2027, 1, 1, tzinfo=UTC),
             source_basis_detail=coverage_intake.SOURCE_BASIS_ASSERTION,
         ).model_dump(mode="json")
