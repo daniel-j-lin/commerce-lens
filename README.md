@@ -1,126 +1,83 @@
 # CommerceLens
 
-<!-- parity: product-positioning -->
-### 1. Product positioning
+[English](#english) | [繁體中文](#traditional-chinese)
 
-**Evidence-governed commerce analytics for AI agents.** CommerceLens v0.2.0 is
-a local, open-source Codex Skill/plugin that turns supported CSV and XLSX data
-into validated, traceable claims and refuses conclusions the evidence cannot
-support.
+<a id="english"></a>
 
-> No material claim without traceable evidence.
+## English
 
-<!-- parity: why-different -->
-### 2. Why CommerceLens is different
+Ask questions about your commerce CSV or Excel data—without letting the AI
+guess when the data is incomplete.
 
-CommerceLens keeps analytical states separate:
+CommerceLens is an open-source Codex plugin for Revenue, Orders, AOV, and
+absolute Revenue Change. Before returning a business conclusion, it checks
+whether the available data actually supports that conclusion. To try it,
+[install the plugin](#quick-start), provide a CSV or XLSX file, and ask a
+supported question.
 
-```text
-Executed Result != Validated Result
-Validated Result != Admissible Evidence
-Admissible Evidence != ClaimDecision
-```
+<!-- fact: inputs=csv,xlsx -->
+<!-- fact: metrics=revenue,orders,aov,absolute-revenue-change -->
 
-The deterministic runtime owns KPI values, validation, Evidence, and
-`ClaimDecision`. The agent may interpret a supported question, inspect headers,
-propose mappings, request missing facts, and explain authorized output. It may
-not turn plausible prose into a material claim. Public output keeps
-`MetricState` and `ClaimState` distinct. Unknown authority fails closed.
+> CommerceLens calculates what the data supports and refuses to guess what it
+> does not.
 
-<!-- parity: governed-coverage -->
-### 3. Governed coverage
+### A 30-second synthetic example
 
-Mapping confirmation and coverage confirmation are different gates. A source
-column mapped to `line_revenue` does not prove that every relevant record was
-exported. Request period does not equal coverage authority, and observed minimum
-or maximum dates do not equal coverage authority.
+**Synthetic example — not real merchant or customer data.**
 
-When the source owner supplies reviewed export facts, CommerceLens prepares one
-proposal covering all pages and records, eligible status treatment, hidden
-filters, requested periods, and an explicit UTC cutoff. Confirmation creates
-only `USER_DECLARED` authority. Source completeness has not been independently
-verified by CommerceLens. Unknown, ambiguous, contradictory, or incomplete
-coverage remains blocked.
+You ask:
 
-<!-- parity: coverage-ux -->
-### 4. Consolidated coverage UX
+> How did revenue change from 2025 Q1 to 2026 Q1, and why did it decline?
 
-Resolved facts are displayed once. Only missing, ambiguous, or contradictory
-facts trigger clarification. A complete proposal ends with:
+After source completeness is confirmed, CommerceLens can report:
 
-```text
-請確認以上資訊是否正確。
-```
-
-A plain affirmative such as `確認` is enough; no special phrase is required. The
-confirmation is bound to the exact proposal fingerprint. Changing the source,
-mapping, scope, periods, cutoff, or proposal makes stale confirmation invalid.
-
-<!-- parity: retained-evidence -->
-### 5. Retained evidence
-
-Temporary execution is the default and creates no retained run. Retention is an
-explicit opt-in made before execution. Formal retained mode persists the source
-snapshot, canonical data, metadata, `AnalysisResult`, public response, manifest,
-and completion marker. It reports `retained_complete` only after persistence
-integrity passes.
-
-Retained runs support cross-process `list`, `inspect`, and `verify` operations.
-Persistence integrity does not make `ClaimDecision` more correct and never
-upgrades `USER_DECLARED` to independent verification.
-
-<!-- parity: governed-refusal -->
-### 6. Governed refusal
-
-For “Why did revenue drop?”, CommerceLens may support the descriptive absolute
-Revenue Change while refusing the unsupported diagnostic conclusion:
-
-```text
-Insufficient evidence to conclude why Revenue declined.
-```
-
-It does not list speculative causes.
-
-<!-- parity: public-scope -->
-### 7. Public scope
-
-| Supported | Unsupported |
+| Supported by the data | Not supported by the data |
 |---|---|
-| CSV and XLSX | Positive diagnostic or causal explanations |
-| Revenue | Forecasting and predictive claims |
-| Orders | Recommendations and prescriptive claims |
-| AOV | Revenue Change Percentage |
-| Absolute Revenue Change | Product/category contribution or ranking |
-| Exact canonical mapping or confirmed mapping | Marketplace/vendor connectors |
-| Descriptive positive claims | Hosted SaaS or REST API |
+| Revenue: `12,000 USD` → `10,800 USD` | The reason revenue declined |
+| Absolute Revenue Change: `-1,200 USD` | Any guessed cause or recommendation |
 
-Grouping is `NONE`. Revenue means post-discount eligible merchandise value,
-excluding tax and shipping, within the governed scope and period; it is not
-accounting revenue or cash collected. `AOV` is `Undefined` when Orders is zero,
-not numeric zero. CSV/XLSX are the public workflow; SQLite remains a lower-level
-kernel capability.
+The calculation is supported. The reason is not, so CommerceLens does not
+invent one.
 
-<!-- parity: how-it-works -->
-### 8. How it works
+![CommerceLens product flow: provide a CSV or Excel file, ask a business question, confirm columns and source completeness, calculate and validate, then receive a supported answer or a request for clarification.](docs/assets/readme/commerce-lens-flow-en.svg)
 
-```text
-Business Question
--> Metric Definition
--> Required Evidence
--> Data Sufficiency
--> Deterministic Execution
--> Deterministic Validation
--> Evidence
--> ClaimDecision
--> Supported Answer / Governed Refusal
-```
+### Why this is different from asking an AI to analyze a file
 
-The Skill creates a bounded structured intent; the runner invokes the same
-application service used by tests. Material values never come from LLM mental
-math.
+A number can be calculated correctly and still be unsupported if the source
+file is incomplete. CommerceLens separates calculation from the decision to
+present a business conclusion:
 
-<!-- parity: quick-start -->
-### 9. Quick Start
+- the Codex plugin interprets the question, inspects columns, and asks for
+  missing information;
+- the deterministic runtime calculates and validates supported metrics;
+- the evidence checks decide whether the conclusion can be stated;
+- unsupported gaps stay blocked instead of being filled with plausible prose.
+
+### What CommerceLens can and cannot do
+
+<!-- fact: unsupported=diagnostic,causal,predictive,prescriptive,revenue-change-percentage,product-category-contribution-ranking -->
+
+| Available now | Not available now |
+|---|---|
+| Calculate Revenue | Explain why Revenue changed |
+| Count Orders | Make causal claims |
+| Calculate AOV | Forecast future Revenue |
+| Compare absolute Revenue Change between two periods | Recommend business actions |
+| Read CSV and XLSX files | Calculate Revenue Change Percentage |
+| Analyze non-standard column names after confirmed mapping | Rank product/category contribution |
+
+Metric meanings are intentionally narrow:
+
+- **Revenue** is post-discount eligible merchandise value, excluding tax and
+  shipping, within the confirmed scope and period. It is not accounting revenue
+  or cash collected.
+- **Orders** counts distinct eligible orders.
+- **AOV** is Revenue divided by Orders for the same governed population. When
+  Orders is zero, AOV is `Undefined`, not numeric zero.
+- **Absolute Revenue Change** is comparison-period Revenue minus baseline-period
+  Revenue. Percentage change is not supported.
+
+### Quick Start
 
 Verify Codex and install the plugin:
 
@@ -132,48 +89,63 @@ codex plugin list
 ```
 
 Start a fresh Codex session after installation, provide a CSV or XLSX file, and
-ask a supported question such as “How did revenue change from Q3 2026 to Q4
-2026?” See [Public usage](docs/USAGE.md) for the complete workflow.
+ask a supported question such as:
 
-<!-- parity: schema-mapping -->
-### 10. Schema mapping example
+> How did revenue change from Q3 2026 to Q4 2026?
+
+See [Public usage](docs/USAGE.md) for the complete workflow and supported input
+formats.
+
+### What the user workflow looks like
+
+1. Provide a CSV or XLSX file and ask a supported business question.
+2. Confirm or correct any proposed source-column mapping. CommerceLens does not
+   rename or overwrite the source file.
+3. Confirm whether the export includes all relevant pages, records, statuses,
+   periods, and filters.
+4. CommerceLens calculates and validates the supported metric.
+5. It returns a supported answer or explains what evidence is still missing.
+
+### How source completeness is confirmed
+
+A file containing the requested dates does not prove that the export is
+complete. CommerceLens separately checks whether all relevant pages and records
+were included, how order statuses were handled, whether hidden filters existed,
+and how current the export is.
+
+Known facts are shown once. Only missing, ambiguous, or contradictory facts
+trigger clarification. A complete English confirmation ends with:
 
 ```text
-Order Number -> order_id
-Line Item ID -> order_line_id
-Order Date   -> order_date
-SKU          -> product_id
-Quantity     -> quantity
-Sales Amount -> line_revenue
-Currency     -> currency
-Order Status -> eligibility_status
+Please confirm that the information above is correct.
 ```
 
-The proposal is not authority. The user confirms or corrects it, then
-deterministic `validate_mapping(...)` must pass. Source files are not renamed or
-overwritten.
+A simple reply such as `Confirm` is enough. Confirmation is bound to the exact
+source, mapping, scope, periods, and completeness statement shown at that time;
+changing them invalidates the old confirmation.
 
-<!-- parity: coverage-example -->
-### 11. Coverage confirmation example
+When completeness is confirmed by the user, the system records the formal
+identifier `USER_DECLARED`. This is user-provided authority, not independent
+verification by CommerceLens. Mapping confirmation and source-completeness
+confirmation are separate steps.
 
-```text
-Coverage proposal:
-- all export pages and all in-scope records included
-- paid orders included; cancelled orders excluded
-- no additional hidden filters
-- data available through 2026-04-01T00:00:00Z
-- Authority: USER_DECLARED; not independently verified by CommerceLens
-請確認以上資訊是否正確。
-```
+### What happens when evidence is insufficient
 
-`確認` is normalized to the canonical confirmed intent and bound to this exact
-proposal. Mapping confirmation alone cannot perform this step.
+Unknown, ambiguous, contradictory, or incomplete source coverage blocks
+material conclusions. CommerceLens may calculate that Revenue decreased by
+`1,200 USD`, but if the file contains no evidence explaining why, it refuses the
+reason request and does not list speculative causes.
 
-<!-- parity: retention-example -->
-### 12. Retained evidence example
+### Optional retained evidence
 
-After an explicit retention request, the host invokes retained mode. Operators
-can then use the governed lifecycle commands:
+<!-- fact: retention=temporary-default,opt-in,list-inspect-verify,plaintext,no-ttl,no-encryption,no-secure-erase -->
+
+If you need an audit trail, CommerceLens can explicitly save the source
+snapshot, analysis result, and verification metadata for later inspection.
+Retention is opt-in; the default temporary mode creates no retained run.
+
+After an explicit retention request, operators can list, inspect, and verify a
+retained run:
 
 ```bash
 python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root ROOT --list-retained
@@ -181,182 +153,140 @@ python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root 
 python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root ROOT --verify-run RUN_ID
 ```
 
-Without the explicit request, execution stays temporary. Retained local storage
-is plaintext and has no TTL, encryption, or secure erase.
+A successfully saved bundle is reported as `retained_complete` only after its
+stored data passes integrity checks. Retention does not make the analytical
+conclusion more correct and does not upgrade `USER_DECLARED` to independent
+verification. Retained local data is plaintext and has no TTL, encryption, or
+secure erase.
 
-<!-- parity: public-examples -->
-### 13. Public examples
+### How reliability is enforced
 
-[Public examples](examples/public_v0_1/README.md) include canonical CSV, XLSX,
-and zero-order AOV cases. The `public_v0_1` path is a compatibility identifier,
-not the package version. [P14 fixture evidence](tests/fixtures/p14/README.md)
-covers realistic synthetic source shapes without claiming vendor compatibility.
+CommerceLens keeps calculation, validation, evidence, and claim authorization
+separate. The deterministic runtime—not language-model mental math—owns metric
+values and validation. Stale confirmations, unsupported mappings, incomplete
+coverage, inconsistent currency, or failed retention finalization do not become
+supported conclusions or successful retained runs.
 
-<!-- parity: engineering -->
-### 14. Engineering credibility
+The formal contracts, states, proposal binding, persistence manifest, and
+completion-marker design are documented in [Development notes](docs/DEVELOPMENT.md).
 
-CommerceLens uses typed contracts, deterministic CSV/XLSX intake, mapping and
-coverage validation, governed Metric execution, evidence linkage, admissibility
-evaluation, retained-bundle integrity checks, and fail-closed regressions. The
-release candidate is verified with focused gates, P15 preflight, the complete
-test suite, packaging checks, data-safety review, and an isolated fresh-install
-gate. Developer commands are in [Development notes](docs/DEVELOPMENT.md).
+### Current release and validation status
 
-<!-- parity: validation-status -->
-### 15. Project and validation status
+<!-- fact: release=v0.2.0,public,tag-v0.2.0 -->
+<!-- fact: validation=p00-pass-internal,p01-not-run,p15-not-pass -->
 
-- Version: `0.2.0`.
-- P00 internal expert protocol rehearsal: **PASS**.
-- External participant contribution to P00: **0**.
+- Current version: `v0.2.0`.
+- Release: **[PUBLICLY RELEASED](https://github.com/daniel-j-lin/commerce-lens/releases/tag/v0.2.0)** on GitHub.
+- Git tag: `v0.2.0`.
+- P00: **PASS** — internal expert protocol rehearsal with 0 external participants.
 - P01 external first-user pilot: **NOT RUN**.
-- P15: **NOT PASS**; participant thresholds are unchanged.
-- Release state: local release candidate only; publication requires explicit authorization.
+- P15: **NOT PASS**.
 
-P00 is internal rehearsal evidence, not external validation, usability proof, or
-production-readiness evidence. See the [P00 closeout](validation/p15/P00_INTERNAL_PROTOCOL_REHEARSAL_CLOSEOUT.md).
+P00 is internal rehearsal evidence only. It is not external validation,
+usability proof, or production-readiness evidence. See the
+[P00 closeout](validation/p15/P00_INTERNAL_PROTOCOL_REHEARSAL_CLOSEOUT.md).
 
-<!-- parity: safety-limitations -->
-### 16. Data safety and limitations
+### Current limitations and data safety
 
-Public examples and fixtures are synthetic. Do not commit secrets, credentials,
-private participant information, customer data, confidential employer data,
-private URLs, retained runtime bundles, databases, logs, caches, or local
-environments. CommerceLens does not claim enterprise security certification,
-external user validation, production readiness, usability proof, or product-
-market fit. It does not provide a hosted service, REST API, cloud deployment,
-secure erase, or independent source-completeness verification.
+- The public workflow supports ungrouped CSV/XLSX analysis only. It does not
+  directly connect to Shopify, Amazon, or other marketplace/vendor systems.
+- CommerceLens is not a hosted SaaS, REST API, or cloud deployment.
+- Source completeness is not independently verified by CommerceLens.
+- Public examples and fixtures are synthetic.
+- Do not commit secrets, credentials, participant information, customer data,
+  confidential employer data, private URLs, retained runtime bundles,
+  databases, logs, caches, or local environments.
+- CommerceLens does not claim external user validation, production readiness,
+  proven usability, enterprise security certification, or product-market fit.
 
-Governance authority remains in the [Metric Dictionary](docs/frozen/CANONICAL_DATASET_AND_METRIC_DICTIONARY.md),
-[Evidence Contract](docs/frozen/EVIDENCE_CONTRACT_SPECIFICATION.md), and
-[Architecture Specification](docs/frozen/ARCHITECTURE_SPECIFICATION.md).
+### Documentation, license, and release
 
-<!-- parity: license-release -->
-### 17. License and release
+- [Public usage](docs/USAGE.md)
+- [Development notes](docs/DEVELOPMENT.md)
+- [Public examples](examples/public_v0_1/README.md)
+- [Metric Dictionary](docs/frozen/CANONICAL_DATASET_AND_METRIC_DICTIONARY.md)
+- [Evidence Contract](docs/frozen/EVIDENCE_CONTRACT_SPECIFICATION.md)
+- [Architecture Specification](docs/frozen/ARCHITECTURE_SPECIFICATION.md)
+- [v0.2.0 release notes](release-notes/v0.2.0.md)
+- [MIT License](LICENSE)
 
-CommerceLens is licensed under the [MIT License](LICENSE). Package and plugin
-version: `0.2.0`. Release title: **CommerceLens v0.2.0 — Governed Coverage &
-Retained Evidence**. Release notes are in [v0.2.0 release notes](release-notes/v0.2.0.md).
-No tag, GitHub Release, package publication, or deployment is created by local
-release preparation.
+The frozen specifications remain the project authority. This README explains
+the current public surface in user-facing language; it does not replace those
+specifications.
 
 ---
 
-# 繁體中文
+<a id="traditional-chinese"></a>
 
-<!-- parity: product-positioning -->
-### 1. 產品定位
+## 繁體中文
 
-**為 AI 代理提供證據治理的商務分析。** CommerceLens v0.2.0 是本機、開源的
-Codex Skill/plugin，能把支援的 CSV 與 XLSX 資料轉為經驗證且可追溯的主張，
-並拒絕現有證據無法支持的結論。
+用自然語言分析電商 CSV 或 Excel 資料；資料不完整時，CommerceLens 不會自行猜測。
 
-> 沒有可追溯證據，就不提出實質主張。
+CommerceLens 是開源的 Codex 外掛程式，目前可以計算營收、訂單數、平均客單價，
+以及兩個期間之間的絕對營收變化。在提出商務結論前，它會先檢查現有資料是否真的
+足以支持該結論。若要開始使用，請先[安裝外掛程式](#快速開始)，再提供 CSV 或
+XLSX 檔案並提出支援的問題。
 
-<!-- parity: why-different -->
-### 2. CommerceLens 的差異
+<!-- fact: inputs=csv,xlsx -->
+<!-- fact: metrics=revenue,orders,aov,absolute-revenue-change -->
 
-CommerceLens 將分析狀態明確分開：
+> CommerceLens 只計算資料真正支持的結果；資料沒有證明的部分，不會自行猜測。
 
-```text
-Executed Result != Validated Result
-Validated Result != Admissible Evidence
-Admissible Evidence != ClaimDecision
-```
+### 30 秒合成資料範例
 
-確定性執行環境負責 KPI 數值、驗證、Evidence 與 `ClaimDecision`。代理可解讀
-支援的問題、檢查欄位、提出 mapping、詢問缺漏資訊，並解釋已獲授權的輸出；
-但不能把看似合理的敘述變成實質主張。公開輸出會區分 `MetricState` 與
-`ClaimState`；未知權限一律 fail closed。
+**這是合成資料範例，不是真實商家或客戶案例。**
 
-<!-- parity: governed-coverage -->
-### 3. 受治理的 coverage
+你問：
 
-Mapping 確認與 coverage 確認是不同關卡。把來源欄位對應到 `line_revenue`
-不代表所有相關紀錄都已匯出。請求期間不等於 coverage authority，資料中觀察到
-的最早或最晚日期也不等於 coverage authority。
+> 2025 年第一季到 2026 年第一季，營收變化多少？為什麼下降？
 
-來源擁有者提供經檢視的匯出事實後，CommerceLens 會準備單一 proposal，涵蓋
-所有頁面與紀錄、合格狀態處理、隱藏篩選、請求期間，以及明確的 UTC cutoff。
-確認後只會建立 `USER_DECLARED` authority；CommerceLens 並未獨立驗證來源完整
-性。未知、模糊、矛盾或不完整的 coverage 仍會被阻擋。
+確認來源資料完整後，CommerceLens 可以回答：
 
-<!-- parity: coverage-ux -->
-### 4. 整合式 coverage UX
-
-已確定的事實只顯示一次；只有缺漏、模糊或矛盾的事實才會觸發澄清。完整
-proposal 的結尾為：
-
-```text
-請確認以上資訊是否正確。
-```
-
-一般肯定回覆如 `確認` 即可，不需要特殊詞句。確認會綁定精確的 proposal
-fingerprint；來源、mapping、scope、期間、cutoff 或 proposal 有任何變更，舊確認
-即失效。
-
-<!-- parity: retained-evidence -->
-### 5. 保留證據
-
-預設為 temporary 執行，不建立 retained run。Retention 必須在執行前明確選擇。
-正式 retained mode 會保存來源快照、canonical data、metadata、`AnalysisResult`、
-公開回應、manifest 與 completion marker；只有 persistence integrity 通過後才回報
-`retained_complete`。
-
-Retained run 支援跨程序的 `list`、`inspect` 與 `verify`。Persistence integrity
-不會讓 `ClaimDecision` 更正確，也不會把 `USER_DECLARED` 升級成獨立驗證。
-
-<!-- parity: governed-refusal -->
-### 6. 受治理的拒絕
-
-面對「營收為何下降？」CommerceLens 可支持描述性的絕對 Revenue Change，
-同時拒絕證據不足的診斷結論：
-
-```text
-Insufficient evidence to conclude why Revenue declined.
-```
-
-系統不會列出推測原因。
-
-<!-- parity: public-scope -->
-### 7. 公開範圍
-
-| 支援 | 不支援 |
+| 資料可以支持 | 資料無法支持 |
 |---|---|
-| CSV 與 XLSX | 正向診斷或因果解釋 |
-| Revenue | 預測與 predictive claims |
-| Orders | 建議與 prescriptive claims |
-| AOV | Revenue Change Percentage |
-| 絕對 Revenue Change | 產品／類別 contribution 或 ranking |
-| 精確 canonical mapping 或已確認 mapping | Marketplace／vendor connectors |
-| 描述性正向主張 | Hosted SaaS 或 REST API |
+| 營收：`12,000 USD` → `10,800 USD` | 營收下降的原因 |
+| 絕對營收變化：`-1,200 USD` | 猜測的原因或經營建議 |
 
-Grouping 為 `NONE`。Revenue 指治理範圍與期間內，折扣後、符合資格的商品價值，
-不含稅與運費；它不是會計營收或實收現金。Orders 為零時，`AOV` 是
-`Undefined`，不是數值零。CSV/XLSX 是公開工作流程；SQLite 仍是較底層的 kernel
-能力。
+計算結果有資料支持，但下降原因沒有，因此 CommerceLens 不會自行編造理由。
 
-<!-- parity: how-it-works -->
-### 8. 運作方式
+![CommerceLens 產品流程：提供 CSV 或 Excel 檔案、提出商務問題、確認欄位與資料是否完整、執行並驗證計算，最後回答有證據支持的結果，或在證據不足時要求補充資料。](docs/assets/readme/commerce-lens-flow-zh-TW.svg)
 
-```text
-Business Question
--> Metric Definition
--> Required Evidence
--> Data Sufficiency
--> Deterministic Execution
--> Deterministic Validation
--> Evidence
--> ClaimDecision
--> Supported Answer / Governed Refusal
-```
+### 與一般 AI 分析檔案有什麼不同
 
-Skill 建立有界的 structured intent；runner 呼叫與測試相同的 application service。
-實質數值絕不來自 LLM 心算。
+數字可能算對了，卻仍然無法支持商務結論，例如來源檔案漏了部分訂單。
+CommerceLens 會把計算與「這個結論能不能說」分開處理：
 
-<!-- parity: quick-start -->
-### 9. 快速開始
+- Codex 外掛程式負責理解問題、檢查欄位，並詢問缺少的資訊；
+- 確定性的程式負責計算與驗證目前支援的指標；
+- 證據檢查會判斷資料是否足以支持結論；
+- 資料不足時會停止回答，不會用看似合理的文字填補空缺。
 
-確認 Codex 並安裝 plugin：
+### 現在可以做與不會做的事
+
+<!-- fact: unsupported=diagnostic,causal,predictive,prescriptive,revenue-change-percentage,product-category-contribution-ranking -->
+
+| 現在可以做 | 現在不會做 |
+|---|---|
+| 計算營收 | 解釋營收變動原因 |
+| 計算訂單數 | 推論因果關係 |
+| 計算平均客單價 | 預測未來營收 |
+| 比較兩個期間的絕對營收變化 | 提供經營建議 |
+| 讀取 CSV 與 XLSX 檔案 | 計算營收變化百分比 |
+| 確認非標準欄名後進行分析 | 計算商品或類別的貢獻與排名 |
+
+各項指標採用明確而有限的定義：
+
+- **營收（Revenue）**是已確認範圍與期間內，折扣後、符合條件的商品價值，
+  不含稅金與運費；它不是會計營收或實際收款金額。
+- **訂單數（Orders）**計算不重複且符合條件的訂單。
+- **平均客單價（AOV）**是同一資料範圍內的營收除以訂單數。訂單數為零時，
+  結果是「無法定義」（系統狀態：`Undefined`），不是數字零。
+- **絕對營收變化（Revenue Change）**是比較期間營收減去基準期間營收；目前
+  不支援百分比變化。
+
+### 快速開始
+
+先確認 Codex 可用，再安裝外掛程式：
 
 ```bash
 codex --version
@@ -365,48 +295,68 @@ codex plugin add commerce-lens --marketplace commerce-lens
 codex plugin list
 ```
 
-安裝後請啟動新的 Codex session，提供 CSV 或 XLSX 檔案，並提出支援的問題，
-例如「How did revenue change from Q3 2026 to Q4 2026?」。完整流程請見
-[公開使用說明](docs/USAGE.md)。
+安裝後請開啟新的 Codex 工作階段，提供 CSV 或 XLSX 檔案，並提出支援的問題，
+例如：
 
-<!-- parity: schema-mapping -->
-### 10. Schema mapping 範例
+> 2026 年第三季到第四季，營收變化多少？
+
+完整操作流程與支援的輸入格式請見[公開使用說明](docs/USAGE.md)。
+
+### 實際使用流程
+
+1. 提供 CSV 或 XLSX 檔案，並提出支援的商務問題。
+2. 確認或修正系統提出的來源欄位對應。CommerceLens 不會重新命名或覆寫來源檔。
+3. 確認匯出內容是否包含所有相關頁面、紀錄、訂單狀態、期間與篩選條件。
+4. CommerceLens 執行並驗證目前支援的計算。
+5. 系統回答有足夠證據支持的結果，或說明還缺少哪些資料。
+
+簡化後的流程是：
 
 ```text
-Order Number -> order_id
-Line Item ID -> order_line_id
-Order Date   -> order_date
-SKU          -> product_id
-Quantity     -> quantity
-Sales Amount -> line_revenue
-Currency     -> currency
-Order Status -> eligibility_status
+提出商務問題
+→ 確認要計算的指標與期間
+→ 確認來源欄位
+→ 確認匯出資料是否完整
+→ 執行並驗證計算
+→ 檢查證據是否足以支持結論
+→ 回答，或因證據不足而停止下結論
 ```
 
-Proposal 本身不是 authority。使用者必須確認或修正，之後確定性的
-`validate_mapping(...)` 必須通過。來源檔不會被重新命名或覆寫。
+### 如何確認來源資料是否完整
 
-<!-- parity: coverage-example -->
-### 11. Coverage 確認範例
+檔案裡看得到要求的日期，不代表匯出資料一定完整。CommerceLens 會另外確認是否
+包含所有相關頁面與紀錄、如何處理訂單狀態、是否有隱藏篩選條件，以及資料更新到
+什麼時間。
+
+已知資訊只顯示一次；只有缺漏、模糊或互相矛盾的內容才會要求補充。完整的中文
+確認內容會以這句話結尾：
 
 ```text
-Coverage proposal:
-- all export pages and all in-scope records included
-- paid orders included; cancelled orders excluded
-- no additional hidden filters
-- data available through 2026-04-01T00:00:00Z
-- Authority: USER_DECLARED; not independently verified by CommerceLens
 請確認以上資訊是否正確。
 ```
 
-`確認` 會正規化為 canonical confirmed intent，並綁定這個精確 proposal。僅有
-mapping 確認不能完成此步驟。
+直接回覆 `確認` 即可。這次確認只適用於當下顯示的來源、欄位對應、分析範圍、
+期間與資料完整性聲明；其中任何一項改變後，都必須重新確認。
 
-<!-- parity: retention-example -->
-### 12. Retained evidence 範例
+如果資料完整性是由使用者確認，系統會記錄為「由使用者提供判定依據」
+（系統識別為 `USER_DECLARED`）。這不代表 CommerceLens 已獨立驗證來源。
+欄位對應確認與資料完整性確認是兩個不同步驟。
 
-收到明確 retention 要求後，host 才會啟用 retained mode。操作者可使用治理後的
-lifecycle 指令：
+### 證據不足時會發生什麼
+
+來源資料的涵蓋範圍未知、模糊、互相矛盾或不完整時，CommerceLens 會阻止缺乏
+支持的實質結論。它可能算出營收減少 `1,200 USD`；但如果檔案沒有說明原因的
+證據，就會拒絕回答原因，也不會列出猜測。
+
+### 選擇性保留完整分析證據
+
+<!-- fact: retention=temporary-default,opt-in,list-inspect-verify,plaintext,no-ttl,no-encryption,no-secure-erase -->
+
+如果需要留下可供日後查核的分析紀錄，CommerceLens 可以在你明確要求後，保存
+來源快照、分析結果與驗證資訊。保存功能必須主動選擇；預設的臨時分析模式不會
+建立保留紀錄。
+
+明確要求保存後，可以用以下指令列出、查看與驗證紀錄：
 
 ```bash
 python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root ROOT --list-retained
@@ -414,57 +364,58 @@ python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root 
 python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root ROOT --verify-run RUN_ID
 ```
 
-沒有明確要求時仍採 temporary。保留的本機資料為明文，沒有 TTL、加密或安全
-抹除。
+只有保存的資料通過完整性檢查後，系統才會回報「證據已完整保存」
+（系統狀態：`retained_complete`）。保存成功不會讓分析結論變得更正確，也不會把
+`USER_DECLARED` 提升為獨立驗證。保留在本機的資料是明文，沒有自動保存期限
+（TTL）、加密或安全抹除功能。
 
-<!-- parity: public-examples -->
-### 13. 公開範例
+### 如何維持分析可靠性
 
-[公開範例](examples/public_v0_1/README.md)包含 canonical CSV、XLSX，以及零訂單
-AOV 案例。`public_v0_1` 路徑是相容性識別符，不是 package version。
-[P14 fixture 證據](tests/fixtures/p14/README.md)涵蓋貼近真實的合成來源形態，但不
-宣稱 vendor compatibility。
+CommerceLens 將計算、驗證、證據與結論是否可以提出分開處理。指標數值與驗證
+由確定性的程式負責，不是由語言模型心算。過期的確認、不支援的欄位對應、
+不完整的資料範圍、幣別不一致，或保存流程失敗，都不會被當成有證據支持的結論
+或成功保存的紀錄。
 
-<!-- parity: engineering -->
-### 14. 工程可信度
+正式的資料結構、系統狀態、確認綁定方式、保存清單及完成標記設計，請見
+[開發說明](docs/DEVELOPMENT.md)。
 
-CommerceLens 採用 typed contracts、確定性 CSV/XLSX intake、mapping 與 coverage
-驗證、受治理的 Metric 執行、evidence linkage、admissibility evaluation、retained
-bundle integrity checks，以及 fail-closed regressions。Release candidate 會通過
-focused gates、P15 preflight、完整 test suite、packaging checks、data-safety review
-與 isolated fresh-install gate。開發指令請見[開發說明](docs/DEVELOPMENT.md)。
+### 目前版本與驗證狀態
 
-<!-- parity: validation-status -->
-### 15. 專案與驗證狀態
+<!-- fact: release=v0.2.0,public,tag-v0.2.0 -->
+<!-- fact: validation=p00-pass-internal,p01-not-run,p15-not-pass -->
 
-- 版本：`0.2.0`。
-- P00 內部專家 protocol rehearsal：**PASS**。
-- P00 外部參與者貢獻：**0**。
-- P01 外部 first-user pilot：**NOT RUN**。
-- P15：**NOT PASS**；參與者門檻未變更。
-- Release state：僅為本機 release candidate；發布仍需明確授權。
+- 目前版本：`v0.2.0`。
+- 發布狀態：已在 GitHub **[公開發布](https://github.com/daniel-j-lin/commerce-lens/releases/tag/v0.2.0)**。
+- Git 標籤：`v0.2.0`。
+- P00：**PASS**——內部專家流程演練，外部參與者為 0。
+- P01 外部首次使用者試行：**NOT RUN**（尚未執行）。
+- P15：**NOT PASS**（尚未通過）。
 
-P00 是內部 rehearsal 證據，不是外部驗證、可用性證明或 production-readiness
-證據。請見 [P00 closeout](validation/p15/P00_INTERNAL_PROTOCOL_REHEARSAL_CLOSEOUT.md)。
+P00 只代表內部流程演練，不是外部驗證、可用性證明或已適合正式環境的證據。
+詳情請見 [P00 結案紀錄](validation/p15/P00_INTERNAL_PROTOCOL_REHEARSAL_CLOSEOUT.md)。
 
-<!-- parity: safety-limitations -->
-### 16. 資料安全與限制
+### 目前限制與資料安全
 
-公開範例與 fixtures 都是合成資料。請勿提交 secrets、credentials、私人參與者
-資訊、客戶資料、雇主機密資料、私人網址、retained runtime bundles、databases、
-logs、caches 或本機 environments。CommerceLens 不宣稱 enterprise security
-certification、外部使用者驗證、production readiness、usability proof 或 product-
-market fit；也不提供 hosted service、REST API、cloud deployment、安全抹除或
-來源完整性的獨立驗證。
+- 公開流程只支援不分組的 CSV／XLSX 分析，不會直接連接 Shopify、Amazon 或其他
+  外部電商平台。
+- CommerceLens 不是託管式線上服務、REST API 或雲端部署服務。
+- CommerceLens 不會獨立驗證來源資料是否完整。
+- 公開範例與測試資料都是合成資料。
+- 請勿提交密碼、憑證、參與者個人資訊、客戶資料、雇主機密資料、私人網址、
+  保留的執行資料、資料庫、紀錄檔、快取或本機環境。
+- CommerceLens 不宣稱已完成外部使用者驗證、已適合正式環境、已證明可用性、
+  具備企業安全認證或已達成產品市場契合度。
 
-治理權威仍在 [Metric Dictionary](docs/frozen/CANONICAL_DATASET_AND_METRIC_DICTIONARY.md)、
-[Evidence Contract](docs/frozen/EVIDENCE_CONTRACT_SPECIFICATION.md)與
-[Architecture Specification](docs/frozen/ARCHITECTURE_SPECIFICATION.md)。
+### 詳細文件、授權與版本發布
 
-<!-- parity: license-release -->
-### 17. 授權與 release
+- [公開使用說明](docs/USAGE.md)
+- [開發說明](docs/DEVELOPMENT.md)
+- [公開範例](examples/public_v0_1/README.md)
+- [指標定義文件](docs/frozen/CANONICAL_DATASET_AND_METRIC_DICTIONARY.md)
+- [證據契約](docs/frozen/EVIDENCE_CONTRACT_SPECIFICATION.md)
+- [架構規格](docs/frozen/ARCHITECTURE_SPECIFICATION.md)
+- [v0.2.0 版本說明](release-notes/v0.2.0.md)
+- [MIT 授權條款](LICENSE)
 
-CommerceLens 採用 [MIT License](LICENSE)。Package 與 plugin 版本：`0.2.0`。
-Release title：**CommerceLens v0.2.0 — Governed Coverage & Retained Evidence**。
-Release notes 位於 [v0.2.0 release notes](release-notes/v0.2.0.md)。本機 release
-準備不會建立 tag、GitHub Release、package publication 或 deployment。
+凍結規格仍是專案的正式依據。本 README 以使用者容易理解的方式說明目前公開
+功能，不會取代正式規格。

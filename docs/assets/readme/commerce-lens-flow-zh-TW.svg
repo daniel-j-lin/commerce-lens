@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" role="img" aria-labelledby="title desc">
+  <title id="title">CommerceLens 產品流程</title>
+  <desc id="desc">CSV 或 Excel 檔案經過商務問題、欄位與來源完整性確認，以及計算與驗證後，會得到有證據支持的回答；證據不足時則要求補充資料或停止下結論。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="440" fill="#ffffff"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" text-anchor="middle">
+  <rect fill="#f8fafc" stroke="#475569" stroke-width="2" x="25" y="55" width="220" height="110" rx="14"/>
+  <text fill="#0f172a" font-size="20" font-weight="600" x="135" y="105">CSV / Excel</text>
+  <text fill="#334155" font-size="16" x="135" y="135">電商資料</text>
+
+  <path fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)" d="M 245 110 H 295"/>
+
+  <rect fill="#f8fafc" stroke="#475569" stroke-width="2" x="305" y="55" width="220" height="110" rx="14"/>
+  <text fill="#0f172a" font-size="20" font-weight="600" x="415" y="115">提出商務問題</text>
+
+  <path fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)" d="M 525 110 H 575"/>
+
+  <rect fill="#f8fafc" stroke="#475569" stroke-width="2" x="585" y="55" width="260" height="110" rx="14"/>
+  <text fill="#0f172a" font-size="20" font-weight="600" x="715" y="94">確認欄位與</text>
+  <text fill="#0f172a" font-size="20" font-weight="600" x="715" y="122">來源資料是否完整</text>
+  <text fill="#334155" font-size="16" x="715" y="148">不能只看日期就假設完整</text>
+
+  <path fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)" d="M 845 110 H 895"/>
+
+  <rect fill="#f8fafc" stroke="#475569" stroke-width="2" x="905" y="55" width="270" height="110" rx="14"/>
+  <text fill="#0f172a" font-size="20" font-weight="600" x="1040" y="115">執行並驗證計算</text>
+
+  <path fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)" d="M 1040 165 V 225 H 855 V 275"/>
+  <path fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)" d="M 1040 165 V 275"/>
+
+  <rect fill="#ecfdf5" stroke="#047857" stroke-width="2" x="710" y="285" width="290" height="105" rx="14"/>
+  <text fill="#0f172a" font-size="20" font-weight="600" x="855" y="330">有足夠證據 → 回答</text>
+  <text fill="#334155" font-size="16" x="855" y="360">資料足以支持結果</text>
+
+  <rect fill="#fff7ed" stroke="#c2410c" stroke-width="2" x="1020" y="285" width="155" height="105" rx="14"/>
+  <text fill="#0f172a" font-size="20" font-weight="600" x="1098" y="323">證據不足</text>
+  <text fill="#0f172a" font-size="20" font-weight="600" x="1098" y="349">要求補充</text>
+  <text fill="#334155" font-size="16" x="1098" y="376">或停止下結論</text>
+  </g>
+</svg>
