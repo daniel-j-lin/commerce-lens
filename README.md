@@ -1,7 +1,5 @@
 # CommerceLens
 
-## English
-
 <!-- parity: product-positioning -->
 ### 1. Product positioning
 
