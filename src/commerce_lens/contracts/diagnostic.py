@@ -65,6 +65,7 @@ class AnalyticalOutcome(str, Enum):
 
 class AlternativeExplanationState(str, Enum):
     NOT_EVALUATED = "NOT_EVALUATED"
+    NOT_COMPLETED = "NOT_COMPLETED"
 
 
 class DiagnosticProposition(ContractBase):
@@ -127,7 +128,7 @@ class PreTestDiagnosticEvaluation(ContractBase):
     test_eligibility: TestEligibility
     first_controlling_blocker: str | None = None
     analytical_outcome: AnalyticalOutcome = AnalyticalOutcome.NOT_EVALUATED
-    alternative_explanation_state: AlternativeExplanationState = AlternativeExplanationState.NOT_EVALUATED
+    alternative_explanation_state: AlternativeExplanationState = AlternativeExplanationState.NOT_COMPLETED
     authority_bindings: tuple[AuthorityBinding, ...] = Field(min_length=1)
     finalized_at: datetime
 
@@ -142,7 +143,10 @@ class PreTestDiagnosticEvaluation(ContractBase):
     def validate_pretest_boundary(self) -> Self:
         if self.analytical_outcome is not AnalyticalOutcome.NOT_EVALUATED:
             raise ValueError("pre-test evaluation cannot contain a tested analytical outcome")
-        if self.alternative_explanation_state is not AlternativeExplanationState.NOT_EVALUATED:
+        if self.alternative_explanation_state not in {
+            AlternativeExplanationState.NOT_EVALUATED,
+            AlternativeExplanationState.NOT_COMPLETED,
+        }:
             raise ValueError("pre-test evaluation cannot contain a tested alternative-explanation state")
         if self.test_eligibility is TestEligibility.ELIGIBLE_NOT_EXECUTED:
             if self.evidence_readiness is not EvidenceReadiness.READY_FOR_TEST:
@@ -212,7 +216,7 @@ def pretest_evaluation_semantic_fingerprint(
         "first_controlling_blocker": data.get("first_controlling_blocker"),
         "analytical_outcome": _enum(data.get("analytical_outcome", AnalyticalOutcome.NOT_EVALUATED)),
         "alternative_explanation_state": _enum(
-            data.get("alternative_explanation_state", AlternativeExplanationState.NOT_EVALUATED)
+            data.get("alternative_explanation_state", AlternativeExplanationState.NOT_COMPLETED)
         ),
         "authority_bindings": sorted(
             (_json(binding) for binding in data["authority_bindings"]),
