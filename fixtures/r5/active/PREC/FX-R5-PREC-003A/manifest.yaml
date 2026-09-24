@@ -1,0 +1,69 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-PREC-003A
+fixture_version: 1.0.0
+title: Validation failure controls before later permissive Claim-like input
+status: ACTIVE
+family: PREC
+layer: CROSS_CUTTING
+purpose: Preserve the frozen path where a failed required validation controls and the later Claim permission stage remains unreachable.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §19.2
+  controlling_rule: Under this exact diagnostic path, failed validation controls before any later Claim permission stage.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §§14, 20
+    controlling_rule: Later permissive Claim-like input cannot repair or displace an earlier failed validation.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §34
+    controlling_rule: FX-R5-PREC-003A is path-specific and must not become universal precedence authority.
+execution:
+  mode: dependency_gate
+  adapter_id: diagnostic_precedence_projection
+  required_capability: r2_validation_claim_precedence_projection
+  required_capability_version: not_implemented
+inputs:
+  - path: conditions.json
+    role: precedence_conditions
+    media_type: application/json
+    sha256: 68329f09c1b4303201a50c7b9a26bc1299ef65961c5bc4f235ad93412bb959ea
+context:
+  question_or_proposition: Can a later permissive ClaimDecision-like input displace an earlier required validation failure?
+  execution_context: Frozen R1/R2 diagnostic precedence path; current runtime lacks an exact multi-stage projection.
+  intended_use: Exact path-specific first-blocker conformance only.
+  scope: null
+  population: null
+  periods: []
+  currency: null
+bindings:
+  r3_profile_version: null
+  policy_version: p8_001_v1
+  validator_version: p5_001_v1
+expected:
+  expectation_kind: precedence
+  material_path:
+    - {stage: execution, reachability: reached, outcome: executed_result_present}
+    - stage: validation
+      reachability: blocked
+      outcome: required_validation_failed
+      controlling_reason: required_validation_failed
+      authority_ref: R1 v1.0 §19.2
+    - {stage: claim_decision, reachability: not_reached, not_reached_due_to: validation}
+  chain_dispositions: {main: validation_controls_claim_unreachable}
+  first_controlling_blocker:
+    blocker_id: required_validation
+    stage: validation
+    reason: required_validation_failed
+    authority_ref: R1 v1.0 §19.2
+  final_disposition: VALIDATION_FAILURE__CLAIM_PERMISSION_NOT_REACHED
+  permitted_meaning:
+    - Validation failure is the first controlling blocker for this exact frozen path.
+    - The later permissive Claim-like input is retained only for audit.
+  prohibited_meaning:
+    - A universal precedence policy has been inferred.
+    - The later Claim-like input repairs the validation failure.
+  trace_integrity_expectation: {later_claim_input_retained_for_audit: true, claim_permission_stage_reached: false}
+  unique_outcome_rationale: R5 §34 fixes validation failure as the first blocker and explicitly makes Claim permission unreachable for this variant.

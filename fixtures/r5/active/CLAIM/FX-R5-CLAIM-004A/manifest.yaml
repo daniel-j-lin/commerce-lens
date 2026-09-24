@@ -1,0 +1,73 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-CLAIM-004A
+fixture_version: 1.0.0
+title: Finding without authoritative ClaimDecision is blocked
+status: ACTIVE
+family: CLAIM
+layer: C
+purpose: Resolve a controlled Finding candidate against an independently supplied ClaimDecision authority record.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §20
+  controlling_rule: A material Finding requires an authorized ClaimDecision.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §§18, 27
+    controlling_rule: ClaimDecision remains the sole material Claim-permission authority.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §27
+    controlling_rule: Finding rendering without ClaimDecision is blocked and rendering is not reached.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_finding_authority
+  required_capability: pf3_controlled_finding_authority
+  required_capability_version: pf3_2_v1
+inputs:
+  - path: claim_state.json
+    role: claim_state
+    media_type: application/json
+    sha256: 2f0b230c80a2d2cce7eb0af30f22ba6157ef9be97a504eba7f9132b91f295f3c
+context:
+  question_or_proposition: A material Finding is requested without a matching authoritative ClaimDecision.
+  execution_context: PF3-2 controlled ClaimDecision authority-invariant evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings:
+  policy_version: p8_001_v1
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: claim_decision
+      reachability: blocked
+      outcome: AUTHORITY_BYPASS__FINDING_BLOCKED
+      controlling_reason: claim_decision_required_or_denied
+      authority_ref: R1 v1.0 §20
+    - stage: rendering
+      reachability: not_reached
+      not_reached_due_to: claim_decision
+  chain_dispositions: {main: finding_blocked}
+  first_controlling_blocker:
+    blocker_id: claim_authority_boundary
+    stage: claim_decision
+    reason: claim_decision_required_or_denied
+    authority_ref: R1 v1.0 §20
+  final_disposition: AUTHORITY_BYPASS__FINDING_BLOCKED
+  permitted_meaning:
+    - A material Finding cannot be rendered without an authoritative matching ClaimDecision.
+  prohibited_meaning:
+    - The controlled evaluator does not implement Finding production or infer a ClaimDecision.
+  trace_integrity_expectation:
+    claim_decision_reference_id: claim_decision_finding_004
+    claim_decision_reference_present: false
+    candidate_proposition_id: observed_revenue_decline
+    candidate_scope_id: all_eligible
+    requested_materialization_kind: finding
+    requested_scope_id: all_eligible
+    material_rendering_authority_resolved: false
+  unique_outcome_rationale: The producer resolves the requested ClaimDecision reference against supplied authority records and fails closed when no matching record exists.

@@ -1,0 +1,25 @@
+{
+  "required_evidence_id": "competitor_price_evidence_1",
+  "observed_result": {
+    "id": "validated_revenue_change_1",
+    "fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+    "version": "metric_dictionary_v1"
+  },
+  "alternative_assertion": {
+    "id": "competitor_price_change_assertion_1",
+    "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+    "version": "r1_v1",
+    "subject": "competitor pricing"
+  },
+  "evidence_records": [
+    {
+      "id": "internal_product_mix_observation_1",
+      "fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+      "version": "r3_v1"
+    }
+  ],
+  "scope": {
+    "population_id": "all_eligible",
+    "period_id": "comparison"
+  }
+}

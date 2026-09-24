@@ -62,6 +62,423 @@ The following remain Approved / Frozen and must not be modified without Main Pro
 6. CANONICAL_DATASET_AND_METRIC_DICTIONARY.md v1.0
 7. EVALUATION_FIXTURES_SPECIFICATION.md v1.0
 8. ARCHITECTURE_SPECIFICATION.md v1.0
+9. DIAGNOSTIC_REASONING_SPECIFICATION.md R1 v1.0
+10. HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md R2 v1.0
+11. REQUIRED_EVIDENCE_MATRIX_SPECIFICATION.md R3 v1.0
+12. DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md R4 v1.0
+13. DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md R5 v1.0
+
+---
+
+## R1 — Diagnostic Reasoning Specification Closeout
+
+Status:
+
+APPROVED / FROZEN
+
+Main Project Review passed after three contract-level corrections.
+
+Material outputs:
+
+- authoritative diagnostic reasoning governance specification;
+- diagnostic claim taxonomy;
+- promotion predicate and deterministic decision precedence;
+- causal boundary;
+- evidence-admissibility rules;
+- Alternative Explanation governance;
+- allowed and restricted language rules;
+- fail-closed behavior; and
+- evaluator conformance requirements.
+
+Implementation impact: None.
+
+Code changes: None.
+
+Runtime behavior changes: None.
+
+v0.2.0 changes: None.
+
+R2 may proceed only through a separately authorized `/plan`. R2–R5 are not begun by this closeout.
+
+---
+
+## R2 — Hypothesis / Finding State Model Closeout
+
+Final version:
+
+R2 v1.0
+
+Status:
+
+APPROVED / FROZEN
+
+Main Project Review passed after three contract-level corrections.
+
+Authoritative artifact:
+
+`docs/frozen/HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md`
+
+Core outcome:
+
+Defined the minimum sufficient diagnostic runtime representation without duplicating frozen R1 taxonomy or existing execution, validation, evidence, or `ClaimDecision` authority.
+
+Architecture:
+
+Immutable Diagnostic Proposition
+→ Immutable Diagnostic Evaluation
+→ ClaimCandidate
+→ authoritative ClaimDecision
+→ non-authoritative Derived Material Disposition
+→ bounded rendering
+
+New diagnostic-specific assessments:
+
+- Evidence Conflict Assessment;
+- Analytical Outcome; and
+- Alternative Explanation Check.
+
+Key governance rules:
+
+- finalized evaluations are immutable;
+- unfinalized assembly is permitted within one evaluation identity;
+- historical evaluations remain traceable;
+- `CRITERION_MET != Claim authorized`;
+- `ClaimDecision` remains the sole material Claim-permission authority;
+- `CLAIM_PROHIBITED` must reflect authoritative governed refusal;
+- an incomplete Alternative Explanation Check blocks promotion; and
+- Derived Material Disposition is recomputable and non-authoritative.
+
+Implementation impact: None.
+
+Code changes: None.
+
+Runtime behavior changes: None.
+
+v0.2.0 changes: None.
+
+R3 may begin only through a separately authorized `/plan`. R3–R6 are not begun by this closeout.
+
+---
+
+## R3 — Required Evidence Matrix Closeout
+
+Final version:
+
+R3 v1.0
+
+Status:
+
+APPROVED / FROZEN
+
+Main Project Review passed after three contract-level corrections.
+
+Authoritative artifact:
+
+`docs/frozen/REQUIRED_EVIDENCE_MATRIX_SPECIFICATION.md`
+
+Core outcome:
+
+Defined the minimum governed, proposition-specific Required Evidence model required to determine diagnostic test eligibility without reducing evidence sufficiency to field presence and without duplicating existing Data Sufficiency, Evidence Admissibility, R2 evaluation, or `ClaimDecision` authority.
+
+Architecture:
+
+```text
+Global Evidence Governance
++ Proposition-Family Requirement Template
++ Exact Proposition Binding
++ Method-Specific Requirement References
+→ Resolved Required Evidence Profile
+```
+
+Authority boundary:
+
+```text
+Resolved Required Evidence Profile
+= proposition-specific evidence requirement authority
+
+Resolved Required Evidence Profile
+!= Diagnostic Evaluation authority
+```
+
+Key governance rules:
+
+- all twelve frozen R1 minimum dimensions are mandatory to resolve;
+- explicit governed non-applicability is required where appropriate;
+- a family template is non-authoritative without exact binding;
+- evidence roles and dimensions are orthogonal;
+- dimension applicability is non-Cartesian;
+- field presence is insufficient;
+- descriptive admissibility does not imply diagnostic-input admissibility;
+- qualification cannot waive Required Evidence;
+- material narrowing routes through a new R2 proposition, profile, and evaluation;
+- test eligibility remains distinct from support and Claim authorization;
+- Data Sufficiency and Evidence Admissibility remain existing authorities;
+- the Product Mix example is non-authorizing; and
+- no R4 method behavior is defined.
+
+New specification-level concepts:
+
+- Layered Required Evidence Architecture;
+- Resolved Required Evidence Profile;
+- Evidence Role model;
+- Dimension Applicability model;
+- `INTERNAL` / `EXTERNAL` / `EITHER` dependency classification;
+- five-class Measurement Classification; and
+- deterministic pre-test requirement evaluation.
+
+Implementation impact: None.
+
+Code changes: None.
+
+Runtime behavior changes: None.
+
+v0.2.0 changes: None.
+
+Public diagnostic permission changes: None.
+
+R4 may begin only through a separate `/plan` after R3 closeout. R4–R6 are not begun by this closeout.
+
+---
+
+## R4 — Deterministic Revenue Decomposition Closeout
+
+Method:
+
+Product-Level Revenue Decomposition
+
+Final version:
+
+R4 v1.0
+
+Status:
+
+APPROVED / FROZEN
+
+Main Project Review passed after two contract-level corrections.
+
+Authoritative artifact:
+
+`docs/frozen/DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md`
+
+Core method identity:
+
+```text
+Observed Revenue Change
+= Entry Component
++ Exit Component
++ Continuing-Product Revenue Change Component
+```
+
+Core purpose:
+
+Mechanically classify authoritative Revenue Change across the complete governed product universe without converting arithmetic contribution into diagnostic or causal explanation.
+
+Key frozen decisions:
+
+- product-level Revenue decomposition only;
+- complete product union and Entry / Exit / Continuing taxonomy;
+- `product_id` authority only;
+- zero-Revenue presence preserved;
+- genuine absence requires governed coverage;
+- exact Decimal authority;
+- zero authoritative Reconciliation Difference required;
+- no residual component;
+- product-level trace required;
+- Q × V remains deferred, with no price, discount, demand, or interaction component;
+- standalone mechanical execution does not require a fabricated Diagnostic Proposition;
+- diagnostic-workflow execution requires the exact applicable R3 profile;
+- a Validated R4 result does not inherit diagnostic-input admissibility;
+- per-result validation remains separate from determinism conformance;
+- duplicate execution is not mandatory for each production request;
+- deterministic repeatability remains required at method/evaluator conformance level;
+- R2 and `ClaimDecision` authority remain unchanged; and
+- CommerceLens v0.2.0 and Public v0.1 behavior remain unchanged.
+
+Implementation impact: None.
+
+Runtime code: None.
+
+Tests: None.
+
+Fixtures: None.
+
+Public behavior: None.
+
+`ClaimDecision`: Unchanged.
+
+R5: Separately authorized; closeout recorded below.
+
+R6: Not started.
+
+R4 — Deterministic Revenue Decomposition: CLOSED / APPROVED / FROZEN
+
+---
+
+## R5 — Diagnostic Synthetic Fixture Suite Closeout
+
+Final version:
+
+R5 v1.0
+
+Status:
+
+APPROVED / FROZEN
+
+Authoritative artifact:
+
+`docs/frozen/DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md`
+
+Purpose:
+
+Defines deterministic synthetic fixture obligations that translate frozen R1–R4 governance into one-authoritative-outcome conformance contracts.
+
+Architecture:
+
+Lifecycle Layer × Stable Family dual-axis.
+
+Final inventory:
+
+- 129 active canonical fixture IDs;
+- 25 deferred canonical obligation IDs.
+
+Key frozen decisions:
+
+- one variant = one authoritative material outcome;
+- stable hierarchical fixture identity;
+- active/deferred authority gate;
+- full material path and first controlling blocker;
+- no universal precedence;
+- exact authority mapping;
+- Validated Result is not a Finding;
+- Validated R4 Result is not a Mechanical or Diagnostic Finding;
+- Diagnostic Evidence Conflict remains deferred until concrete admission authority exists;
+- Evidence Conflict remains distinct from Test Contradiction;
+- R4 method-version binding remains separate from R3 profile-version binding;
+- R4 arithmetic and determinism fixture coverage is preserved;
+- standalone R4 does not require a fabricated proposition;
+- diagnostic R4 requires an exact R3 profile;
+- language fixtures remain controlled cases only;
+- no LLM test oracle or invented diagnostic support criteria;
+- Supported Diagnostic Finding remains deferred;
+- `ClaimDecision` is unchanged;
+- benchmark scoring is excluded;
+- public behavior is unchanged;
+- physical fixtures were not created; and
+- R6 is not started.
+
+Implementation impact: None.
+
+Physical fixtures: None.
+
+Runtime code: None.
+
+Tests: None.
+
+Benchmark: None.
+
+Public behavior: None.
+
+R5 — Diagnostic Synthetic Fixture Suite: CLOSED / APPROVED / FROZEN
+
+---
+
+## R5-PF0 / R5-PF1 — Physical Fixture Harness Closeout
+
+This closeout records only the approved PF0 and PF1 milestones. It does not
+close the R5-PF umbrella.
+
+### R5-PF0 — Harness Contract / Inventory Skeleton
+
+Status:
+
+CLOSED / APPROVED
+
+### R5-PF1 — Representative Seven-Fixture Proof
+
+Status:
+
+CLOSED / APPROVED
+
+Final review state:
+
+- Main Project Review: PASSED;
+- correction: RESOLVED; and
+- Final Approval: APPROVED.
+
+Final approved inventory and implementation state:
+
+- semantic ACTIVE: 129;
+- semantic DEFERRED: 25;
+- physical implemented: 7;
+- executable: 6; and
+- dependency blocked: 1.
+
+Executable conforming PF1 fixtures:
+
+- `FX-R5-EVID-023A`;
+- `FX-R5-EVID-010A`;
+- `FX-R5-EVID-018A`;
+- `FX-R5-CLAIM-001A`;
+- `FX-R5-LANG-014A`; and
+- `FX-R5-PROV-002A`.
+
+Remaining dependency:
+
+`FX-R5-PREC-003A` remains dependency-blocked because an exact production R2
+validation → Claim-permission multi-stage precedence projection is not
+currently available. This is not a PF1 failure and does not authorize
+implementation of that dependency.
+
+### R5-PF2 — Current Runtime Coverage
+
+Status:
+
+CLASSIFICATION AMENDMENT APPLIED
+
+- Current-runtime Class A total: 31
+- PF2 remaining Class A tranche: 25
+- PF3 controlled Class C tranche: 37
+- `FX-R5-CLAIM-004A` and `FX-R5-PREC-002A` transferred to PF3 Class C
+- PROV targeted correction complete
+- PF3-0 controlled infrastructure: APPROVED / CLOSED
+- PF3-1 governance-boundary tranche: four controlled fixtures implemented;
+  APPROVED / CLOSED
+- PF3-2 claim/causal-boundary tranche: nine controlled fixtures implemented;
+  APPROVED / CLOSED
+- PF3-3 version/provenance/chain-boundary tranche: seven controlled fixtures
+  implemented; APPROVED / CLOSED
+- PF3-4 precision/precedence-boundary tranche: three controlled fixtures
+  implemented; APPROVED / CLOSED
+- PF3-5 controlled exact-form language-corpus tranche: fourteen controlled
+  fixtures implemented; APPROVED / CLOSED
+- R5-PF3 controlled Class C implementation: APPROVED / CLOSED
+- PF3 FULL CLOSEOUT: APPROVED / CLOSED
+- Semantic ACTIVE: 129; Semantic DEFERRED: 25; Class C total: 38;
+  PF3 controlled Class C tranche: 37
+- Physical bundles: 69; executable: 68; dependency-blocked: 1;
+  physical-ready: 0; not implemented: 60
+- `FX-R5-LANG-014A` remains the pre-existing non-PF3-tranche executable Class C
+  case. 37 PF3 tranche fixtures plus LANG-014A equals 38 Class C fixtures.
+- `FX-R5-PREC-003A` remains DEPENDENCY_BLOCKED because its exact production
+  dependency is not available; PF3 closeout does not convert it to executable.
+
+R4-IMP, the R5-PF4 planning gate, PF4-0, and PF4-1 are approved / closed.
+PF4-2 through PF4-5 have implemented their exact 33-fixture authorization and
+are ready for owner review. Current derived implementation accounting is 109
+physical, 108 executable, one dependency-blocked, and 20 not implemented.
+`FX-R5-R4-034A` remains NOT_IMPLEMENTED for PF6; no R2/R3, PF5, PF6, or R6
+implementation is authorized by this closeout.
+
+R5-PF3 Main Project Review: PASSED. Controlled Class C implementation is
+37 / 37 authorized PF3 tranche fixtures executable; Class C accounting is
+38 / 38 accounted for. Frozen R1–R5, production runtime semantics, and the PF0
+runner/comparator are unchanged.
+
+PF3 controlled evaluators are conformance-only harness subjects. They do not
+constitute production R1/R2/R3 diagnostic runtime implementation.
+
+Next milestone boundary remains owner-controlled. PF4-2 through PF4-5 are not
+self-approved, and R6 remains NOT STARTED.
 
 ---
 

@@ -1,0 +1,32 @@
+{
+  "finding_candidate": {
+    "id": "finding_candidate_004",
+    "fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+    "version": "r2_v1",
+    "proposition": {
+      "id": "observed_revenue_decline",
+      "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+      "version": "r2_v1"
+    },
+    "scope_id": "all_eligible",
+    "materialization_kind": "finding"
+  },
+  "requested_materialization": {
+    "kind": "finding",
+    "scope_id": "all_eligible"
+  },
+  "claim_decision_reference": {
+    "id": "claim_decision_finding_004",
+    "fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+    "version": "p8_001_v1"
+  },
+  "authority_records": [
+    {
+      "id": "descriptive_result_authority_004",
+      "fingerprint": "6666666666666666666666666666666666666666666666666666666666666666",
+      "version": "r3_v1",
+      "record_type": "descriptive_result",
+      "scope_id": "all_eligible"
+    }
+  ]
+}

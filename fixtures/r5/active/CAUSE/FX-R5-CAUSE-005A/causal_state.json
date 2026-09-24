@@ -1,0 +1,32 @@
+{
+  "requested_claim": {
+    "claim_class": "causal",
+    "scope_id": "all_eligible",
+    "proposition": {
+      "id": "revenue_decline_alternatives_removed_cause",
+      "fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "version": "r2_v1"
+    }
+  },
+  "authenticated_supporting_basis": {
+    "basis_kind": "partial_alternative_removal",
+    "reference": {
+      "id": "alternative_review_result_005",
+      "fingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "version": "r2_v1"
+    }
+  },
+  "causal_authority_reference": {
+    "id": "causal_identification_standard_v1",
+    "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "version": "r1_v1"
+  },
+  "authority_records": [
+    {
+      "id": "alternative_review_result_005",
+      "fingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "version": "r2_v1",
+      "record_type": "authenticated_supporting_basis"
+    }
+  ]
+}

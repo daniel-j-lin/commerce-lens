@@ -1,0 +1,23 @@
+{
+  "current_evaluation_reference": {
+    "id": "evaluation_010",
+    "fingerprint": "8888888888888888888888888888888888888888888888888888888888888888",
+    "version": "r2_v1"
+  },
+  "cached_derivation": {
+    "evaluation_reference": {
+      "id": "evaluation_010",
+      "fingerprint": "8888888888888888888888888888888888888888888888888888888888888888",
+      "version": "r2_v1"
+    },
+    "input_fingerprint": "9999999999999999999999999999999999999999999999999999999999999999"
+  },
+  "recomputed_derivation": {
+    "evaluation_reference": {
+      "id": "evaluation_010",
+      "fingerprint": "8888888888888888888888888888888888888888888888888888888888888888",
+      "version": "r2_v1"
+    },
+    "input_fingerprint": "8888888888888888888888888888888888888888888888888888888888888888"
+  }
+}

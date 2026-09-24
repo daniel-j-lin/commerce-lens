@@ -1,0 +1,67 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-CAUSE-006A
+fixture_version: 1.0.0
+title: Direct causal request without causal authority is unavailable
+status: ACTIVE
+family: CAUSE
+layer: C
+purpose: Preserve the direct-request causal boundary without treating a user request as causal authority.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §16
+  controlling_rule: A direct request does not create a separate causal identification standard.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §26
+    controlling_rule: Causal-boundary representation does not create a causal identification framework.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §28
+    controlling_rule: Direct causal request without causal-identification standard is prohibited.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_causal_boundary
+  required_capability: pf3_controlled_causal_boundary
+  required_capability_version: pf3_2_v1
+inputs:
+  - path: causal_state.json
+    role: causal_state
+    media_type: application/json
+    sha256: f02a23f90290d0f44c824e9b12d7ec2fc84c7e72059be18bba9ae090531e6b60
+context:
+  question_or_proposition: A direct causal request is made without a causal-identification standard.
+  execution_context: PF3-2 controlled causal-boundary evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {policy_version: r1_v1}
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: claim_decision
+      reachability: blocked
+      outcome: CLAIM_PROHIBITED__CAUSAL_AUTHORITY_UNAVAILABLE
+      controlling_reason: causal_authority_unavailable
+      authority_ref: R1 v1.0 §16
+  chain_dispositions: {main: claim_prohibited}
+  first_controlling_blocker:
+    blocker_id: causal_authority_unavailable
+    stage: claim_decision
+    reason: causal_authority_unavailable
+    authority_ref: R1 v1.0 §16
+  final_disposition: CLAIM_PROHIBITED__CAUSAL_AUTHORITY_UNAVAILABLE
+  permitted_meaning: [A direct request does not supply causal authority.]
+  prohibited_meaning: [No causal inference or causal support is performed.]
+  trace_integrity_expectation:
+    requested_claim_class: causal
+    requested_scope_id: all_eligible
+    basis_kind: direct_causal_request
+    supporting_reference_id: user_requested_causal_assertion_006
+    causal_authority_reference_id: causal_identification_standard_v1
+    causal_authority_reference_present: false
+    causal_support_evaluated: false
+  unique_outcome_rationale: The producer treats the direct request as lower-level context and independently resolves the absent causal authority reference.

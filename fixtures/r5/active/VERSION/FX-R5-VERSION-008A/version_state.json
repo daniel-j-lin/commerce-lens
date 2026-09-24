@@ -1,0 +1,28 @@
+{
+  "required_authority_reference": {
+    "id": "r3_profile_008",
+    "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+    "version": "r3_v1"
+  },
+  "resolved_authority_reference": {
+    "id": "r3_profile_008",
+    "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+    "version": "r3_v1"
+  },
+  "lookup_request": {
+    "resolution_mode": "latest",
+    "requested_reference": {
+      "id": "r3_profile_008",
+      "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+      "version": "r3_v1"
+    }
+  },
+  "authority_records": [
+    {
+      "record_type": "governed_authority",
+      "id": "r3_profile_008",
+      "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+      "version": "r3_v1"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-PROV-007A
+fixture_version: 1.0.0
+title: Public prose cannot substitute for retained artifact authority
+status: ACTIVE
+family: PROV
+layer: CROSS_CUTTING
+purpose: Resolve provenance from structured source and retained-artifact references without accepting public prose as retained authority.
+primary_authority:
+  document: EVIDENCE_CONTRACT_SPECIFICATION.md
+  frozen_version: v1.0
+  section: §§12, 45–46
+  controlling_rule: Material evidence requires traceable governed provenance.
+supporting_authorities:
+  - document: ARCHITECTURE_SPECIFICATION.md
+    frozen_version: v1.0
+    section: §12
+    controlling_rule: Public prose is not a retained deterministic evidence artifact.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §32
+    controlling_rule: Public prose cannot substitute for retained artifact authority.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_provenance_boundary
+  required_capability: pf3_controlled_provenance_boundary
+  required_capability_version: pf3_3_v1
+inputs:
+  - path: provenance_state.json
+    role: provenance_state
+    media_type: application/json
+    sha256: 63f6393f69928a60402bffb172460c592d243d8deda9b9d5a418fe7e85b1c17d
+context:
+  question_or_proposition: Public prose is offered instead of a retained artifact.
+  execution_context: PF3-3 controlled provenance-boundary evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings:
+  policy_version: p8_001_v1
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: evidence_admissibility
+      reachability: blocked
+      outcome: PUBLIC_PROSE_NOT_RETAINED_AUTHORITY
+      controlling_reason: public_prose_not_retained_authority
+      authority_ref: Architecture v1.0 §12
+  chain_dispositions: {main: provenance_blocked}
+  first_controlling_blocker:
+    blocker_id: retained_artifact_authority
+    stage: evidence_admissibility
+    reason: public_prose_not_retained_authority
+    authority_ref: Architecture v1.0 §12
+  final_disposition: PUBLIC_PROSE_NOT_RETAINED_AUTHORITY
+  permitted_meaning:
+    - Public prose is not retained governed evidence authority.
+  prohibited_meaning:
+    - Public wording cannot substitute for a retained artifact and provenance link.
+  trace_integrity_expectation:
+    source_kind: public_prose
+    evidence_reference_id: evidence_007
+    source_reference_id: public_prose_007
+    required_retained_artifact_id: retained_artifact_007
+    evidence_reference_present: true
+    source_reference_present: true
+    retained_artifact_reference_present: false
+    provenance_link_matches: true
+    retained_binding_resolved: false
+  unique_outcome_rationale: The controlled producer requires a retained artifact identity and exact provenance linkage before continuation.

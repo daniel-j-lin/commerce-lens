@@ -1,0 +1,71 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-PROV-002A
+fixture_version: 1.0.0
+title: Retained artifact tamper blocks affected authority
+status: ACTIVE
+family: PROV
+layer: CROSS_CUTTING
+purpose: Prove that production retention verification detects a material retained-artifact tamper and blocks the affected authority.
+primary_authority:
+  document: EVIDENCE_CONTRACT_SPECIFICATION.md
+  frozen_version: v1.0
+  section: §§45–46
+  controlling_rule: Retained evidence and result artifacts must preserve authenticated content fingerprints.
+supporting_authorities:
+  - document: ARCHITECTURE_SPECIFICATION.md
+    frozen_version: v1.0
+    section: §§12, 16
+    controlling_rule: Artifact identity and integrity are verified independently of presentation.
+  - document: REQUIRED_EVIDENCE_MATRIX_SPECIFICATION.md
+    frozen_version: R3 v1.0
+    section: §23
+    controlling_rule: Provenance and retained artifact integrity are required evidence properties.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §32
+    controlling_rule: FX-R5-PROV-002A requires real retained-artifact tamper detection.
+execution:
+  mode: component_boundary
+  adapter_id: retention_integrity_verifier
+  required_capability: retained_run_integrity_verification
+  required_capability_version: f2a_retention_v1
+inputs:
+  - path: orders.csv
+    role: orders
+    media_type: text/csv
+    sha256: 2d36b7ab0c1f008e1bfe85fb4ecc9514e98b2232fcbc3756ba33093a8b17723a
+context:
+  question_or_proposition: Does a retained complete run remain authoritative after its final AnalysisResult artifact is tampered?
+  execution_context: Isolated temporary retained-run lifecycle and production RetentionStore verification.
+  intended_use: Retained artifact integrity verification.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods:
+    - {period_id: baseline, label: Q3 2026, start_date: '2026-07-01', end_date: '2026-09-30', date_convention_ref: order_date_utc}
+    - {period_id: comparison, label: Q4 2026, start_date: '2026-10-01', end_date: '2026-12-31', date_convention_ref: order_date_utc}
+  currency: USD
+bindings:
+  metric_version: metric_dictionary_v1
+  policy_version: p8_001_v1
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: artifact_integrity
+      reachability: blocked
+      outcome: ARTIFACT_INTEGRITY_FAILURE__AFFECTED_AUTHORITY_BLOCKED
+      controlling_reason: retained_artifact_hash_mismatch
+      authority_ref: Evidence Contract v1.0 §§45–46
+  chain_dispositions: {main: affected_authority_blocked}
+  first_controlling_blocker:
+    blocker_id: retained_artifact_integrity
+    stage: artifact_integrity
+    reason: retained_artifact_hash_mismatch
+    authority_ref: Evidence Contract v1.0 §§45–46
+  final_disposition: ARTIFACT_INTEGRITY_FAILURE__AFFECTED_AUTHORITY_BLOCKED
+  permitted_meaning:
+    - The tampered retained artifact failed production integrity verification and its affected authority is blocked.
+  prohibited_meaning:
+    - The tampered artifact remains trustworthy evidence.
+    - Value similarity or retained-complete metadata repairs the hash failure.
+  trace_integrity_expectation: {artifact_hashes: false}
+  unique_outcome_rationale: A legitimate isolated retained run is altered only after completion; its stored fingerprint no longer authenticates the material artifact.

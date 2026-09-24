@@ -1,0 +1,50 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-LANG-007A
+fixture_version: 1.0.0
+title: Exact causal softener remains prohibited
+status: ACTIVE
+family: LANG
+layer: D
+purpose: Controlled exact-form conformance showing a causal softener does not repair the claim.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §§8, 21–22
+  controlling_rule: A qualifying softener does not authorize causal wording.
+supporting_authorities:
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §22
+    controlling_rule: This is an exact controlled utterance, not general language classification.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_language_corpus
+  required_capability: pf3_controlled_language_corpus
+  required_capability_version: pf3_5_v1
+inputs:
+  - path: utterance.txt
+    role: utterance
+    media_type: text/plain
+    sha256: 2ac38f69935113231e012e92263ea523ce1960786aa0268f30e11371921d1cf9
+context:
+  question_or_proposition: Exact causal softener remains prohibited.
+  execution_context: PF3-5 controlled exact-form language corpus.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {policy_version: r1_v1}
+expected:
+  expectation_kind: positive
+  material_path:
+    - stage: rendering
+      reachability: reached
+      outcome: {classification: PROHIBITED_CAUSAL__SOFTENER_NO_REPAIR, text: "New products likely caused Revenue growth of USD 100.00.\n"}
+  chain_dispositions: {main: controlled_language_classification}
+  first_controlling_blocker: NONE
+  final_disposition: PROHIBITED_CAUSAL__SOFTENER_NO_REPAIR
+  permitted_meaning: [The exact form is recognized only as prohibited causal language.]
+  prohibited_meaning: [The softener does not create causal authority.]
+  trace_integrity_expectation: {exact_form_match: true, authority_required: false, authority_binding_resolved: true}
+  unique_outcome_rationale: The exact controlled softener form does not repair causal meaning.

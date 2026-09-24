@@ -1,0 +1,5 @@
+order_id,order_line_id,order_date,product_id,product_name,category_id,category_name,quantity,line_revenue,currency,unit_price,eligibility_status
+b-1,b-l1,2026-07-15,p1,Widget,c1,Widgets,1,100.00,USD,100.00,paid
+b-2,b-l2,2026-07-16,p2,Legacy,c1,Widgets,1,50.00,USD,50.00,paid
+c-1,c-l1,2026-10-15,p1,Widget,c1,Widgets,1,80.00,USD,80.00,paid
+c-2,c-l2,2026-10-16,p3,New,c1,Widgets,1,40.00,USD,40.00,paid

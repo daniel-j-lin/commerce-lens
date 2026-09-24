@@ -1,0 +1,50 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-LANG-002A
+fixture_version: 1.0.0
+title: Exact prohibited causal language
+status: ACTIVE
+family: LANG
+layer: D
+purpose: Controlled exact-form conformance for prohibited causal wording.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §§8, 21–22
+  controlling_rule: Causal wording is prohibited without separately governed causal authority.
+supporting_authorities:
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §22
+    controlling_rule: This is an exact controlled utterance, not general language classification.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_language_corpus
+  required_capability: pf3_controlled_language_corpus
+  required_capability_version: pf3_5_v1
+inputs:
+  - path: utterance.txt
+    role: utterance
+    media_type: text/plain
+    sha256: 46c5a00cb87444d681c1f03a721b7002b30d0c58737e68150f9722c814b34f0e
+context:
+  question_or_proposition: Exact prohibited causal wording.
+  execution_context: PF3-5 controlled exact-form language corpus.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {policy_version: r1_v1}
+expected:
+  expectation_kind: positive
+  material_path:
+    - stage: rendering
+      reachability: reached
+      outcome: {classification: PROHIBITED_CAUSAL, text: "New products caused Revenue growth of USD 100.00.\n"}
+  chain_dispositions: {main: controlled_language_classification}
+  first_controlling_blocker: NONE
+  final_disposition: PROHIBITED_CAUSAL
+  permitted_meaning: [The exact causal wording is recognized only as prohibited language.]
+  prohibited_meaning: [The phrase does not create causal authority.]
+  trace_integrity_expectation: {exact_form_match: true, authority_required: false, authority_binding_resolved: true}
+  unique_outcome_rationale: The exact controlled form is classified as prohibited causal wording without granting permission.

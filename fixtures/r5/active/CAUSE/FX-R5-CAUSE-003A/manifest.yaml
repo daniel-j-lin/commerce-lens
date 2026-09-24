@@ -1,0 +1,67 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-CAUSE-003A
+fixture_version: 1.0.0
+title: Diagnostic association is not causation
+status: ACTIVE
+family: CAUSE
+layer: C
+purpose: Preserve the association-versus-causation boundary without causal inference.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §16
+  controlling_rule: Association is not automatic causal promotion.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §26
+    controlling_rule: Causal-boundary representation does not create a causal identification framework.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §28
+    controlling_rule: Diagnostic association rendered as cause is prohibited.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_causal_boundary
+  required_capability: pf3_controlled_causal_boundary
+  required_capability_version: pf3_2_v1
+inputs:
+  - path: causal_state.json
+    role: causal_state
+    media_type: application/json
+    sha256: 201662ce0692da4269f9a9ece6c349aac65a64a15e2dbf089b502d89cd455d3c
+context:
+  question_or_proposition: A diagnostic association is rendered as a cause.
+  execution_context: PF3-2 controlled causal-boundary evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {policy_version: r2_v1}
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: claim_decision
+      reachability: blocked
+      outcome: CLAIM_PROHIBITED__ASSOCIATION_IS_NOT_CAUSATION
+      controlling_reason: association_is_not_causation
+      authority_ref: R1 v1.0 §16
+  chain_dispositions: {main: claim_prohibited}
+  first_controlling_blocker:
+    blocker_id: association_is_not_causation
+    stage: claim_decision
+    reason: association_is_not_causation
+    authority_ref: R1 v1.0 §16
+  final_disposition: CLAIM_PROHIBITED__ASSOCIATION_IS_NOT_CAUSATION
+  permitted_meaning: [The association remains bounded and is not causal authority.]
+  prohibited_meaning: [No causal inference or causal support is performed.]
+  trace_integrity_expectation:
+    requested_claim_class: causal
+    requested_scope_id: all_eligible
+    basis_kind: diagnostic_association
+    supporting_reference_id: diagnostic_association_result_003
+    causal_authority_reference_id: causal_identification_standard_v1
+    causal_authority_reference_present: false
+    causal_support_evaluated: false
+  unique_outcome_rationale: The producer observes the structured association basis and blocks causal promotion because separate causal authority is absent.

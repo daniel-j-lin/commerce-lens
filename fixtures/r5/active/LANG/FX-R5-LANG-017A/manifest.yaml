@@ -1,0 +1,50 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-LANG-017A
+fixture_version: 1.0.0
+title: Exact softer unsupported language
+status: ACTIVE
+family: LANG
+layer: D
+purpose: Controlled exact-form conformance showing a softer equivalent retains unsupported meaning.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §§8, 21–22
+  controlling_rule: Softer wording does not repair unsupported diagnostic meaning.
+supporting_authorities:
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §30
+    controlling_rule: Exact wording is not general language authorization.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_language_corpus
+  required_capability: pf3_controlled_language_corpus
+  required_capability_version: pf3_5_v1
+inputs:
+  - path: utterance.txt
+    role: utterance
+    media_type: text/plain
+    sha256: 22687ac2f6220a2c90c9048120701a22d3bdbfdb705d59cbdd5a14ea35725f5b
+context:
+  question_or_proposition: Exact softer unsupported wording.
+  execution_context: PF3-5 controlled exact-form language corpus.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {policy_version: r1_v1}
+expected:
+  expectation_kind: positive
+  material_path:
+    - stage: rendering
+      reachability: reached
+      outcome: {classification: PROHIBITED_MEANING__SOFTENER_NO_REPAIR, text: "Continuing products may appear to explain the USD 20.00 decline, but this remains unsupported.\n"}
+  chain_dispositions: {main: controlled_language_classification}
+  first_controlling_blocker: NONE
+  final_disposition: PROHIBITED_MEANING__SOFTENER_NO_REPAIR
+  permitted_meaning: [The exact form retains an unsupported meaning boundary.]
+  prohibited_meaning: [The softener does not create diagnostic or causal authority.]
+  trace_integrity_expectation: {exact_form_match: true, authority_required: false, authority_binding_resolved: true}
+  unique_outcome_rationale: The exact softer form is recognized as retaining unsupported meaning.

@@ -1,0 +1,652 @@
+binding:
+  registry_role: DERIVED_IMPLEMENTATION_INDEX
+  semantic_authority: FROZEN_R5_SPECIFICATION
+  r5_version: "R5 v1.0"
+  spec_path: docs/frozen/DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+  spec_sha256: d8aff7a381b9a7d058308a1862ecc202af564c5bdaf5fb2a0a05b015593ebbc7
+entries:
+  - fixture_id: FX-R5-ADMIT-001A
+    family: ADMIT
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-ADMIT-003A
+    family: ADMIT
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-ALT-006A
+    family: ALT
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CAUSE-001A
+    family: CAUSE
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CAUSE-002A
+    family: CAUSE
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CAUSE-003A
+    family: CAUSE
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CAUSE-004A
+    family: CAUSE
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CAUSE-005A
+    family: CAUSE
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CAUSE-006A
+    family: CAUSE
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CHAIN-001A
+    family: CHAIN
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CHAIN-002A
+    family: CHAIN
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CLAIM-001A
+    family: CLAIM
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CLAIM-002A
+    family: CLAIM
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CLAIM-003A
+    family: CLAIM
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CLAIM-004A
+    family: CLAIM
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CLAIM-005A
+    family: CLAIM
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-CLAIM-006A
+    family: CLAIM
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-DIAG-001A
+    family: DIAG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-DIAG-002A
+    family: DIAG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-DIAG-003A
+    family: DIAG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-DIAG-005A
+    family: DIAG
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-DIAG-006A
+    family: DIAG
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-DIAG-011A
+    family: DIAG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-DIAG-012A
+    family: DIAG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-EVID-001A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-EVID-002A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-EVID-003A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-EVID-004A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-EVID-005A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-EVID-006A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-EVID-007A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-EVID-008A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-EVID-009A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-EVID-010A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-EVID-011A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-EVID-012A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-EVID-013A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-EVID-014A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-EVID-015A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-EVID-016A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-EVID-017A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-EVID-018A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-EVID-019A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-EVID-020A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-EVID-021A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-EVID-022A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-EVID-023A
+    family: EVID
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-001A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-002A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-003A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-004A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-005A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-006A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-007A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-008A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-009A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-010A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-011A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-014A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-015A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-016A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-LANG-017A
+    family: LANG
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-MEAS-001A
+    family: MEAS
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-MEAS-002A
+    family: MEAS
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-MEAS-004A
+    family: MEAS
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-MEAS-005A
+    family: MEAS
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-MEAS-006A
+    family: MEAS
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-MEAS-006B
+    family: MEAS
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-NARROW-001A
+    family: NARROW
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PREC-001A
+    family: PREC
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PREC-002A
+    family: PREC
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PREC-003A
+    family: PREC
+    semantic_status: ACTIVE
+    implementation_status: DEPENDENCY_BLOCKED
+    executable: false
+  - fixture_id: FX-R5-PREC-004A
+    family: PREC
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PREC-005A
+    family: PREC
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PROV-001A
+    family: PROV
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PROV-002A
+    family: PROV
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PROV-003A
+    family: PROV
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PROV-004A
+    family: PROV
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PROV-005A
+    family: PROV
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PROV-006A
+    family: PROV
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PROV-007A
+    family: PROV
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PROV-008A
+    family: PROV
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-PROV-009A
+    family: PROV
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-001A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-002A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-003A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-004A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-005A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-006A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-007A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-007B
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-008A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-009A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-010A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-011A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-012A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-013A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-014A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-015A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-016A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-017A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-018A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-019A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-020A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-021A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-022A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-023A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-024A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-025A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-026A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-027A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-028A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-029A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-030A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-032A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-033A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-034A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+  - fixture_id: FX-R5-R4-035A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-036A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-R4-037A
+    family: R4
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-VERSION-001A
+    family: VERSION
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-VERSION-003A
+    family: VERSION
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-VERSION-004A
+    family: VERSION
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-VERSION-005A
+    family: VERSION
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-VERSION-006A
+    family: VERSION
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-VERSION-007A
+    family: VERSION
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-VERSION-008A
+    family: VERSION
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-VERSION-009A
+    family: VERSION
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true
+  - fixture_id: FX-R5-VERSION-010A
+    family: VERSION
+    semantic_status: ACTIVE
+    implementation_status: EXECUTABLE
+    executable: true

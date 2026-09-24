@@ -1,0 +1,69 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-VERSION-010A
+fixture_version: 1.0.0
+title: Authoritative derivation defeats a stale cached disposition
+status: ACTIVE
+family: VERSION
+layer: CROSS_CUTTING
+purpose: Compare cached and recomputed derivation input identities without treating cached material as authority.
+primary_authority:
+  document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+  frozen_version: R2 v1.0
+  section: §14
+  controlling_rule: Derived material disposition is recomputable and non-authoritative.
+supporting_authorities:
+  - document: ARCHITECTURE_SPECIFICATION.md
+    frozen_version: v1.0
+    section: §19
+    controlling_rule: Exact version bindings preserve reproducibility.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §31
+    controlling_rule: A stale cached derived disposition cannot override authoritative recomputation.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_version_boundary
+  required_capability: pf3_controlled_version_boundary
+  required_capability_version: pf3_3_v1
+inputs:
+  - path: version_state.json
+    role: version_state
+    media_type: application/json
+    sha256: 6de27f8bb87134e85e511a65e834b7abc0b0736d252178af537aa51befe84fb0
+context:
+  question_or_proposition: A cached derived disposition conflicts with recomputation.
+  execution_context: PF3-3 controlled version-binding boundary evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings:
+  policy_version: p8_001_v1
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: analytical_outcome
+      reachability: blocked
+      outcome: CACHE_INVALID__AUTHORITATIVE_DERIVATION_WINS
+      controlling_reason: cached_derivation_mismatch
+      authority_ref: R2 v1.0 §14
+  chain_dispositions: {main: cached_derivation_blocked}
+  first_controlling_blocker:
+    blocker_id: cached_derived_disposition
+    stage: analytical_outcome
+    reason: cached_derivation_mismatch
+    authority_ref: R2 v1.0 §14
+  final_disposition: CACHE_INVALID__AUTHORITATIVE_DERIVATION_WINS
+  permitted_meaning:
+    - The authoritative recomputation controls the derived material projection.
+  prohibited_meaning:
+    - Cached derived material is not an independent authority.
+  trace_integrity_expectation:
+    evaluation_id: evaluation_010
+    evaluation_version: r2_v1
+    cached_input_fingerprint: '9999999999999999999999999999999999999999999999999999999999999999'
+    recomputed_input_fingerprint: '8888888888888888888888888888888888888888888888888888888888888888'
+    evaluation_binding_matches: true
+    cache_matches_recomputation: false
+  unique_outcome_rationale: The controlled producer compares the cached derivation key with the exact current evaluation identity and recomputed key.

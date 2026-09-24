@@ -1,0 +1,4 @@
+order_id,order_line_id,order_date,product_id,product_name,category_id,category_name,quantity,line_revenue,currency,unit_price,eligibility_status
+b-001,b-001-l1,2026-07-15,p_a,Product A,c_fixture,Synthetic,1,100.00,USD,100.00,paid
+c-001,c-001-l1,2026-10-15,p_a,Product A,c_fixture,Synthetic,1,100.00,USD,100.00,paid
+c-002,c-002-l1,2026-10-16,p_b,Product B,c_fixture,Synthetic,1,25.00,USD,25.00,paid

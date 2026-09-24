@@ -1,0 +1,17 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-R4-037A",
+  "fixture_version": "1.0.0",
+  "title": "Controlled material mutation detection",
+  "status": "ACTIVE",
+  "family": "R4",
+  "layer": "B",
+  "purpose": "Prove the PF4 material comparator detects a harness-side controlled material mutation.",
+  "primary_authority": {"document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md", "frozen_version": "R5 v1.0", "section": "§21", "controlling_rule": "A component assignment or value change is a method/evaluator conformance failure."},
+  "supporting_authorities": [{"document": "DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md", "frozen_version": "R4 v1.0", "section": "§§30.4, 35, 38, 42", "controlling_rule": "Material comparison must detect governed-value differences."}],
+  "execution": {"mode": "component_boundary", "adapter_id": "production_r4_material_mutation_conformance", "required_capability": "production_r4_same_evaluator_mutation_detection", "required_capability_version": "R4 v1.0"},
+  "inputs": [{"path": "orders.csv", "role": "orders", "media_type": "text/csv", "sha256": "72f371615a07b5694ad755755fa43e5ec040b12288dbe50af7f352f1f6d79099"}],
+  "context": {"question_or_proposition": "Does the conformance comparator detect a controlled material mutation?", "execution_context": "harness-side conformance stimulus", "intended_use": "Frozen R5 determinism conformance", "scope": {"scope_id": "all_eligible"}, "population": {"eligibility": "paid"}, "periods": [{"period_id": "baseline_q3_2026", "label": "Baseline Q3 2026", "start_date": "2026-07-01", "end_date": "2026-09-30", "date_convention_ref": "order_date_calendar_day"}, {"period_id": "comparison_q4_2026", "label": "Comparison Q4 2026", "start_date": "2026-10-01", "end_date": "2026-12-31", "date_convention_ref": "order_date_calendar_day"}], "currency": "USD"},
+  "bindings": {"r4_method_version": "R4 v1.0", "validator_version": "r4_v1_0_validation_v1", "precision_version": "v1.0"},
+  "expected": {"expectation_kind": "negative", "material_path": [{"stage": "execution", "reachability": "reached", "outcome": "repeated_same_evaluator"}, {"stage": "validation", "reachability": "blocked", "outcome": "material_mutation_detected", "controlling_reason": "material_mutation_detected", "authority_ref": "R4 v1.0 §§32–33"}], "chain_dispositions": {"main": "same_evaluator_nonconforming"}, "first_controlling_blocker": {"blocker_id": "material_mutation_detected", "stage": "validation", "reason": "material_mutation_detected", "authority_ref": "R4 v1.0 §§32–33"}, "final_disposition": "METHOD_OR_EVALUATOR_CONFORMANCE_FAILURE", "permitted_meaning": ["The harness comparator detects its controlled material mutation."], "prohibited_meaning": ["Production R4 itself is not claimed to be nondeterministic."], "trace_integrity_expectation": {"failure_layer": "METHOD_CONFORMANCE", "difference_paths": ["r4.reconciliation_difference"]}, "unique_outcome_rationale": "The only post-SUT stimulus is a controlled material-value mutation."}
+}

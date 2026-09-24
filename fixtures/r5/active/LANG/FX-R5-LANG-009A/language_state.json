@@ -1,0 +1,60 @@
+{
+  "requested_claim": {
+    "claim_class": "descriptive",
+    "scope_id": "all_eligible",
+    "proposition": {
+      "id": "validated_revenue_decline_009",
+      "fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+      "version": "r2_v1"
+    }
+  },
+  "validated_result_reference": {
+    "id": "validated_result_009",
+    "fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+    "version": "result_v1"
+  },
+  "claim_decision_reference": {
+    "id": "claim_decision_009",
+    "fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+    "version": "p8_001_v1"
+  },
+  "rendering_authority_reference": {
+    "id": "rendering_authority_009",
+    "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+    "version": "r2_v1"
+  },
+  "authority_records": [
+    {
+      "record_type": "validated_result",
+      "id": "validated_result_009",
+      "fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+      "version": "result_v1"
+    },
+    {
+      "record_type": "claim_decision",
+      "id": "claim_decision_009",
+      "fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+      "version": "p8_001_v1",
+      "claim_class": "descriptive",
+      "scope_id": "all_eligible",
+      "proposition": {
+        "id": "validated_revenue_decline_009",
+        "fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+        "version": "r2_v1"
+      }
+    },
+    {
+      "record_type": "rendering_authority",
+      "id": "rendering_authority_009",
+      "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+      "version": "r2_v1",
+      "rendering_class": "descriptive",
+      "scope_id": "all_eligible",
+      "proposition": {
+        "id": "validated_revenue_decline_009",
+        "fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+        "version": "r2_v1"
+      }
+    }
+  ]
+}

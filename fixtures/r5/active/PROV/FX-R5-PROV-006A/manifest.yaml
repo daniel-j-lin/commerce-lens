@@ -1,0 +1,72 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-PROV-006A
+fixture_version: 1.0.0
+title: Conversational memory is not retained evidence authority
+status: ACTIVE
+family: PROV
+layer: CROSS_CUTTING
+purpose: Resolve provenance from structured source and retained-artifact references without accepting conversational memory as evidence authority.
+primary_authority:
+  document: EVIDENCE_CONTRACT_SPECIFICATION.md
+  frozen_version: v1.0
+  section: §§12, 45–46
+  controlling_rule: Material evidence requires traceable governed provenance.
+supporting_authorities:
+  - document: ARCHITECTURE_SPECIFICATION.md
+    frozen_version: v1.0
+    section: §12
+    controlling_rule: Evidence records arise from deterministic retained authority, not conversational memory.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §32
+    controlling_rule: Conversational memory offered as evidence is inadmissible.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_provenance_boundary
+  required_capability: pf3_controlled_provenance_boundary
+  required_capability_version: pf3_3_v1
+inputs:
+  - path: provenance_state.json
+    role: provenance_state
+    media_type: application/json
+    sha256: ec2c1dbeaf18267e6db68e8a69f645e0290e646498aba0dd412059cc5c9b6525
+context:
+  question_or_proposition: Conversational memory is offered as material evidence.
+  execution_context: PF3-3 controlled provenance-boundary evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings:
+  policy_version: p8_001_v1
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: evidence_admissibility
+      reachability: blocked
+      outcome: NON_AUTHORITATIVE_MEMORY__INADMISSIBLE
+      controlling_reason: non_authoritative_memory
+      authority_ref: Architecture v1.0 §12
+  chain_dispositions: {main: provenance_blocked}
+  first_controlling_blocker:
+    blocker_id: non_authoritative_memory
+    stage: evidence_admissibility
+    reason: non_authoritative_memory
+    authority_ref: Architecture v1.0 §12
+  final_disposition: NON_AUTHORITATIVE_MEMORY__INADMISSIBLE
+  permitted_meaning:
+    - Conversational memory is not retained governed evidence authority.
+  prohibited_meaning:
+    - Memory cannot substitute for retained source provenance.
+  trace_integrity_expectation:
+    source_kind: conversation_memory
+    evidence_reference_id: evidence_006
+    source_reference_id: conversation_memory_006
+    required_retained_artifact_id: retained_artifact_006
+    evidence_reference_present: true
+    source_reference_present: true
+    retained_artifact_reference_present: false
+    provenance_link_matches: true
+    retained_binding_resolved: false
+  unique_outcome_rationale: The controlled producer requires a retained artifact identity and exact provenance linkage before continuation.

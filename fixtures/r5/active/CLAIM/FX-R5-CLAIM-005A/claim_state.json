@@ -1,0 +1,23 @@
+{
+  "claim_decision": {
+    "id": "claim_decision_descriptive_005",
+    "fingerprint": "7777777777777777777777777777777777777777777777777777777777777777",
+    "version": "p8_001_v1",
+    "claim_class": "descriptive",
+    "scope_id": "all_eligible",
+    "proposition": {
+      "id": "revenue_decline_observation",
+      "fingerprint": "8888888888888888888888888888888888888888888888888888888888888888",
+      "version": "r2_v1"
+    }
+  },
+  "attempted_rendering": {
+    "rendering_class": "causal",
+    "scope_id": "all_eligible",
+    "proposition": {
+      "id": "revenue_decline_observation",
+      "fingerprint": "8888888888888888888888888888888888888888888888888888888888888888",
+      "version": "r2_v1"
+    }
+  }
+}

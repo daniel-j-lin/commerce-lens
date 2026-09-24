@@ -1,0 +1,104 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-DIAG-003A",
+  "fixture_version": "1.0.0",
+  "title": "Diagnostic hypothesis has no governed test or support authority",
+  "status": "ACTIVE",
+  "family": "DIAG",
+  "layer": "C",
+  "purpose": "Establish only that the required governed diagnostic test and support authority is absent, so promotion cannot occur.",
+  "primary_authority": {
+    "document": "DIAGNOSTIC_REASONING_SPECIFICATION.md",
+    "frozen_version": "R1 v1.0",
+    "section": "§19.1",
+    "controlling_rule": "Promotion requires a concrete governed method, support criterion, and all other promotion authorities; no support criterion may be invented."
+  },
+  "supporting_authorities": [
+    {
+      "document": "HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md",
+      "frozen_version": "R2 v1.0",
+      "section": "§16",
+      "controlling_rule": "A hypothesis without a governed test and support definition remains non-promotional."
+    },
+    {
+      "document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md",
+      "frozen_version": "R5 v1.0",
+      "section": "§23",
+      "controlling_rule": "The active variant establishes the missing-authority boundary only."
+    }
+  ],
+  "execution": {
+    "mode": "controlled_case",
+    "adapter_id": "controlled_diagnostic_boundary",
+    "required_capability": "pf3_controlled_diagnostic_boundary",
+    "required_capability_version": "pf3_1_v1"
+  },
+  "inputs": [
+    {
+      "path": "diagnostic_state.json",
+      "role": "diagnostic_state",
+      "media_type": "application/json",
+      "sha256": "177a71a7ee899c08ac8bf485dc8029598fc8649157dd1b30125442d91989b011"
+    }
+  ],
+  "context": {
+    "question_or_proposition": "A plausible product-mix explanation lacks a governed diagnostic test and support definition.",
+    "execution_context": "PF3-1 controlled diagnostic-authority boundary evaluation.",
+    "intended_use": "Exact frozen conformance use only.",
+    "scope": {"scope_id": "all_eligible"},
+    "population": {"eligibility": "paid"},
+    "periods": [
+      {
+        "period_id": "comparison",
+        "label": "Q4 2026",
+        "start_date": "2026-10-01",
+        "end_date": "2026-12-31",
+        "date_convention_ref": "order_date_utc"
+      }
+    ],
+    "currency": "USD"
+  },
+  "bindings": {
+    "metric_version": "metric_dictionary_v1",
+    "r3_profile_version": "r3_v1"
+  },
+  "expected": {
+    "expectation_kind": "negative",
+    "material_path": [
+      {
+        "stage": "analytical_outcome",
+        "reachability": "blocked",
+        "outcome": "DIAGNOSTIC_HYPOTHESIS_ONLY",
+        "controlling_reason": "diagnostic_test_support_authority_absent",
+        "authority_ref": "R1 v1.0 §19.1"
+      },
+      {
+        "stage": "claim_decision",
+        "reachability": "not_reached",
+        "not_reached_due_to": "analytical_outcome"
+      }
+    ],
+    "chain_dispositions": {"main": "promotion_blocked"},
+    "first_controlling_blocker": {
+      "blocker_id": "diagnostic_test_support_authority",
+      "stage": "analytical_outcome",
+      "reason": "diagnostic_test_support_authority_absent",
+      "authority_ref": "R1 v1.0 §19.1"
+    },
+    "final_disposition": "DIAGNOSTIC_HYPOTHESIS_ONLY",
+    "permitted_meaning": [
+      "The proposition remains a non-promotional diagnostic hypothesis because required test and support authority is absent."
+    ],
+    "prohibited_meaning": [
+      "This fixture does not determine support, contradiction, confidence, causality, or Claim permission."
+    ],
+    "trace_integrity_expectation": {
+      "required_authority_id": "diagnostic_test_support_definition_v1",
+      "authority_reference_present": false,
+      "proposition_id": "product_mix_relationship_1",
+      "observed_result_id": "validated_aov_decline_1",
+      "support_criterion_evaluated": false
+    },
+    "unique_outcome_rationale": "The producer resolves only whether the required authority identity is supplied and never evaluates a hypothetical support criterion."
+  }
+}

@@ -1,0 +1,2 @@
+{"claim_type":"causal","metric_ref":"revenue_change","intended_scope":{"scope_id":"all_eligible","filters":[]},"proposed_meaning":"A direct causal explanation is requested."}
+

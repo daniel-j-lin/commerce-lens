@@ -1,0 +1,45 @@
+{
+  "historical_evaluation_reference": {
+    "id": "evaluation_007",
+    "fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+    "version": "r2_v1"
+  },
+  "historical_binding": {
+    "evaluation_reference": {
+      "id": "evaluation_007",
+      "fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+      "version": "r2_v1"
+    },
+    "authority_reference": {
+      "id": "claim_decision_007",
+      "fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+      "version": "p8_001_v1"
+    }
+  },
+  "current_binding": {
+    "evaluation_reference": {
+      "id": "evaluation_007",
+      "fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+      "version": "r2_v1"
+    },
+    "authority_reference": {
+      "id": "claim_decision_007",
+      "fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+      "version": "p8_002_v1"
+    }
+  },
+  "authority_records": [
+    {
+      "record_type": "historical_authority",
+      "id": "claim_decision_007",
+      "fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+      "version": "p8_001_v1"
+    },
+    {
+      "record_type": "later_authority",
+      "id": "claim_decision_007",
+      "fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+      "version": "p8_002_v1"
+    }
+  ]
+}

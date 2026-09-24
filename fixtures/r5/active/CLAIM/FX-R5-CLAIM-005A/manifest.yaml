@@ -1,0 +1,73 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-CLAIM-005A
+fixture_version: 1.0.0
+title: Descriptive ClaimDecision cannot authorize diagnostic or causal rendering
+status: ACTIVE
+family: CLAIM
+layer: C
+purpose: Compare structured ClaimDecision class and attempted rendering class without NLP or free-text semantic inference.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §20
+  controlling_rule: Language cannot exceed the exact ClaimDecision authorization.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §§18, 27
+    controlling_rule: Rendering remains bounded by ClaimDecision class and proposition identity.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §27
+    controlling_rule: Descriptive authorization stretched to diagnostic or causal wording is blocked.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_claim_rendering
+  required_capability: pf3_controlled_claim_rendering
+  required_capability_version: pf3_2_v1
+inputs:
+  - path: claim_state.json
+    role: claim_state
+    media_type: application/json
+    sha256: 99f3e52f7b7e7c8c0f6e3b9cc403e9a6376b76a0726198a29e7f3be62f40df3d
+context:
+  question_or_proposition: Descriptive authorization is stretched to causal wording.
+  execution_context: PF3-2 controlled ClaimDecision rendering-boundary evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings:
+  policy_version: p8_001_v1
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: claim_decision
+      reachability: reached
+      outcome: claim_decision_authority_observed
+    - stage: rendering
+      reachability: blocked
+      outcome: RENDER_EXCEEDS_CLAIMDECISION__BLOCKED
+      controlling_reason: rendering_exceeds_claim_decision
+      authority_ref: R1 v1.0 §20
+  chain_dispositions: {main: render_blocked}
+  first_controlling_blocker:
+    blocker_id: claim_rendering_strength_boundary
+    stage: rendering
+    reason: rendering_exceeds_claim_decision
+    authority_ref: R1 v1.0 §20
+  final_disposition: RENDER_EXCEEDS_CLAIMDECISION__BLOCKED
+  permitted_meaning:
+    - The attempted causal rendering exceeds descriptive ClaimDecision authority.
+  prohibited_meaning:
+    - No diagnostic or causal support is inferred from the descriptive decision.
+  trace_integrity_expectation:
+    decision_claim_class: descriptive
+    rendering_class: causal
+    decision_scope_id: all_eligible
+    rendering_scope_id: all_eligible
+    rendering_matches_decision: false
+    decision_proposition_id: revenue_decline_observation
+    rendering_proposition_id: revenue_decline_observation
+  unique_outcome_rationale: The controlled producer compares structured rendering class, scope, and proposition binding against the supplied ClaimDecision.

@@ -1,0 +1,32 @@
+{
+  "requested_claim": {
+    "claim_class": "causal",
+    "scope_id": "all_eligible",
+    "proposition": {
+      "id": "revenue_decline_diagnostic_association_cause",
+      "fingerprint": "7777777777777777777777777777777777777777777777777777777777777777",
+      "version": "r2_v1"
+    }
+  },
+  "authenticated_supporting_basis": {
+    "basis_kind": "diagnostic_association",
+    "reference": {
+      "id": "diagnostic_association_result_003",
+      "fingerprint": "8888888888888888888888888888888888888888888888888888888888888888",
+      "version": "r2_v1"
+    }
+  },
+  "causal_authority_reference": {
+    "id": "causal_identification_standard_v1",
+    "fingerprint": "9999999999999999999999999999999999999999999999999999999999999999",
+    "version": "r1_v1"
+  },
+  "authority_records": [
+    {
+      "id": "diagnostic_association_result_003",
+      "fingerprint": "8888888888888888888888888888888888888888888888888888888888888888",
+      "version": "r2_v1",
+      "record_type": "authenticated_supporting_basis"
+    }
+  ]
+}

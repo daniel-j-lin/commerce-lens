@@ -1,0 +1,50 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-LANG-006A
+fixture_version: 1.0.0
+title: Exact prohibited primacy and explanation language
+status: ACTIVE
+family: LANG
+layer: D
+purpose: Controlled exact-form conformance for prohibited primacy and explanatory wording.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §§8, 21–22
+  controlling_rule: Primacy and explanation wording cannot be inferred from mechanical components.
+supporting_authorities:
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §22
+    controlling_rule: This is an exact controlled utterance, not general language classification.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_language_corpus
+  required_capability: pf3_controlled_language_corpus
+  required_capability_version: pf3_5_v1
+inputs:
+  - path: utterance.txt
+    role: utterance
+    media_type: text/plain
+    sha256: dd2f07f67348f8465d7f524f91524928fccfde5d4bf8a811b3e12babaa0fa7d3
+context:
+  question_or_proposition: Exact prohibited primacy and explanation wording.
+  execution_context: PF3-5 controlled exact-form language corpus.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {policy_version: r1_v1}
+expected:
+  expectation_kind: positive
+  material_path:
+    - stage: rendering
+      reachability: reached
+      outcome: {classification: PROHIBITED_PRIMACY_AND_EXPLANATION, text: "Entry products were the main reason Revenue increased by USD 100.00.\n"}
+  chain_dispositions: {main: controlled_language_classification}
+  first_controlling_blocker: NONE
+  final_disposition: PROHIBITED_PRIMACY_AND_EXPLANATION
+  permitted_meaning: [The exact form is recognized only as prohibited wording.]
+  prohibited_meaning: [The phrase does not establish primacy or explanation authority.]
+  trace_integrity_expectation: {exact_form_match: true, authority_required: false, authority_binding_resolved: true}
+  unique_outcome_rationale: The exact controlled primacy form is classified without promotion.

@@ -1,0 +1,67 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-CAUSE-004A
+fixture_version: 1.0.0
+title: Statistical significance is not causal authority
+status: ACTIVE
+family: CAUSE
+layer: C
+purpose: Preserve the statistical-significance-versus-causation boundary without causal inference.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §16
+  controlling_rule: Statistical association or significance does not itself authorize causal language.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §26
+    controlling_rule: Causal-boundary representation does not create a causal identification framework.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §28
+    controlling_rule: Statistical significance rendered as cause is prohibited.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_causal_boundary
+  required_capability: pf3_controlled_causal_boundary
+  required_capability_version: pf3_2_v1
+inputs:
+  - path: causal_state.json
+    role: causal_state
+    media_type: application/json
+    sha256: ea8ade533f6f9609bc4d3077cc90fd1cc470420c1efa4684450b2030fe12351b
+context:
+  question_or_proposition: Statistical significance is rendered as a cause.
+  execution_context: PF3-2 controlled causal-boundary evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {policy_version: r2_v1}
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: claim_decision
+      reachability: blocked
+      outcome: CLAIM_PROHIBITED__SIGNIFICANCE_IS_NOT_CAUSAL_AUTHORITY
+      controlling_reason: significance_is_not_causal_authority
+      authority_ref: R1 v1.0 §16
+  chain_dispositions: {main: claim_prohibited}
+  first_controlling_blocker:
+    blocker_id: significance_is_not_causal_authority
+    stage: claim_decision
+    reason: significance_is_not_causal_authority
+    authority_ref: R1 v1.0 §16
+  final_disposition: CLAIM_PROHIBITED__SIGNIFICANCE_IS_NOT_CAUSAL_AUTHORITY
+  permitted_meaning: [Statistical significance is not a separate causal authority.]
+  prohibited_meaning: [No causal inference or causal support is performed.]
+  trace_integrity_expectation:
+    requested_claim_class: causal
+    requested_scope_id: all_eligible
+    basis_kind: statistical_significance
+    supporting_reference_id: statistical_significance_result_004
+    causal_authority_reference_id: causal_identification_standard_v1
+    causal_authority_reference_present: false
+    causal_support_evaluated: false
+  unique_outcome_rationale: The producer preserves the structured statistical basis and blocks causal promotion because separate causal authority is absent.

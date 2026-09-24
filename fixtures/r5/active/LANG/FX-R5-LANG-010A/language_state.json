@@ -1,0 +1,16 @@
+{
+  "method_reference": {
+    "id": "r4_product_level_revenue_decomposition",
+    "fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+    "version": "r4_v1"
+  },
+  "authority_records": [
+    {
+      "record_type": "method_authority",
+      "id": "r4_product_level_revenue_decomposition",
+      "fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+      "version": "r4_v1",
+      "method_kind": "revenue_decomposition"
+    }
+  ]
+}

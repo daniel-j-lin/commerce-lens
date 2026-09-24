@@ -1,0 +1,54 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-LANG-010A
+fixture_version: 1.0.0
+title: Exact method-relative mechanical wording
+status: ACTIVE
+family: LANG
+layer: D
+purpose: Controlled exact-form conformance requiring exact R4 method authority.
+primary_authority:
+  document: DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md
+  frozen_version: R4 v1.0
+  section: §§31–32
+  controlling_rule: Mechanical wording is permitted only as a method-relative R4 form.
+supporting_authorities:
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §30
+    controlling_rule: Exact wording is not general language authorization.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_language_corpus
+  required_capability: pf3_controlled_language_corpus
+  required_capability_version: pf3_5_v1
+inputs:
+  - path: utterance.txt
+    role: utterance
+    media_type: text/plain
+    sha256: 054ee3278cf0558525bfb9cc638fde0e5b09f473208b3d868cc06d80220d0cac
+  - path: language_state.json
+    role: language_state
+    media_type: application/json
+    sha256: 2d101d335a46d83f5c29964ec6682f40147fef5e4f38f8f4af4b567092308a91
+context:
+  question_or_proposition: Exact method-relative mechanical wording.
+  execution_context: PF3-5 controlled exact-form language corpus.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {r4_method_version: r4_v1}
+expected:
+  expectation_kind: positive
+  material_path:
+    - stage: rendering
+      reachability: reached
+      outcome: {classification: PERMITTED_MECHANICAL_WORDING, text: "Under Product-Level Revenue Decomposition R4 v1.0, the Continuing-Product Revenue Change Component is USD −20.00.\n"}
+  chain_dispositions: {main: controlled_language_classification}
+  first_controlling_blocker: NONE
+  final_disposition: PERMITTED_MECHANICAL_WORDING
+  permitted_meaning: [Only the exact method-relative form is recognized.]
+  prohibited_meaning: [Mechanical wording is not causal authority.]
+  trace_integrity_expectation: {exact_form_match: true, authority_required: true, authority_binding_resolved: true}
+  unique_outcome_rationale: The exact mechanical form is bound to the exact R4 method authority.

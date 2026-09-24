@@ -1,0 +1,44 @@
+{
+  "external_dependency": {
+    "dependency_reference": {
+      "id": "external_diagnostic_source_prec005",
+      "fingerprint": "9999999999999999999999999999999999999999999999999999999999999999",
+      "version": "external_source_v1"
+    },
+    "resolution_authority_reference": {
+      "id": "external_dependency_resolution_prec005",
+      "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": "r1_r2_path_v1"
+    },
+    "resolution_state": "unresolved",
+    "later_internal_defect_reference": {
+      "id": "later_internal_defect_prec005",
+      "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "version": "validator_v1"
+    },
+    "authority_records": [
+      {
+        "record_type": "external_dependency",
+        "id": "external_diagnostic_source_prec005",
+        "fingerprint": "9999999999999999999999999999999999999999999999999999999999999999",
+        "version": "external_source_v1",
+        "source_kind": "external_diagnostic_source",
+        "resolution_state": "unresolved"
+      },
+      {
+        "record_type": "dependency_resolution_authority",
+        "id": "external_dependency_resolution_prec005",
+        "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "version": "r1_r2_path_v1",
+        "authority_kind": "external_dependency_resolution"
+      },
+      {
+        "record_type": "later_internal_defect",
+        "id": "later_internal_defect_prec005",
+        "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "version": "validator_v1",
+        "defect_kind": "internal_validation_issue"
+      }
+    ]
+  }
+}

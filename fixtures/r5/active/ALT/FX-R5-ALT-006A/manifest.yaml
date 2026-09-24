@@ -1,0 +1,103 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-ALT-006A",
+  "fixture_version": "1.0.0",
+  "title": "Alternative assertion lacks authoritative evidence",
+  "status": "ACTIVE",
+  "family": "ALT",
+  "layer": "C",
+  "purpose": "Prove that an asserted competitor cannot be generated as an alternative explanation without an authoritative evidence reference.",
+  "primary_authority": {
+    "document": "DIAGNOSTIC_REASONING_SPECIFICATION.md",
+    "frozen_version": "R1 v1.0",
+    "section": "§15.2",
+    "controlling_rule": "Alternative explanation checking does not authorize invention of an unsupported competitor or require invented alternatives."
+  },
+  "supporting_authorities": [
+    {
+      "document": "HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md",
+      "frozen_version": "R2 v1.0",
+      "section": "§17",
+      "controlling_rule": "A material competitor must retain its actual evidence status and cannot be promoted from imagination."
+    },
+    {
+      "document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md",
+      "frozen_version": "R5 v1.0",
+      "section": "§26",
+      "controlling_rule": "The exact active variant rejects alternative generation without evidence authority."
+    }
+  ],
+  "execution": {
+    "mode": "controlled_case",
+    "adapter_id": "controlled_alternative_evidence",
+    "required_capability": "pf3_controlled_alternative_evidence",
+    "required_capability_version": "pf3_1_v1"
+  },
+  "inputs": [
+    {
+      "path": "alternative_state.json",
+      "role": "alternative_state",
+      "media_type": "application/json",
+      "sha256": "f27ef69a3703cec52f999ac4b1eae31b8e96997e9348792f8bf0eb2707c950c6"
+    }
+  ],
+  "context": {
+    "question_or_proposition": "An asserted competitor explanation is presented without governed competitor evidence.",
+    "execution_context": "PF3-1 controlled alternative-evidence boundary evaluation.",
+    "intended_use": "Exact frozen conformance use only.",
+    "scope": {"scope_id": "all_eligible"},
+    "population": {"eligibility": "paid"},
+    "periods": [
+      {
+        "period_id": "comparison",
+        "label": "Q4 2026",
+        "start_date": "2026-10-01",
+        "end_date": "2026-12-31",
+        "date_convention_ref": "order_date_utc"
+      }
+    ],
+    "currency": "USD"
+  },
+  "bindings": {
+    "metric_version": "metric_dictionary_v1",
+    "r3_profile_version": "r3_v1"
+  },
+  "expected": {
+    "expectation_kind": "negative",
+    "material_path": [
+      {
+        "stage": "alternative_explanation_check",
+        "reachability": "blocked",
+        "outcome": "NON_CONFORMING_ALTERNATIVE_GENERATION",
+        "controlling_reason": "alternative_evidence_authority_absent",
+        "authority_ref": "R1 v1.0 §15.2"
+      },
+      {
+        "stage": "claim_decision",
+        "reachability": "not_reached",
+        "not_reached_due_to": "alternative_explanation_check"
+      }
+    ],
+    "chain_dispositions": {"main": "alternative_check_blocked"},
+    "first_controlling_blocker": {
+      "blocker_id": "alternative_evidence_authority",
+      "stage": "alternative_explanation_check",
+      "reason": "alternative_evidence_authority_absent",
+      "authority_ref": "R1 v1.0 §15.2"
+    },
+    "final_disposition": "NON_CONFORMING_ALTERNATIVE_GENERATION",
+    "permitted_meaning": [
+      "The asserted competitor is not an authoritative alternative explanation."
+    ],
+    "prohibited_meaning": [
+      "No competitor activity, quality judgment, uniqueness, primacy, or causality may be inferred."
+    ],
+    "trace_integrity_expectation": {
+      "required_evidence_id": "competitor_price_evidence_1",
+      "evidence_reference_present": false,
+      "observed_result_id": "validated_revenue_change_1",
+      "alternative_assertion_id": "competitor_price_change_assertion_1"
+    },
+    "unique_outcome_rationale": "The producer resolves the alternative's required evidence identity against supplied lower-level records and blocks the assertion when that authority is absent."
+  }
+}

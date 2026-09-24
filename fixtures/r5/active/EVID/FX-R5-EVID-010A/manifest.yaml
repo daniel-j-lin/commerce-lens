@@ -1,0 +1,69 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-EVID-010A
+fixture_version: 1.0.0
+title: Mixed-currency evidence is not test-eligible
+status: ACTIVE
+family: EVID
+layer: A
+purpose: Prove that monetary evidence containing mixed currencies fails the governed currency compatibility gate before execution.
+primary_authority:
+  document: REQUIRED_EVIDENCE_MATRIX_SPECIFICATION.md
+  frozen_version: R3 v1.0
+  section: §21
+  controlling_rule: Monetary evidence must resolve to one compatible governed currency basis for the exact proposition and use.
+supporting_authorities:
+  - document: CANONICAL_DATASET_AND_METRIC_DICTIONARY.md
+    frozen_version: v1.0
+    section: §6
+    controlling_rule: Mixed unnormalized currencies make monetary comparison inadmissible and authorize no FX conversion.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §16
+    controlling_rule: FX-R5-EVID-010A records mixed currency as the first controlling blocker.
+execution:
+  mode: application_service
+  adapter_id: governed_currency_gate
+  required_capability: canonical_currency_compatibility_gate
+  required_capability_version: canonical_mvp_v1
+inputs:
+  - path: orders.csv
+    role: orders
+    media_type: text/csv
+    sha256: 3998d9e2bec3a05c92eec9ed697660f5d9785472ff2d2ed53c123dc06a612fe8
+context:
+  question_or_proposition: What was Revenue across the governed Q3 and Q4 periods?
+  execution_context: Current application-service canonicalization and Data Sufficiency boundary.
+  intended_use: Governed monetary descriptive analysis.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods:
+    - {period_id: baseline, label: Q3 2026, start_date: '2026-07-01', end_date: '2026-09-30', date_convention_ref: order_date_utc}
+    - {period_id: comparison, label: Q4 2026, start_date: '2026-10-01', end_date: '2026-12-31', date_convention_ref: order_date_utc}
+  currency: mixed_USD_EUR
+bindings:
+  metric_version: metric_dictionary_v1
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: data_sufficiency
+      reachability: blocked
+      outcome: MIXED_CURRENCY__TEST_NOT_ELIGIBLE
+      controlling_reason: canonical.currency.mixed
+      authority_ref: R3 v1.0 §21
+    - {stage: execution, reachability: not_reached, not_reached_due_to: data_sufficiency}
+    - {stage: validation, reachability: not_reached, not_reached_due_to: data_sufficiency}
+    - {stage: evidence_admissibility, reachability: not_reached, not_reached_due_to: data_sufficiency}
+  chain_dispositions: {main: test_not_eligible}
+  first_controlling_blocker:
+    blocker_id: currency_compatibility
+    stage: data_sufficiency
+    reason: canonical.currency.mixed
+    authority_ref: R3 v1.0 §21
+  final_disposition: MIXED_CURRENCY__TEST_NOT_ELIGIBLE
+  permitted_meaning:
+    - Mixed unnormalized currency blocks the monetary test before execution.
+  prohibited_meaning:
+    - CommerceLens converted or inferred a common currency.
+    - A monetary result, validation, evidence admission, or ClaimDecision exists.
+  trace_integrity_expectation: {failure_code: canonical.currency.mixed, executed_results: 0}
+  unique_outcome_rationale: Currency compatibility fails first; every later material stage is unreachable.

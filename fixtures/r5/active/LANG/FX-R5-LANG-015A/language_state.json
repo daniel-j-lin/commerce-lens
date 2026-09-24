@@ -1,0 +1,16 @@
+{
+  "dependency_reference": {
+    "id": "external_evidence_dependency_015",
+    "fingerprint": "8888888888888888888888888888888888888888888888888888888888888888",
+    "version": "r1_v1"
+  },
+  "authority_records": [
+    {
+      "record_type": "external_dependency",
+      "id": "external_evidence_dependency_015",
+      "fingerprint": "8888888888888888888888888888888888888888888888888888888888888888",
+      "version": "r1_v1",
+      "resolution_state": "unresolved"
+    }
+  ]
+}

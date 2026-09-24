@@ -1,0 +1,31 @@
+{
+  "requested_claim": {
+    "claim_class": "descriptive",
+    "scope_id": "all_eligible",
+    "proposition": {
+      "id": "revenue_decline_new_proposition",
+      "fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+      "version": "r2_v1"
+    }
+  },
+  "claim_decision_reference": {
+    "id": "claim_decision_009",
+    "fingerprint": "6666666666666666666666666666666666666666666666666666666666666666",
+    "version": "p8_001_v1"
+  },
+  "authority_records": [
+    {
+      "record_type": "claim_decision",
+      "id": "claim_decision_009",
+      "fingerprint": "6666666666666666666666666666666666666666666666666666666666666666",
+      "version": "p8_001_v1",
+      "claim_class": "descriptive",
+      "scope_id": "all_eligible",
+      "proposition": {
+        "id": "revenue_decline_old_proposition",
+        "fingerprint": "7777777777777777777777777777777777777777777777777777777777777777",
+        "version": "r2_v1"
+      }
+    }
+  ]
+}

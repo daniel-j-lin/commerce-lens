@@ -1,0 +1,66 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-LANG-014A
+fixture_version: 1.0.0
+title: Exact insufficient-evidence wording
+status: ACTIVE
+family: LANG
+layer: D
+purpose: Prove that the structured PublicResponse output emits the exact bounded insufficient-evidence wording for a denied diagnostic explanation.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §§21–22
+  controlling_rule: Unsupported diagnostic meaning must remain explicitly bounded and must not be rendered as a Finding.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §28
+    controlling_rule: Rendering preserves exact authority and refusal state.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §30
+    controlling_rule: FX-R5-LANG-014A is a controlled exact-utterance case, not general NLP classification.
+execution:
+  mode: application_service
+  adapter_id: controlled_public_response_output
+  required_capability: structured_controlled_refusal_output
+  required_capability_version: public_v0_1
+inputs:
+  - path: orders.csv
+    role: orders
+    media_type: text/csv
+    sha256: 2d36b7ab0c1f008e1bfe85fb4ecc9514e98b2232fcbc3756ba33093a8b17723a
+context:
+  question_or_proposition: Why did Revenue decline from Q3 2026 to Q4 2026?
+  execution_context: Current Public v0.1 structured diagnostic-refusal response projection.
+  intended_use: Controlled exact structured insufficient-evidence output only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods:
+    - {period_id: baseline, label: Q3 2026, start_date: '2026-07-01', end_date: '2026-09-30', date_convention_ref: order_date_utc}
+    - {period_id: comparison, label: Q4 2026, start_date: '2026-10-01', end_date: '2026-12-31', date_convention_ref: order_date_utc}
+  currency: USD
+bindings:
+  metric_version: metric_dictionary_v1
+  policy_version: p8_001_v1
+expected:
+  expectation_kind: positive
+  material_path:
+    - stage: claim_decision
+      reachability: reached
+      outcome: {claim_state: Inadmissible, failure_code: unsupported_claim_type}
+    - stage: rendering
+      reachability: reached
+      outcome:
+        classification: PERMITTED_INSUFFICIENCY_WORDING
+        text: Insufficient evidence to conclude why Revenue declined.
+  chain_dispositions: {main: controlled_refusal_rendered}
+  first_controlling_blocker: NONE
+  final_disposition: PERMITTED_INSUFFICIENCY_WORDING
+  permitted_meaning:
+    - The exact controlled refusal states that evidence is insufficient to conclude why Revenue declined.
+  prohibited_meaning:
+    - Any diagnostic or causal explanation is supported.
+    - Similar wording is generally authorized by an NLP classifier.
+  trace_integrity_expectation: {controlled_exact_text_present: true}
+  unique_outcome_rationale: Existing deterministic ClaimDecision and structured PublicResponse projection produce the exact frozen refusal without semantic promotion.

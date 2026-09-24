@@ -1,0 +1,161 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-R4-029A",
+  "fixture_version": "1.0.0",
+  "title": "Standalone R4 needs no Diagnostic Proposition",
+  "status": "ACTIVE",
+  "family": "R4",
+  "layer": "B",
+  "purpose": "Exercise the exact Frozen FX-R5-R4-029A authority boundary without constructing missing authority.",
+  "primary_authority": {
+    "document": "DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md",
+    "frozen_version": "R4 v1.0",
+    "section": "§§8, 23, 24, 30",
+    "controlling_rule": "Standalone R4 needs no Diagnostic Proposition."
+  },
+  "supporting_authorities": [
+    {
+      "document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md",
+      "frozen_version": "R5 v1.0",
+      "section": "§§19, 20, 23, 31, 34",
+      "controlling_rule": "FX-R5-R4-029A is the controlling Frozen R5 variant."
+    }
+  ],
+  "execution": {
+    "mode": "application_service",
+    "adapter_id": "production_r4_standalone_context_projection",
+    "required_capability": "approved_production_r4_standalone_context",
+    "required_capability_version": "R4 v1.0"
+  },
+  "inputs": [
+    {
+      "path": "orders.csv",
+      "role": "orders",
+      "media_type": "text/csv",
+      "sha256": "730707199eb66b34e32a80795639c2d5fe0ef286f5c989e2edbefc628e23a035"
+    }
+  ],
+  "context": {
+    "question_or_proposition": "Standalone R4 needs no Diagnostic Proposition",
+    "execution_context": "Governed PF4 R4 conformance boundary.",
+    "intended_use": "Exact Frozen R5 conformance evaluation only.",
+    "scope": {
+      "scope_id": "all_eligible"
+    },
+    "population": {
+      "eligibility": "paid"
+    },
+    "periods": [
+      {
+        "period_id": "baseline_q3_2026",
+        "label": "Baseline Q3 2026",
+        "start_date": "2026-07-01",
+        "end_date": "2026-09-30",
+        "date_convention_ref": "order_date_calendar_day"
+      },
+      {
+        "period_id": "comparison_q4_2026",
+        "label": "Comparison Q4 2026",
+        "start_date": "2026-10-01",
+        "end_date": "2026-12-31",
+        "date_convention_ref": "order_date_calendar_day"
+      }
+    ],
+    "currency": "USD"
+  },
+  "bindings": {
+    "r4_method_version": "R4 v1.0",
+    "validator_version": "r4_v1_0_validation_v1",
+    "precision_version": "v1.0"
+  },
+  "expected": {
+    "expectation_kind": "positive",
+    "material_path": [
+      {
+        "stage": "r4_method_eligibility",
+        "reachability": "reached",
+        "outcome": "eligible"
+      },
+      {
+        "stage": "execution",
+        "reachability": "reached",
+        "outcome": "completed"
+      },
+      {
+        "stage": "validation",
+        "reachability": "reached",
+        "outcome": {
+          "authority": {
+            "baseline_period_ref": "baseline_q3_2026",
+            "comparison_period_ref": "comparison_q4_2026",
+            "scope_ref": "all_eligible",
+            "currency": "USD",
+            "method_id": "product_level_revenue_decomposition",
+            "method_version": "R4 v1.0",
+            "precision_policy_ref": "canonical_dictionary:34:exact_decimal_presentation_rounding_only",
+            "precision_policy_version": "v1.0",
+            "validation_policy_id": "r4_product_revenue_decomposition_validation",
+            "validation_policy_version": "r4_v1_0_validation_v1"
+          },
+          "authority_bindings_validated": true,
+          "baseline_revenue": "40.00",
+          "comparison_revenue": "60.00",
+          "observed_revenue_change": "20.00",
+          "entry_component": "0",
+          "exit_component": "0",
+          "continuing_component": "20.00",
+          "component_sum": "20.00",
+          "reconciliation_difference": "0.00",
+          "product_count": 1,
+          "entry_product_count": 0,
+          "exit_product_count": 0,
+          "continuing_product_count": 1,
+          "trace_rows": [
+            {
+              "product_id": "p_a",
+              "baseline_present": true,
+              "comparison_present": true,
+              "baseline_revenue": "40.00",
+              "comparison_revenue": "60.00",
+              "classification": "continuing",
+              "contribution": "20.00",
+              "assigned_component": "continuing_product_revenue_change",
+              "currency": "USD",
+              "baseline_period_ref": "baseline_q3_2026",
+              "comparison_period_ref": "comparison_q4_2026",
+              "scope_ref": "all_eligible",
+              "method_id": "product_level_revenue_decomposition",
+              "method_version": "R4 v1.0",
+              "precision_policy_ref": "canonical_dictionary:34:exact_decimal_presentation_rounding_only",
+              "precision_policy_version": "v1.0",
+              "validation_policy_id": "r4_product_revenue_decomposition_validation",
+              "validation_policy_version": "r4_v1_0_validation_v1"
+            }
+          ],
+          "execution_status": "completed",
+          "validation_status": "passed",
+          "semantic_boundary": "mechanical contribution != diagnostic explanation != causal explanation"
+        }
+      }
+    ],
+    "chain_dispositions": {
+      "main": "standalone_r4_mechanical_result"
+    },
+    "first_controlling_blocker": "NONE",
+    "final_disposition": "R4_MAY_EXECUTE_WITHOUT_DIAGNOSTIC_PROPOSITION",
+    "permitted_meaning": [
+      "Standalone R4 may execute when all mechanical prerequisites pass."
+    ],
+    "prohibited_meaning": [
+      "No Diagnostic Proposition, R3 profile, Finding, or Claim permission is created."
+    ],
+    "trace_integrity_expectation": {
+      "validation_status": "passed",
+      "all_validation_checks_passed": true,
+      "trace_fingerprint_integrity": true,
+      "result_fingerprint_integrity": true,
+      "exact_decimal_no_presentation_repair": true
+    },
+    "unique_outcome_rationale": "Frozen R5 explicitly permits standalone mechanical R4 without Diagnostic Proposition authority."
+  }
+}

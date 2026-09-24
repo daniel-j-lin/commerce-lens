@@ -1,0 +1,32 @@
+{
+  "requested_claim": {
+    "claim_class": "causal",
+    "scope_id": "all_eligible",
+    "proposition": {
+      "id": "revenue_decline_mechanical_cause",
+      "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+      "version": "r2_v1"
+    }
+  },
+  "authenticated_supporting_basis": {
+    "basis_kind": "mechanical_decomposition",
+    "reference": {
+      "id": "r4_decomposition_result_002",
+      "fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+      "version": "r4_v1"
+    }
+  },
+  "causal_authority_reference": {
+    "id": "causal_identification_standard_v1",
+    "fingerprint": "6666666666666666666666666666666666666666666666666666666666666666",
+    "version": "r1_v1"
+  },
+  "authority_records": [
+    {
+      "id": "r4_decomposition_result_002",
+      "fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+      "version": "r4_v1",
+      "record_type": "authenticated_supporting_basis"
+    }
+  ]
+}

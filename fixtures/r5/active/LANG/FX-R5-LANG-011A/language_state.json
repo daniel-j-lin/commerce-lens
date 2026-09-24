@@ -1,0 +1,26 @@
+{
+  "hypothesis_reference": {
+    "id": "diagnostic_hypothesis_011",
+    "fingerprint": "6666666666666666666666666666666666666666666666666666666666666666",
+    "version": "r2_v1"
+  },
+  "proposition_reference": {
+    "id": "continuing_products_hypothesis_011",
+    "fingerprint": "7777777777777777777777777777777777777777777777777777777777777777",
+    "version": "r2_v1"
+  },
+  "authority_records": [
+    {
+      "record_type": "hypothesis_authority",
+      "id": "diagnostic_hypothesis_011",
+      "fingerprint": "6666666666666666666666666666666666666666666666666666666666666666",
+      "version": "r2_v1",
+      "hypothesis_form": "explicit_diagnostic_hypothesis",
+      "proposition": {
+        "id": "continuing_products_hypothesis_011",
+        "fingerprint": "7777777777777777777777777777777777777777777777777777777777777777",
+        "version": "r2_v1"
+      }
+    }
+  ]
+}

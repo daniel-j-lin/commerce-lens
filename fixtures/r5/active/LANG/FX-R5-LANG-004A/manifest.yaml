@@ -1,0 +1,50 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-LANG-004A
+fixture_version: 1.0.0
+title: Exact prohibited diagnostic or causal language
+status: ACTIVE
+family: LANG
+layer: D
+purpose: Controlled exact-form conformance for prohibited diagnostic and causal wording.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §§8, 21–22
+  controlling_rule: Diagnostic and causal wording requires the separately governed authority path.
+supporting_authorities:
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §22
+    controlling_rule: This is an exact controlled utterance, not general language classification.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_language_corpus
+  required_capability: pf3_controlled_language_corpus
+  required_capability_version: pf3_5_v1
+inputs:
+  - path: utterance.txt
+    role: utterance
+    media_type: text/plain
+    sha256: db45c6161134e804afb202fad270fbf60d9e7a0ad31460bfa0078b652044a8c5
+context:
+  question_or_proposition: Exact prohibited diagnostic or causal wording.
+  execution_context: PF3-5 controlled exact-form language corpus.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {policy_version: r1_v1}
+expected:
+  expectation_kind: positive
+  material_path:
+    - stage: rendering
+      reachability: reached
+      outcome: {classification: PROHIBITED_DIAGNOSTIC_OR_CAUSAL, text: "Existing products drove the USD 20.00 decline.\n"}
+  chain_dispositions: {main: controlled_language_classification}
+  first_controlling_blocker: NONE
+  final_disposition: PROHIBITED_DIAGNOSTIC_OR_CAUSAL
+  permitted_meaning: [The exact form is recognized only as prohibited wording.]
+  prohibited_meaning: [The phrase does not create diagnostic or causal authority.]
+  trace_integrity_expectation: {exact_form_match: true, authority_required: false, authority_binding_resolved: true}
+  unique_outcome_rationale: The exact controlled form is classified without semantic promotion.

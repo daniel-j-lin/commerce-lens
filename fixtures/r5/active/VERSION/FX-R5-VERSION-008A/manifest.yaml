@@ -1,0 +1,70 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-VERSION-008A
+fixture_version: 1.0.0
+title: Dynamic latest lookup cannot replace exact authority binding
+status: ACTIVE
+family: VERSION
+layer: CROSS_CUTTING
+purpose: Resolve a required governed authority through an explicitly exact structured lookup rather than a dynamic latest reference.
+primary_authority:
+  document: ARCHITECTURE_SPECIFICATION.md
+  frozen_version: v1.0
+  section: §19
+  controlling_rule: Versioned authority references remain exact and reproducible.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §§10–11
+    controlling_rule: Versioned policy and method references are not replaced by latest state.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §31
+    controlling_rule: Dynamic latest lookup is blocked for exact binding.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_version_boundary
+  required_capability: pf3_controlled_version_boundary
+  required_capability_version: pf3_3_v1
+inputs:
+  - path: version_state.json
+    role: version_state
+    media_type: application/json
+    sha256: ac1d26ddb69739866f412a98621577514594809a29e7a4851fa2dbce7b337ef4
+context:
+  question_or_proposition: A dynamic latest lookup replaces an exact authority binding.
+  execution_context: PF3-3 controlled version-binding boundary evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings:
+  r3_profile_version: r3_v1
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: evidence_admissibility
+      reachability: blocked
+      outcome: DYNAMIC_AUTHORITY_LOOKUP__BLOCKED
+      controlling_reason: dynamic_authority_lookup
+      authority_ref: Architecture v1.0 §19
+  chain_dispositions: {main: dynamic_lookup_blocked}
+  first_controlling_blocker:
+    blocker_id: dynamic_authority_lookup
+    stage: evidence_admissibility
+    reason: dynamic_authority_lookup
+    authority_ref: Architecture v1.0 §19
+  final_disposition: DYNAMIC_AUTHORITY_LOOKUP__BLOCKED
+  permitted_meaning:
+    - The required authority is not resolved through an exact reproducible binding.
+  prohibited_meaning:
+    - Latest state cannot silently substitute for exact governed identity.
+  trace_integrity_expectation:
+    required_authority_id: r3_profile_008
+    required_authority_version: r3_v1
+    resolved_authority_id: r3_profile_008
+    resolved_authority_version: r3_v1
+    resolution_mode: latest
+    authority_record_present: true
+    exact_binding_resolved: false
+  unique_outcome_rationale: The controlled producer requires exact resolution mode and exact identity before continuation.

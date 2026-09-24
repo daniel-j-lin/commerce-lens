@@ -12,6 +12,7 @@ from commerce_lens.contracts.common import ContractBase, GroupingDimension
 METRIC_REGISTRY_VERSION = "metric_registry_mvp_v3"
 METRIC_DEFINITION_VERSION = "metric_dictionary_v1"
 PRECISION_POLICY_REF = "canonical_dictionary:34:exact_decimal_presentation_rounding_only"
+PRECISION_POLICY_VERSION = "v1.0"
 EXECUTION_NOT_IMPLEMENTED_REF = "not_implemented:p3_001_metric_execution_not_authorized"
 REVENUE_EXECUTION_IMPLEMENTATION_REF = "p4_001:duckdb_reference:revenue_v1"
 ORDERS_EXECUTION_IMPLEMENTATION_REF = "p4_001:duckdb_reference:orders_v1"

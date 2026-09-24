@@ -1,0 +1,3 @@
+order_id,order_line_id,order_date,product_id,product_name,category_id,category_name,quantity,line_revenue,currency,unit_price,eligibility_status
+b-a,b-a-l1,2026-07-15,,Tea,c_fixture,Synthetic,1,40.00,USD,40.00,paid
+c-a,c-a-l1,2026-10-15,p_a,Tea,c_fixture,Synthetic,1,60.00,USD,60.00,paid

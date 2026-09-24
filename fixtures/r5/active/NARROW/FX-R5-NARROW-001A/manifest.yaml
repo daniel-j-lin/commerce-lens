@@ -1,0 +1,108 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-NARROW-001A",
+  "fixture_version": "1.0.0",
+  "title": "Disclaimer cannot repair a broad proposition",
+  "status": "ACTIVE",
+  "family": "NARROW",
+  "layer": "D",
+  "purpose": "Prove that a disclaimer does not create a new proposition or evaluation identity and cannot repair missing broad-population coverage.",
+  "primary_authority": {
+    "document": "REQUIRED_EVIDENCE_MATRIX_SPECIFICATION.md",
+    "frozen_version": "R3 v1.0",
+    "section": "§27",
+    "controlling_rule": "Material narrowing requires a new exact proposition, binding, profile, and evaluation; qualification cannot waive a blocking coverage failure."
+  },
+  "supporting_authorities": [
+    {
+      "document": "HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md",
+      "frozen_version": "R2 v1.0",
+      "section": "§10.2",
+      "controlling_rule": "A materially changed proposition requires a new evaluation identity and does not mutate the original evaluation."
+    },
+    {
+      "document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md",
+      "frozen_version": "R5 v1.0",
+      "section": "§29",
+      "controlling_rule": "The broad proposition remains blocked when only disclaimer text is appended."
+    }
+  ],
+  "execution": {
+    "mode": "controlled_case",
+    "adapter_id": "controlled_narrowing_boundary",
+    "required_capability": "pf3_controlled_narrowing_boundary",
+    "required_capability_version": "pf3_1_v1"
+  },
+  "inputs": [
+    {
+      "path": "narrowing_state.json",
+      "role": "narrowing_state",
+      "media_type": "application/json",
+      "sha256": "ddf5cbfb3e9ab45a3ad1d3cec75bdd66ab336f22b05b67c9b586dcc9d2ea6b70"
+    }
+  ],
+  "context": {
+    "question_or_proposition": "A broad revenue proposition lacks material population coverage while a disclaimer is appended.",
+    "execution_context": "PF3-1 controlled proposition-identity boundary evaluation.",
+    "intended_use": "Exact frozen conformance use only.",
+    "scope": {"scope_id": "all_eligible"},
+    "population": {"eligibility": "all_eligible"},
+    "periods": [
+      {
+        "period_id": "comparison",
+        "label": "Q4 2026",
+        "start_date": "2026-10-01",
+        "end_date": "2026-12-31",
+        "date_convention_ref": "order_date_utc"
+      }
+    ],
+    "currency": "USD"
+  },
+  "bindings": {
+    "metric_version": "metric_dictionary_v1",
+    "r3_profile_version": "r3_v1"
+  },
+  "expected": {
+    "expectation_kind": "negative",
+    "material_path": [
+      {
+        "stage": "analytical_outcome",
+        "reachability": "blocked",
+        "outcome": "BROAD_PROPOSITION_BLOCKED__DISCLAIMER_NO_REPAIR",
+        "controlling_reason": "material_population_coverage_missing",
+        "authority_ref": "R3 v1.0 §27"
+      },
+      {
+        "stage": "rendering",
+        "reachability": "not_reached",
+        "not_reached_due_to": "analytical_outcome"
+      }
+    ],
+    "chain_dispositions": {"main": "broad_proposition_blocked"},
+    "first_controlling_blocker": {
+      "blocker_id": "material_population_coverage",
+      "stage": "analytical_outcome",
+      "reason": "material_population_coverage_missing",
+      "authority_ref": "R3 v1.0 §27"
+    },
+    "final_disposition": "BROAD_PROPOSITION_BLOCKED__DISCLAIMER_NO_REPAIR",
+    "permitted_meaning": [
+      "The broad proposition remains blocked because its material population coverage is missing."
+    ],
+    "prohibited_meaning": [
+      "Disclaimer text alone cannot mutate the proposition, create a new evaluation, or authorize the broad claim."
+    ],
+    "trace_integrity_expectation": {
+      "original_proposition_id": "revenue_decline_all_eligible",
+      "rendered_proposition_id": "revenue_decline_all_eligible",
+      "original_evaluation_id": "evaluation_revenue_decline_all_eligible",
+      "rendered_evaluation_id": "evaluation_revenue_decline_all_eligible",
+      "original_population_id": "all_eligible",
+      "covered_population_id": "paid_orders",
+      "identity_changed": false,
+      "coverage_matches_rendered": false,
+      "disclaimer_present": true
+    },
+    "unique_outcome_rationale": "The producer compares lower-level proposition and evaluation identities plus population identifiers; unchanged identities cannot be repaired by disclaimer wording."
+  }
+}

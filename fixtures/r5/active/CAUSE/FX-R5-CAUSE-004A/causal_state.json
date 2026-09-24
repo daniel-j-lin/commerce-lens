@@ -1,0 +1,32 @@
+{
+  "requested_claim": {
+    "claim_class": "causal",
+    "scope_id": "all_eligible",
+    "proposition": {
+      "id": "revenue_decline_significance_cause",
+      "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": "r2_v1"
+    }
+  },
+  "authenticated_supporting_basis": {
+    "basis_kind": "statistical_significance",
+    "reference": {
+      "id": "statistical_significance_result_004",
+      "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "version": "statistics_v1"
+    }
+  },
+  "causal_authority_reference": {
+    "id": "causal_identification_standard_v1",
+    "fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "version": "r1_v1"
+  },
+  "authority_records": [
+    {
+      "id": "statistical_significance_result_004",
+      "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "version": "statistics_v1",
+      "record_type": "authenticated_supporting_basis"
+    }
+  ]
+}

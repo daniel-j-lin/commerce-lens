@@ -1,0 +1,67 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-PREC-004A
+fixture_version: 1.0.0
+title: Causal claim restriction controls strong diagnostic evidence
+status: ACTIVE
+family: PREC
+layer: CROSS_CUTTING
+purpose: Preserve the frozen causal-class restriction path when strong diagnostic evidence is present.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §19.2
+  controlling_rule: Causal class restriction and governed refusal control this exact path.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §§18.2, 20.1, 26
+    controlling_rule: Causal restriction remains distinct from diagnostic evidence strength.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §34
+    controlling_rule: This precedence path does not establish universal precedence.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_precision_boundary
+  required_capability: pf3_controlled_precision_boundary
+  required_capability_version: pf3_4_v1
+inputs:
+  - path: precision_state.json
+    role: precision_state
+    media_type: application/json
+    sha256: fcd8c26cc6f973beb53481a1216f23d6348f5f4690e0c20b281e0d7a2eb60518
+context:
+  question_or_proposition: Strong diagnostic evidence does not authorize a causal Claim.
+  execution_context: PF3-4 controlled precision and precedence evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings:
+  policy_version: r1_r2_v1
+expected:
+  expectation_kind: precedence
+  material_path:
+    - stage: claim_decision
+      reachability: blocked
+      outcome: CLAIM_PROHIBITED__ASSOCIATION_IS_NOT_CAUSATION
+      controlling_reason: association_is_not_causation
+      authority_ref: R1 v1.0 §19.2
+  chain_dispositions: {main: claim_prohibited}
+  first_controlling_blocker:
+    blocker_id: association_is_not_causation
+    stage: claim_decision
+    reason: association_is_not_causation
+    authority_ref: R1 v1.0 §19.2
+  final_disposition: CLAIM_PROHIBITED__ASSOCIATION_IS_NOT_CAUSATION
+  permitted_meaning:
+    - Strong diagnostic association remains non-causal evidence.
+  prohibited_meaning:
+    - No causal support criterion is evaluated or created.
+    - This path does not establish a universal precedence engine.
+  trace_integrity_expectation:
+    requested_claim_class: causal
+    diagnostic_evidence_reference_present: true
+    causal_authority_reference_present: false
+  unique_outcome_rationale: The requested causal class is prohibited by the authenticated diagnostic evidence form before causal support evaluation.

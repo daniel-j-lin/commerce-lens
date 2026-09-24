@@ -1,0 +1,115 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-R4-030A",
+  "fixture_version": "1.0.0",
+  "title": "Artificial diagnostic authority is non-conforming",
+  "status": "ACTIVE",
+  "family": "R4",
+  "layer": "B",
+  "purpose": "Exercise the exact Frozen FX-R5-R4-030A authority boundary without constructing missing authority.",
+  "primary_authority": {
+    "document": "DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md",
+    "frozen_version": "R4 v1.0",
+    "section": "§§8, 23, 24, 30",
+    "controlling_rule": "Artificial diagnostic authority is non-conforming."
+  },
+  "supporting_authorities": [
+    {
+      "document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md",
+      "frozen_version": "R5 v1.0",
+      "section": "§§19, 20, 23, 31, 34",
+      "controlling_rule": "FX-R5-R4-030A is the controlling Frozen R5 variant."
+    }
+  ],
+  "execution": {
+    "mode": "component_boundary",
+    "adapter_id": "production_r4_artificial_diagnostic_authority_guard",
+    "required_capability": "r4_request_contract_context_guard",
+    "required_capability_version": "R4 v1.0"
+  },
+  "inputs": [
+    {
+      "path": "orders.csv",
+      "role": "orders",
+      "media_type": "text/csv",
+      "sha256": "730707199eb66b34e32a80795639c2d5fe0ef286f5c989e2edbefc628e23a035"
+    },
+    {
+      "path": "diagnostic_authority_state.json",
+      "role": "diagnostic_authority_state",
+      "media_type": "application/json",
+      "sha256": "11d655c7c66552068af0ec8dc6f90293e158b1ca896677ce267cb620a60edd0b"
+    }
+  ],
+  "context": {
+    "question_or_proposition": "Artificial diagnostic authority is non-conforming",
+    "execution_context": "Governed PF4 R4 conformance boundary.",
+    "intended_use": "Exact Frozen R5 conformance evaluation only.",
+    "scope": {
+      "scope_id": "all_eligible"
+    },
+    "population": {
+      "eligibility": "paid"
+    },
+    "periods": [
+      {
+        "period_id": "baseline_q3_2026",
+        "label": "Baseline Q3 2026",
+        "start_date": "2026-07-01",
+        "end_date": "2026-09-30",
+        "date_convention_ref": "order_date_calendar_day"
+      },
+      {
+        "period_id": "comparison_q4_2026",
+        "label": "Comparison Q4 2026",
+        "start_date": "2026-10-01",
+        "end_date": "2026-12-31",
+        "date_convention_ref": "order_date_calendar_day"
+      }
+    ],
+    "currency": "USD"
+  },
+  "bindings": {
+    "r4_method_version": "R4 v1.0",
+    "validator_version": "r4_v1_0_validation_v1",
+    "precision_version": "v1.0"
+  },
+  "expected": {
+    "expectation_kind": "negative",
+    "material_path": [
+      {
+        "stage": "r4_method_eligibility",
+        "reachability": "blocked",
+        "outcome": "artificial_diagnostic_authority",
+        "controlling_reason": "artificial_diagnostic_authority",
+        "authority_ref": "R4 v1.0 §§7–8, 23"
+      },
+      {
+        "stage": "execution",
+        "reachability": "not_reached",
+        "not_reached_due_to": "r4_method_eligibility"
+      }
+    ],
+    "chain_dispositions": {
+      "main": "non_conforming_orchestration"
+    },
+    "first_controlling_blocker": {
+      "blocker_id": "execution_context_classification",
+      "stage": "r4_method_eligibility",
+      "reason": "artificial_diagnostic_authority",
+      "authority_ref": "R4 v1.0 §§7–8, 23"
+    },
+    "final_disposition": "NON_CONFORMING_ORCHESTRATION__ARTIFICIAL_DIAGNOSTIC_AUTHORITY",
+    "permitted_meaning": [
+      "The production request contract rejects diagnostic authority attached to standalone execution."
+    ],
+    "prohibited_meaning": [
+      "No R2/R3 authority is fabricated or treated as authentic."
+    ],
+    "trace_integrity_expectation": {
+      "request_contract_rejected": true,
+      "production_r4_entered": false
+    },
+    "unique_outcome_rationale": "Frozen R5 makes execution-context classification controlling for artificial diagnostic authority."
+  }
+}

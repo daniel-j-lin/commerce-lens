@@ -1,0 +1,86 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-CHAIN-002A
+fixture_version: 1.0.0
+title: Independent descriptive chain remains renderable while diagnostic chain is withheld
+status: ACTIVE
+family: CHAIN
+layer: CROSS_CUTTING
+purpose: Compare explicit stage/reference linkage for independent diagnostic and descriptive chains without transferring authority between them.
+primary_authority:
+  document: ARCHITECTURE_SPECIFICATION.md
+  frozen_version: v1.0
+  section: §§11.4, 14.7
+  controlling_rule: Independent valid chains remain usable when an affected chain fails.
+supporting_authorities:
+  - document: REQUIRED_EVIDENCE_MATRIX_SPECIFICATION.md
+    frozen_version: R3 v1.0
+    section: §27.4
+    controlling_rule: Diagnostic execution requires an exact applicable profile binding.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §33
+    controlling_rule: The descriptive chain remains renderable while the diagnostic chain is withheld.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_chain_boundary
+  required_capability: pf3_controlled_chain_boundary
+  required_capability_version: pf3_3_v1
+inputs:
+  - path: chain_state.json
+    role: chain_state
+    media_type: application/json
+    sha256: 7fe8243176a20352904db247e187ea106bb233e027d70ac459dd3c4ce811e3b6
+context:
+  question_or_proposition: The Product Mix diagnostic chain lacks its exact profile while an independent descriptive chain remains valid.
+  execution_context: PF3-3 controlled independent-chain linkage evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings:
+  policy_version: p8_001_v1
+expected:
+  expectation_kind: precedence
+  material_path:
+    - stage: evidence_admissibility
+      chain_id: product_mix_diagnostic
+      reachability: blocked
+      outcome: R3_PROFILE_NOT_RESOLVED
+      controlling_reason: exact_r3_profile_missing
+      authority_ref: R3 v1.0 §29
+    - stage: claim_decision
+      chain_id: product_mix_diagnostic
+      reachability: not_reached
+      not_reached_due_to: evidence_admissibility
+    - stage: claim_decision
+      chain_id: revenue_change_descriptive
+      reachability: reached
+      outcome: descriptive_claim_decision_resolved
+    - stage: rendering
+      chain_id: revenue_change_descriptive
+      reachability: reached
+      outcome: descriptive_claim_rendering_resolved
+  chain_dispositions:
+    product_mix_diagnostic: diagnostic_withheld
+    revenue_change_descriptive: descriptive_claim_renderable
+  first_controlling_blocker:
+    blocker_id: exact_r3_profile_missing
+    stage: evidence_admissibility
+    chain_id: product_mix_diagnostic
+    reason: exact_r3_profile_missing
+    authority_ref: R3 v1.0 §29
+  final_disposition: PARTIAL_MATERIAL_RESULT__DESCRIPTIVE_CLAIM_RENDERABLE__DIAGNOSTIC_WITHHELD
+  permitted_meaning:
+    - The descriptive chain remains independently renderable.
+    - The diagnostic chain is withheld because its exact profile linkage is unresolved.
+  prohibited_meaning:
+    - Descriptive-chain authority does not repair or authorize the diagnostic chain.
+  trace_integrity_expectation:
+    diagnostic_profile_reference_present: true
+    diagnostic_profile_link_exact: false
+    descriptive_claim_decision_link_exact: true
+    descriptive_rendering_link_exact: true
+    diagnostic_chain_continuity: false
+    descriptive_chain_continuity: true
+  unique_outcome_rationale: The controlled producer resolves each chain's references independently and preserves the local diagnostic blocker.

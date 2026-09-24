@@ -1,0 +1,44 @@
+{
+  "evidence_reference": {
+    "id": "evidence_006",
+    "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "version": "evidence_v1"
+  },
+  "source_kind": "conversation_memory",
+  "source_reference": {
+    "id": "conversation_memory_006",
+    "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "version": "memory_v1"
+  },
+  "required_retained_artifact_reference": {
+    "id": "retained_artifact_006",
+    "fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "version": "retention_v1"
+  },
+  "provenance_link": {
+    "evidence_reference": {
+      "id": "evidence_006",
+      "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": "evidence_v1"
+    },
+    "source_reference": {
+      "id": "conversation_memory_006",
+      "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "version": "memory_v1"
+    }
+  },
+  "authority_records": [
+    {
+      "record_type": "evidence_reference",
+      "id": "evidence_006",
+      "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": "evidence_v1"
+    },
+    {
+      "record_type": "source_reference",
+      "id": "conversation_memory_006",
+      "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "version": "memory_v1"
+    }
+  ]
+}

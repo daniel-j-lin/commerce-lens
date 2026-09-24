@@ -1,0 +1,119 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-R4-028A",
+  "fixture_version": "1.0.0",
+  "title": "Eligible execution loses its runtime dependency",
+  "status": "ACTIVE",
+  "family": "R4",
+  "layer": "B",
+  "purpose": "Submit a factual hostile actual for Eligible execution loses its runtime dependency to the governed production boundary.",
+  "primary_authority": {
+    "document": "DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md",
+    "frozen_version": "R4 v1.0",
+    "section": "§§25–26, 29–30",
+    "controlling_rule": "Eligible execution loses its runtime dependency must be rejected at its truthful production failure layer."
+  },
+  "supporting_authorities": [
+    {
+      "document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md",
+      "frozen_version": "R5 v1.0",
+      "section": "§§19, 33",
+      "controlling_rule": "FX-R5-R4-028A is the controlling Frozen R5 variant."
+    }
+  ],
+  "execution": {
+    "mode": "component_boundary",
+    "adapter_id": "production_r4_runtime_dependency_gate",
+    "required_capability": "production_r4_executor_dependency_boundary",
+    "required_capability_version": "R4 v1.0"
+  },
+  "inputs": [
+    {
+      "path": "orders.csv",
+      "role": "orders",
+      "media_type": "text/csv",
+      "sha256": "d28ddca816c7de5e6172f76f751ad4165b1f78cf0f81f37489a99d0ab4fc0e8c"
+    },
+    {
+      "path": "runtime_dependency_state.json",
+      "role": "runtime_dependency_state",
+      "media_type": "application/json",
+      "sha256": "f862bf0c63f037d564435dfa2c64ca74ba6be9b1b48ecfb5c0e1da6519d8ccd3"
+    }
+  ],
+  "context": {
+    "question_or_proposition": "Validate the completed production R4 result and retained trace.",
+    "execution_context": "PF4 hostile actual submission to production validation or repository boundary.",
+    "intended_use": "Exact Frozen R5 conformance evaluation only.",
+    "scope": {
+      "scope_id": "all_eligible"
+    },
+    "population": {
+      "eligibility": "paid"
+    },
+    "periods": [
+      {
+        "period_id": "baseline_q3_2026",
+        "label": "Baseline Q3 2026",
+        "start_date": "2026-07-01",
+        "end_date": "2026-09-30",
+        "date_convention_ref": "order_date_calendar_day"
+      },
+      {
+        "period_id": "comparison_q4_2026",
+        "label": "Comparison Q4 2026",
+        "start_date": "2026-10-01",
+        "end_date": "2026-12-31",
+        "date_convention_ref": "order_date_calendar_day"
+      }
+    ],
+    "currency": "USD"
+  },
+  "bindings": {
+    "r4_method_version": "R4 v1.0",
+    "validator_version": "r4_v1_0_validation_v1",
+    "precision_version": "v1.0"
+  },
+  "expected": {
+    "expectation_kind": "negative",
+    "material_path": [
+      {
+        "stage": "r4_method_eligibility",
+        "reachability": "reached",
+        "outcome": "eligible"
+      },
+      {
+        "stage": "execution",
+        "reachability": "blocked",
+        "outcome": "R4ExecutionError",
+        "controlling_reason": "R4ExecutionError",
+        "authority_ref": "R4 v1.0 §30.2"
+      },
+      {
+        "stage": "validation",
+        "reachability": "not_reached",
+        "not_reached_due_to": "execution"
+      }
+    ],
+    "chain_dispositions": {
+      "main": "r4_execution_failed"
+    },
+    "first_controlling_blocker": {
+      "blocker_id": "runtime_dependency_unavailable",
+      "stage": "execution",
+      "reason": "R4ExecutionError",
+      "authority_ref": "R4 v1.0 §30.2"
+    },
+    "final_disposition": "R4_EXECUTION_FAILED__NO_USABLE_RESULT",
+    "permitted_meaning": [
+      "Eligibility passed and the genuine executor failed because duckdb was unavailable."
+    ],
+    "prohibited_meaning": [
+      "No fake result or production dependency hook is created."
+    ],
+    "trace_integrity_expectation": {
+      "failure_layer": "EXECUTION"
+    },
+    "unique_outcome_rationale": "Frozen R5 distinguishes eligible execution failure from eligibility and validation failure."
+  }
+}

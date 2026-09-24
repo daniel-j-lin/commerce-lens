@@ -1,0 +1,77 @@
+{
+  "diagnostic_chain": {
+    "chain_id": "product_mix_diagnostic",
+    "required_profile_reference": {
+      "id": "r3_product_mix_profile_002",
+      "fingerprint": "1212121212121212121212121212121212121212121212121212121212121212",
+      "version": "r3_v1"
+    },
+    "requested_claim_reference": {
+      "id": "product_mix_claim_002",
+      "fingerprint": "2323232323232323232323232323232323232323232323232323232323232323",
+      "version": "r2_v1"
+    }
+  },
+  "descriptive_chain": {
+    "chain_id": "revenue_change_descriptive",
+    "claim_decision_reference": {
+      "id": "revenue_change_claim_decision_002",
+      "fingerprint": "3434343434343434343434343434343434343434343434343434343434343434",
+      "version": "p8_001_v1"
+    },
+    "rendering_reference": {
+      "id": "revenue_change_rendering_002",
+      "fingerprint": "4545454545454545454545454545454545454545454545454545454545454545",
+      "version": "rendering_v1"
+    }
+  },
+  "stage_links": [
+    {
+      "chain_id": "product_mix_diagnostic",
+      "stage": "evidence_admissibility",
+      "reference": {
+        "id": "r3_product_mix_profile_002",
+        "fingerprint": "abababababababababababababababababababababababababababababababab",
+        "version": "r3_v1"
+      }
+    },
+    {
+      "chain_id": "revenue_change_descriptive",
+      "stage": "claim_decision",
+      "reference": {
+        "id": "revenue_change_claim_decision_002",
+        "fingerprint": "3434343434343434343434343434343434343434343434343434343434343434",
+        "version": "p8_001_v1"
+      }
+    },
+    {
+      "chain_id": "revenue_change_descriptive",
+      "stage": "rendering",
+      "reference": {
+        "id": "revenue_change_rendering_002",
+        "fingerprint": "4545454545454545454545454545454545454545454545454545454545454545",
+        "version": "rendering_v1"
+      }
+    }
+  ],
+  "authority_records": [
+    {
+      "record_type": "r3_profile",
+      "id": "r3_product_mix_profile_002",
+      "fingerprint": "1212121212121212121212121212121212121212121212121212121212121212",
+      "version": "r3_v1"
+    },
+    {
+      "record_type": "claim_decision",
+      "id": "revenue_change_claim_decision_002",
+      "fingerprint": "3434343434343434343434343434343434343434343434343434343434343434",
+      "version": "p8_001_v1"
+    },
+    {
+      "record_type": "rendering_authority",
+      "id": "revenue_change_rendering_002",
+      "fingerprint": "4545454545454545454545454545454545454545454545454545454545454545",
+      "version": "rendering_v1"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-PREC-005A
+fixture_version: 1.0.0
+title: External dependency controls later internal defect
+status: ACTIVE
+family: PREC
+layer: CROSS_CUTTING
+purpose: Preserve the frozen external-dependency path before a later internal defect.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §19.2
+  controlling_rule: An unmet external dependency requires external evidence under this exact path.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §§20, 24
+    controlling_rule: An unresolved external dependency controls before a later internal defect.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §34
+    controlling_rule: This precedence path does not establish universal precedence.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_precision_boundary
+  required_capability: pf3_controlled_precision_boundary
+  required_capability_version: pf3_4_v1
+inputs:
+  - path: precision_state.json
+    role: precision_state
+    media_type: application/json
+    sha256: e03bfd536457e0270d5caf52004d9bf35b72dd7f6d6c1ba2bfa33fdd6af6e82e
+context:
+  question_or_proposition: An unmet external dependency precedes a later internal defect.
+  execution_context: PF3-4 controlled precision and precedence evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings:
+  policy_version: r1_r2_v1
+expected:
+  expectation_kind: precedence
+  material_path:
+    - stage: evidence_admissibility
+      reachability: blocked
+      outcome: EXTERNAL_EVIDENCE_REQUIRED
+      controlling_reason: external_dependency_unresolved
+      authority_ref: R1 v1.0 §19.2
+    - stage: analytical_outcome
+      reachability: not_reached
+      not_reached_due_to: evidence_admissibility
+  chain_dispositions: {main: external_dependency_blocks_later_internal_stage}
+  first_controlling_blocker:
+    blocker_id: external_dependency
+    stage: evidence_admissibility
+    reason: external_dependency_unresolved
+    authority_ref: R1 v1.0 §19.2
+  final_disposition: EXTERNAL_EVIDENCE_REQUIRED
+  permitted_meaning:
+    - The external dependency is unresolved for this exact diagnostic path.
+  prohibited_meaning:
+    - The later internal defect does not repair or displace the external dependency.
+    - This path does not establish a universal precedence engine.
+  trace_integrity_expectation:
+    dependency_resolution_state: unresolved
+    external_dependency_reference_present: true
+    later_internal_defect_present: true
+    later_internal_defect_evaluated: false
+  unique_outcome_rationale: The unresolved external dependency controls before the later internal defect stage.

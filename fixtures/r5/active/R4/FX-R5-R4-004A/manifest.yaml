@@ -1,0 +1,71 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-R4-004A
+fixture_version: 1.0.0
+title: Continuing-only
+status: ACTIVE
+family: R4
+layer: B
+purpose: Prove the Frozen same-product identity classification and exact Continuing-only component without diagnostic promotion.
+primary_authority:
+  document: DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md
+  frozen_version: R4 v1.0
+  section: §§16–17
+  controlling_rule: A governed product identity present in both periods contributes only to Continuing, which is mechanical rather than diagnostic.
+supporting_authorities:
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §§19, 19.1
+    controlling_rule: FX-R5-R4-004A fixes Continuing 30.00 with zero Entry and Exit.
+execution: {mode: application_service, adapter_id: production_r4_material_projection, required_capability: approved_production_r4, required_capability_version: R4 v1.0}
+inputs:
+  - {path: orders.csv, role: orders, media_type: text/csv, sha256: e090c46972fe5b1e01a0838ff0cc873b0d1df28b774bcc86ff36aef4e803f407}
+context:
+  question_or_proposition: What is the exact Continuing-only mechanical Revenue decomposition?
+  execution_context: Standalone approved production R4 mechanical execution.
+  intended_use: Exact Frozen R5 conformance evaluation only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods:
+    - {period_id: baseline_q3_2026, label: Baseline Q3 2026, start_date: '2026-07-01', end_date: '2026-09-30', date_convention_ref: order_date_calendar_day}
+    - {period_id: comparison_q4_2026, label: Comparison Q4 2026, start_date: '2026-10-01', end_date: '2026-12-31', date_convention_ref: order_date_calendar_day}
+  currency: USD
+bindings: {r4_method_version: R4 v1.0, validator_version: r4_v1_0_validation_v1, precision_version: v1.0}
+expected:
+  expectation_kind: positive
+  material_path:
+    - {stage: r4_method_eligibility, reachability: reached, outcome: eligible}
+    - {stage: execution, reachability: reached, outcome: completed}
+    - stage: validation
+      reachability: reached
+      outcome:
+        authority: {baseline_period_ref: baseline_q3_2026, comparison_period_ref: comparison_q4_2026, scope_ref: all_eligible, currency: USD, method_id: product_level_revenue_decomposition, method_version: R4 v1.0, precision_policy_ref: 'canonical_dictionary:34:exact_decimal_presentation_rounding_only', precision_policy_version: v1.0, validation_policy_id: r4_product_revenue_decomposition_validation, validation_policy_version: r4_v1_0_validation_v1}
+        authority_bindings_validated: true
+        baseline_revenue: '100.00'
+        comparison_revenue: '130.00'
+        observed_revenue_change: '30.00'
+        entry_component: '0'
+        exit_component: '0'
+        continuing_component: '30.00'
+        component_sum: '30.00'
+        reconciliation_difference: '0.00'
+        product_count: 1
+        entry_product_count: 0
+        exit_product_count: 0
+        continuing_product_count: 1
+        trace_rows:
+          - {product_id: p_a, baseline_present: true, comparison_present: true, baseline_revenue: '100.00', comparison_revenue: '130.00', classification: continuing, contribution: '30.00', assigned_component: continuing_product_revenue_change, currency: USD, baseline_period_ref: baseline_q3_2026, comparison_period_ref: comparison_q4_2026, scope_ref: all_eligible, method_id: product_level_revenue_decomposition, method_version: R4 v1.0, precision_policy_ref: 'canonical_dictionary:34:exact_decimal_presentation_rounding_only', precision_policy_version: v1.0, validation_policy_id: r4_product_revenue_decomposition_validation, validation_policy_version: r4_v1_0_validation_v1}
+        execution_status: completed
+        validation_status: passed
+        semantic_boundary: mechanical contribution != diagnostic explanation != causal explanation
+  chain_dispositions: {main: validated_r4_mechanical_result}
+  first_controlling_blocker: NONE
+  final_disposition: VALIDATED_R4_MECHANICAL_RESULT
+  permitted_meaning: [Continuing Component is exactly 30.00; Entry and Exit are exactly zero.]
+  prohibited_meaning: [Continuing products drove performance or establish a cause, reason, driver, or explanation.]
+  trace_integrity_expectation:
+    validation_status: passed
+    all_validation_checks_passed: true
+    trace_fingerprint_integrity: true
+    result_fingerprint_integrity: true
+    exact_decimal_no_presentation_repair: true
+  unique_outcome_rationale: The same governed p_a identity is present in both complete periods and contributes exactly 30.00 to Continuing.

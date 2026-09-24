@@ -1,0 +1,109 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-R4-016A",
+  "fixture_version": "1.0.0",
+  "title": "Unknown currency blocks R4",
+  "status": "ACTIVE",
+  "family": "R4",
+  "layer": "B",
+  "purpose": "Exercise the exact Frozen FX-R5-R4-016A authority boundary without constructing missing authority.",
+  "primary_authority": {
+    "document": "DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md",
+    "frozen_version": "R4 v1.0",
+    "section": "§§8, 23, 24, 30",
+    "controlling_rule": "Unknown currency blocks R4."
+  },
+  "supporting_authorities": [
+    {
+      "document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md",
+      "frozen_version": "R5 v1.0",
+      "section": "§§19, 20, 23, 31, 34",
+      "controlling_rule": "FX-R5-R4-016A is the controlling Frozen R5 variant."
+    }
+  ],
+  "execution": {
+    "mode": "application_service",
+    "adapter_id": "production_r4_eligibility_projection",
+    "required_capability": "approved_production_r4_prerequisite_chain",
+    "required_capability_version": "R4 v1.0"
+  },
+  "inputs": [
+    {
+      "path": "orders.csv",
+      "role": "orders",
+      "media_type": "text/csv",
+      "sha256": "d5bb514f90ac3877977c51a109d59cef15f9b53e34115dcdf9202b632d2cadda"
+    }
+  ],
+  "context": {
+    "question_or_proposition": "Unknown currency blocks R4",
+    "execution_context": "Governed PF4 R4 conformance boundary.",
+    "intended_use": "Exact Frozen R5 conformance evaluation only.",
+    "scope": {
+      "scope_id": "all_eligible"
+    },
+    "population": {
+      "eligibility": "paid"
+    },
+    "periods": [
+      {
+        "period_id": "baseline_q3_2026",
+        "label": "Baseline Q3 2026",
+        "start_date": "2026-07-01",
+        "end_date": "2026-09-30",
+        "date_convention_ref": "order_date_calendar_day"
+      },
+      {
+        "period_id": "comparison_q4_2026",
+        "label": "Comparison Q4 2026",
+        "start_date": "2026-10-01",
+        "end_date": "2026-12-31",
+        "date_convention_ref": "order_date_calendar_day"
+      }
+    ],
+    "currency": "USD"
+  },
+  "bindings": {
+    "r4_method_version": "R4 v1.0",
+    "validator_version": "r4_v1_0_validation_v1",
+    "precision_version": "v1.0"
+  },
+  "expected": {
+    "expectation_kind": "negative",
+    "material_path": [
+      {
+        "stage": "r4_method_eligibility",
+        "reachability": "blocked",
+        "outcome": "unknown_currency",
+        "controlling_reason": "unknown_currency",
+        "authority_ref": "R4 v1.0 §§11, 24, 30.1"
+      },
+      {
+        "stage": "execution",
+        "reachability": "not_reached",
+        "not_reached_due_to": "r4_method_eligibility"
+      }
+    ],
+    "chain_dispositions": {
+      "main": "r4_not_executed"
+    },
+    "first_controlling_blocker": {
+      "blocker_id": "unknown_currency",
+      "stage": "r4_method_eligibility",
+      "reason": "unknown_currency",
+      "authority_ref": "R4 v1.0 §§11, 24, 30.1"
+    },
+    "final_disposition": "R4_NOT_EXECUTED__UNKNOWN_CURRENCY",
+    "permitted_meaning": [
+      "The exact pre-execution production boundary controls."
+    ],
+    "prohibited_meaning": [
+      "No R4 result or diagnostic authority exists."
+    ],
+    "trace_integrity_expectation": {
+      "failure_layer": "ELIGIBILITY",
+      "production_failure_code": "unknown_currency"
+    },
+    "unique_outcome_rationale": "Frozen R5 fixes unknown_currency as the first blocker."
+  }
+}

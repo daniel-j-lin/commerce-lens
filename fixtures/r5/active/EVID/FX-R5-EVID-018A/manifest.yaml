@@ -1,0 +1,75 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-EVID-018A
+fixture_version: 1.0.0
+title: Required deterministic validation failure
+status: ACTIVE
+family: EVID
+layer: A
+purpose: Prove that an executed result failing required deterministic validation is not eligible for downstream evidence or Claim permission.
+primary_authority:
+  document: REQUIRED_EVIDENCE_MATRIX_SPECIFICATION.md
+  frozen_version: R3 v1.0
+  section: §24
+  controlling_rule: Required validation must pass for evidence eligibility; a failed record blocks downstream authority.
+supporting_authorities:
+  - document: EVIDENCE_CONTRACT_SPECIFICATION.md
+    frozen_version: v1.0
+    section: §29
+    controlling_rule: Executed and validated result authority remain distinct.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §16
+    controlling_rule: FX-R5-EVID-018A records required validation failure as the first blocker.
+execution:
+  mode: component_boundary
+  adapter_id: required_validation_boundary
+  required_capability: deterministic_metric_validation
+  required_capability_version: p5_001_v1
+inputs:
+  - path: orders.csv
+    role: orders
+    media_type: text/csv
+    sha256: 96d54eb8ceeb52dc28ab139e73dd302719b92b78614353106ea05045d437f292
+  - path: hostile-result.json
+    role: hostile_result
+    media_type: application/json
+    sha256: c92009240fb9716541ab9c3e1a8dad52cae8c72455c27dfb0a74e0da48704c23
+context:
+  question_or_proposition: Does the submitted Revenue Change equal the exact change between validated period Revenues?
+  execution_context: Existing deterministic Revenue Change validation component boundary.
+  intended_use: Required validation of a submitted mechanical result.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods:
+    - {period_id: baseline, label: Q3 2026, start_date: '2026-07-01', end_date: '2026-09-30', date_convention_ref: order_date_utc}
+    - {period_id: comparison, label: Q4 2026, start_date: '2026-10-01', end_date: '2026-12-31', date_convention_ref: order_date_utc}
+  currency: USD
+bindings:
+  metric_version: metric_dictionary_v1
+  validator_version: p5_001_v1
+expected:
+  expectation_kind: negative
+  material_path:
+    - {stage: data_sufficiency, reachability: reached, outcome: sufficient}
+    - {stage: execution, reachability: reached, outcome: hostile_result_submitted}
+    - stage: validation
+      reachability: blocked
+      outcome: REQUIRED_VALIDATION_FAILED__TEST_NOT_ELIGIBLE
+      controlling_reason: value_mismatch
+      authority_ref: R3 v1.0 §24
+    - {stage: evidence_admissibility, reachability: not_reached, not_reached_due_to: validation}
+    - {stage: claim_decision, reachability: not_reached, not_reached_due_to: validation}
+  chain_dispositions: {main: test_not_eligible}
+  first_controlling_blocker:
+    blocker_id: required_validation
+    stage: validation
+    reason: value_mismatch
+    authority_ref: R3 v1.0 §24
+  final_disposition: REQUIRED_VALIDATION_FAILED__TEST_NOT_ELIGIBLE
+  permitted_meaning:
+    - The submitted Revenue Change failed an existing required deterministic validation rule.
+  prohibited_meaning:
+    - The failed result is a ValidatedResult or AdmissibleEvidence.
+    - A downstream ClaimDecision authorizes the failed result.
+  trace_integrity_expectation: {validation_status: failed, failure_code: value_mismatch, validated_result_authorized: false}
+  unique_outcome_rationale: Upstream source and execution authority are valid, but the deliberately submitted wrong result fails required validation and blocks all later stages.

@@ -1,0 +1,123 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-PREC-002A",
+  "fixture_version": "1.0.0",
+  "title": "Evidence inadmissibility controls before hypothetical support",
+  "status": "ACTIVE",
+  "family": "PREC",
+  "layer": "CROSS_CUTTING",
+    "purpose": "Instantiate frozen FX-R5-PREC-002A through a controlled lower-level authority-state boundary.",
+  "primary_authority": {
+    "document": "DIAGNOSTIC_REASONING_SPECIFICATION.md",
+    "frozen_version": "R1 v1.0",
+    "section": "§19.2",
+    "controlling_rule": "Frozen FX-R5-PREC-002A fixes the exact material disposition and first-blocker boundary."
+  },
+  "supporting_authorities": [
+    {
+      "document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md",
+      "frozen_version": "R5 v1.0",
+      "section": "§34",
+      "controlling_rule": "FX-R5-PREC-002A is the controlling active frozen fixture definition."
+    }
+  ],
+  "execution": {
+    "mode": "controlled_case",
+    "adapter_id": "controlled_precision_boundary",
+    "required_capability": "pf3_controlled_precision_boundary",
+    "required_capability_version": "pf3_4_v1"
+  },
+  "inputs": [
+    {
+      "path": "orders.csv",
+      "role": "orders",
+      "media_type": "text/csv",
+      "sha256": "2d36b7ab0c1f008e1bfe85fb4ecc9514e98b2232fcbc3756ba33093a8b17723a"
+    },
+    {
+      "path": "precedence_state.json",
+      "role": "precision_state",
+      "media_type": "application/json",
+      "sha256": "aedfc0e7612fdea2c4dbc12f8533038a46ff0946ed5fa586cabcf5960de4bcf8"
+    }
+  ],
+  "context": {
+    "question_or_proposition": "Evidence inadmissibility controls before hypothetical support",
+    "execution_context": "PF3-4 controlled precision and precedence evaluation.",
+    "intended_use": "Exact frozen conformance use only.",
+    "scope": {
+      "scope_id": "all_eligible"
+    },
+    "population": {
+      "eligibility": "paid"
+    },
+    "periods": [
+      {
+        "period_id": "baseline",
+        "label": "Q3 2026",
+        "start_date": "2026-07-01",
+        "end_date": "2026-09-30",
+        "date_convention_ref": "order_date_utc"
+      },
+      {
+        "period_id": "comparison",
+        "label": "Q4 2026",
+        "start_date": "2026-10-01",
+        "end_date": "2026-12-31",
+        "date_convention_ref": "order_date_utc"
+      }
+    ],
+    "currency": "USD"
+  },
+  "bindings": {
+    "metric_version": "metric_dictionary_v1",
+    "r3_profile_version": null,
+    "r4_method_version": null,
+    "policy_version": null,
+    "validator_version": "p5_001_v1",
+    "precision_version": null
+  },
+  "expected": {
+    "expectation_kind": "precedence",
+    "material_path": [
+      {
+        "stage": "validation",
+        "reachability": "reached",
+        "outcome": "passed"
+      },
+      {
+        "stage": "evidence_admissibility",
+        "reachability": "blocked",
+        "outcome": "EVIDENCE_INADMISSIBLE__ANALYTICAL_SUPPORT_NOT_REACHED",
+        "controlling_reason": "unsupported_claim_type_for_p6_001",
+        "authority_ref": "R1 v1.0 §19.2"
+      },
+      {
+        "stage": "analytical_outcome",
+        "reachability": "not_reached",
+        "not_reached_due_to": "evidence_admissibility"
+      }
+    ],
+    "chain_dispositions": {
+      "main": "analytical_support_unreachable"
+    },
+    "first_controlling_blocker": {
+      "blocker_id": "evidence_admissibility",
+      "stage": "evidence_admissibility",
+      "reason": "unsupported_claim_type_for_p6_001",
+      "authority_ref": "R1 v1.0 §19.2"
+    },
+    "final_disposition": "EVIDENCE_INADMISSIBLE__ANALYTICAL_SUPPORT_NOT_REACHED",
+    "permitted_meaning": [
+      "Only the exact frozen EVIDENCE_INADMISSIBLE__ANALYTICAL_SUPPORT_NOT_REACHED disposition is authorized."
+    ],
+    "prohibited_meaning": [
+      "No diagnostic, causal, or broader authority is created by this fixture."
+    ],
+    "trace_integrity_expectation": {
+      "status": "failed",
+      "failure_code": "unsupported_claim_type_for_p6_001"
+    },
+    "unique_outcome_rationale": "The configured synthetic precondition is evaluated by current_evidence_admissibility_authority; the harness only projects its deterministic output."
+  }
+}

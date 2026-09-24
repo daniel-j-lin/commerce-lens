@@ -1,0 +1,74 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-R4-005A
+fixture_version: 1.0.0
+title: Entry + Exit + Continuing
+status: ACTIVE
+family: R4
+layer: B
+purpose: Prove the Frozen simultaneous Entry, Exit, and Continuing product partition with exact reconciliation.
+primary_authority:
+  document: DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md
+  frozen_version: R4 v1.0
+  section: §§13–18
+  controlling_rule: The complete product universe is partitioned exactly once into Entry, Exit, and Continuing and its contributions reconcile to observed Revenue Change.
+supporting_authorities:
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §§19, 19.1
+    controlling_rule: FX-R5-R4-005A fixes Entry 100.00, Exit -60.00, Continuing 0.00, and Change 40.00.
+execution: {mode: application_service, adapter_id: production_r4_material_projection, required_capability: approved_production_r4, required_capability_version: R4 v1.0}
+inputs:
+  - {path: orders.csv, role: orders, media_type: text/csv, sha256: 313c34ddf8eb804c1f32d4f34fdd099953edc73c0cf2dc8e1a8e3c3d277ef24f}
+context:
+  question_or_proposition: What is the exact mixed mechanical Revenue decomposition?
+  execution_context: Standalone approved production R4 mechanical execution.
+  intended_use: Exact Frozen R5 conformance evaluation only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods:
+    - {period_id: baseline_q3_2026, label: Baseline Q3 2026, start_date: '2026-07-01', end_date: '2026-09-30', date_convention_ref: order_date_calendar_day}
+    - {period_id: comparison_q4_2026, label: Comparison Q4 2026, start_date: '2026-10-01', end_date: '2026-12-31', date_convention_ref: order_date_calendar_day}
+  currency: USD
+bindings: {r4_method_version: R4 v1.0, validator_version: r4_v1_0_validation_v1, precision_version: v1.0}
+expected:
+  expectation_kind: positive
+  material_path:
+    - {stage: r4_method_eligibility, reachability: reached, outcome: eligible}
+    - {stage: execution, reachability: reached, outcome: completed}
+    - stage: validation
+      reachability: reached
+      outcome:
+        authority: {baseline_period_ref: baseline_q3_2026, comparison_period_ref: comparison_q4_2026, scope_ref: all_eligible, currency: USD, method_id: product_level_revenue_decomposition, method_version: R4 v1.0, precision_policy_ref: 'canonical_dictionary:34:exact_decimal_presentation_rounding_only', precision_policy_version: v1.0, validation_policy_id: r4_product_revenue_decomposition_validation, validation_policy_version: r4_v1_0_validation_v1}
+        authority_bindings_validated: true
+        baseline_revenue: '200.00'
+        comparison_revenue: '240.00'
+        observed_revenue_change: '40.00'
+        entry_component: '100.00'
+        exit_component: '-60.00'
+        continuing_component: '0.00'
+        component_sum: '40.00'
+        reconciliation_difference: '0.00'
+        product_count: 4
+        entry_product_count: 1
+        exit_product_count: 1
+        continuing_product_count: 2
+        trace_rows:
+          - {product_id: p_a, baseline_present: true, comparison_present: true, baseline_revenue: '100.00', comparison_revenue: '120.00', classification: continuing, contribution: '20.00', assigned_component: continuing_product_revenue_change, currency: USD, baseline_period_ref: baseline_q3_2026, comparison_period_ref: comparison_q4_2026, scope_ref: all_eligible, method_id: product_level_revenue_decomposition, method_version: R4 v1.0, precision_policy_ref: 'canonical_dictionary:34:exact_decimal_presentation_rounding_only', precision_policy_version: v1.0, validation_policy_id: r4_product_revenue_decomposition_validation, validation_policy_version: r4_v1_0_validation_v1}
+          - {product_id: p_b, baseline_present: true, comparison_present: true, baseline_revenue: '40.00', comparison_revenue: '20.00', classification: continuing, contribution: '-20.00', assigned_component: continuing_product_revenue_change, currency: USD, baseline_period_ref: baseline_q3_2026, comparison_period_ref: comparison_q4_2026, scope_ref: all_eligible, method_id: product_level_revenue_decomposition, method_version: R4 v1.0, precision_policy_ref: 'canonical_dictionary:34:exact_decimal_presentation_rounding_only', precision_policy_version: v1.0, validation_policy_id: r4_product_revenue_decomposition_validation, validation_policy_version: r4_v1_0_validation_v1}
+          - {product_id: p_c, baseline_present: true, comparison_present: false, baseline_revenue: '60.00', comparison_revenue: '0', classification: baseline_only, contribution: '-60.00', assigned_component: exit, currency: USD, baseline_period_ref: baseline_q3_2026, comparison_period_ref: comparison_q4_2026, scope_ref: all_eligible, method_id: product_level_revenue_decomposition, method_version: R4 v1.0, precision_policy_ref: 'canonical_dictionary:34:exact_decimal_presentation_rounding_only', precision_policy_version: v1.0, validation_policy_id: r4_product_revenue_decomposition_validation, validation_policy_version: r4_v1_0_validation_v1}
+          - {product_id: p_d, baseline_present: false, comparison_present: true, baseline_revenue: '0', comparison_revenue: '100.00', classification: comparison_only, contribution: '100.00', assigned_component: entry, currency: USD, baseline_period_ref: baseline_q3_2026, comparison_period_ref: comparison_q4_2026, scope_ref: all_eligible, method_id: product_level_revenue_decomposition, method_version: R4 v1.0, precision_policy_ref: 'canonical_dictionary:34:exact_decimal_presentation_rounding_only', precision_policy_version: v1.0, validation_policy_id: r4_product_revenue_decomposition_validation, validation_policy_version: r4_v1_0_validation_v1}
+        execution_status: completed
+        validation_status: passed
+        semantic_boundary: mechanical contribution != diagnostic explanation != causal explanation
+  chain_dispositions: {main: validated_r4_mechanical_result}
+  first_controlling_blocker: NONE
+  final_disposition: VALIDATED_R4_MECHANICAL_RESULT
+  permitted_meaning: [Entry is 100.00, Exit is -60.00, Continuing is 0.00, and the exact component sum is 40.00.]
+  prohibited_meaning: [The partition explains Revenue or establishes any driver, reason, strategy, mechanism, or cause.]
+  trace_integrity_expectation:
+    validation_status: passed
+    all_validation_checks_passed: true
+    trace_fingerprint_integrity: true
+    result_fingerprint_integrity: true
+    exact_decimal_no_presentation_repair: true
+  unique_outcome_rationale: Four governed identities exercise all three mutually exclusive classes while preserving the Frozen exact aggregate anchors.

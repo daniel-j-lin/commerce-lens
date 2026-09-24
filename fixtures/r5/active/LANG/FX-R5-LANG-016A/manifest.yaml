@@ -1,0 +1,54 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-LANG-016A
+fixture_version: 1.0.0
+title: Exact causal-refusal wording
+status: ACTIVE
+family: LANG
+layer: D
+purpose: Controlled exact-form conformance for governed causal refusal wording.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §§16, 21–22
+  controlling_rule: Causal refusal is not causal permission.
+supporting_authorities:
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §30
+    controlling_rule: Exact wording is not general language authorization.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_language_corpus
+  required_capability: pf3_controlled_language_corpus
+  required_capability_version: pf3_5_v1
+inputs:
+  - path: utterance.txt
+    role: utterance
+    media_type: text/plain
+    sha256: d4a0229db78bfca53fe7350bfb26d3b328006c856554537206b4776266d87b96
+  - path: language_state.json
+    role: language_state
+    media_type: application/json
+    sha256: b645090213f72cd94ba1db120c29c535b8e9eeec9a7cefa6a8175c9ef81b61c6
+context:
+  question_or_proposition: Exact causal-refusal wording.
+  execution_context: PF3-5 controlled exact-form language corpus.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {policy_version: r1_v1}
+expected:
+  expectation_kind: positive
+  material_path:
+    - stage: rendering
+      reachability: reached
+      outcome: {classification: PERMITTED_CAUSAL_REFUSAL, text: "The causal claim is prohibited under current authority.\n"}
+  chain_dispositions: {main: controlled_language_classification}
+  first_controlling_blocker: NONE
+  final_disposition: PERMITTED_CAUSAL_REFUSAL
+  permitted_meaning: [The exact form renders a causal refusal only.]
+  prohibited_meaning: [No causal permission is created.]
+  trace_integrity_expectation: {exact_form_match: true, authority_required: true, authority_binding_resolved: true}
+  unique_outcome_rationale: The exact refusal form is bound to a structured causal-class restriction record.

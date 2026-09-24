@@ -1,0 +1,50 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-LANG-001A
+fixture_version: 1.0.0
+title: Exact permitted mechanical language
+status: ACTIVE
+family: LANG
+layer: D
+purpose: Controlled exact-form conformance for method-relative mechanical wording.
+primary_authority:
+  document: DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md
+  frozen_version: R4 v1.0
+  section: §§31–32
+  controlling_rule: Mechanical decomposition wording is bounded by the exact governed method.
+supporting_authorities:
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §22
+    controlling_rule: This is an exact controlled utterance, not general language classification.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_language_corpus
+  required_capability: pf3_controlled_language_corpus
+  required_capability_version: pf3_5_v1
+inputs:
+  - path: utterance.txt
+    role: utterance
+    media_type: text/plain
+    sha256: 0f00f1b222bff22b78823186d98a4ed9402fd09beb9b03a5c205e5ddc3b9ac45
+context:
+  question_or_proposition: Exact permitted mechanical wording.
+  execution_context: PF3-5 controlled exact-form language corpus.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {r4_method_version: r4_v1}
+expected:
+  expectation_kind: positive
+  material_path:
+    - stage: rendering
+      reachability: reached
+      outcome: {classification: PERMITTED_MECHANICAL, text: "Comparison-only products account for USD 100.00 of the mechanical Revenue difference under Product-Level Revenue Decomposition R4 v1.0.\n"}
+  chain_dispositions: {main: controlled_language_classification}
+  first_controlling_blocker: NONE
+  final_disposition: PERMITTED_MECHANICAL
+  permitted_meaning: [Only the exact method-relative mechanical form is recognized.]
+  prohibited_meaning: [No diagnostic or causal meaning is authorized.]
+  trace_integrity_expectation: {exact_form_match: true, authority_required: false, authority_binding_resolved: true}
+  unique_outcome_rationale: The exact frozen mechanical utterance is recognized as a bounded controlled form.

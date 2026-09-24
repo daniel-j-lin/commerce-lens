@@ -871,6 +871,57 @@ def verify_admissible_evidence_artifact(
     return evidence
 
 
+def retrieve_admissible_evidence_authority(
+    evidence_id: str,
+    *,
+    artifact_store: ArtifactStore,
+    metadata_store: MetadataStore,
+) -> AdmissibleEvidence:
+    """Retrieve one exact, registered P6/P7 Evidence authority and verify every matching record."""
+    records = [
+        record
+        for record in metadata_store.list_evidence_admissibility_records()
+        if record.status is EvidenceAdmissibilityStatus.PASSED
+        and record.admissible_evidence_id == evidence_id
+    ]
+    if not records:
+        raise EvidenceAdmissibilityError(
+            "admissible_evidence_authority_missing",
+            "no passing EvidenceAdmissibilityRecord registers the requested AdmissibleEvidence",
+        )
+    authorities: list[AdmissibleEvidence] = []
+    for record in records:
+        if (
+            record.evaluator_id != EVIDENCE_ADMISSIBILITY_EVALUATOR_ID
+            or record.evaluator_version != EVIDENCE_ADMISSIBILITY_EVALUATOR_VERSION
+            or not record.sufficiency_authority_checked
+        ):
+            raise EvidenceAdmissibilityError(
+                "admissible_evidence_authority_invalid",
+                "Evidence authority was not issued by the supported P6/P7 evaluator",
+            )
+        if record.admissible_evidence_artifact_ref is None:
+            raise EvidenceAdmissibilityError(
+                "admissible_evidence_authority_missing",
+                "passing EvidenceAdmissibilityRecord lacks its registered artifact",
+            )
+        authorities.append(
+            verify_admissible_evidence_artifact(
+                record.admissible_evidence_artifact_ref,
+                artifact_store=artifact_store,
+                metadata_store=metadata_store,
+                admissibility_record=record,
+            )
+        )
+    authority = authorities[0]
+    if any(candidate != authority for candidate in authorities[1:]):
+        raise EvidenceAdmissibilityError(
+            "admissible_evidence_authority_ambiguous",
+            "passing EvidenceAdmissibilityRecords disagree for the requested AdmissibleEvidence",
+        )
+    return authority
+
+
 def _verify_admissible_evidence_record_lineage(
     evidence: AdmissibleEvidence,
     record: EvidenceAdmissibilityRecord,

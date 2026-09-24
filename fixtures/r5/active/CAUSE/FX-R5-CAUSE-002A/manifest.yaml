@@ -1,0 +1,69 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-CAUSE-002A
+fixture_version: 1.0.0
+title: Mechanical decomposition is not causal authority
+status: ACTIVE
+family: CAUSE
+layer: C
+purpose: Preserve the mechanical-versus-causal boundary without executing or simulating causal inference.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §16
+  controlling_rule: Mechanical contribution is not causal contribution.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §26
+    controlling_rule: Causal-boundary representation does not create a causal identification framework.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §28
+    controlling_rule: R4 decomposition rendered as cause is prohibited.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_causal_boundary
+  required_capability: pf3_controlled_causal_boundary
+  required_capability_version: pf3_2_v1
+inputs:
+  - path: causal_state.json
+    role: causal_state
+    media_type: application/json
+    sha256: 35e635f3838341b5d2b1cc6a25d1d21159f4e9cd575a6fe569d028846b26b54e
+context:
+  question_or_proposition: A mechanical decomposition is rendered as a cause.
+  execution_context: PF3-2 controlled causal-boundary evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {r4_method_version: r4_v1}
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: claim_decision
+      reachability: blocked
+      outcome: CLAIM_PROHIBITED__MECHANICAL_IS_NOT_CAUSAL
+      controlling_reason: mechanical_is_not_causal
+      authority_ref: R1 v1.0 §16
+  chain_dispositions: {main: claim_prohibited}
+  first_controlling_blocker:
+    blocker_id: mechanical_is_not_causal
+    stage: claim_decision
+    reason: mechanical_is_not_causal
+    authority_ref: R1 v1.0 §16
+  final_disposition: CLAIM_PROHIBITED__MECHANICAL_IS_NOT_CAUSAL
+  permitted_meaning:
+    - The mechanical decomposition remains descriptive and is not causal authority.
+  prohibited_meaning:
+    - No causal support is inferred from the decomposition.
+  trace_integrity_expectation:
+    requested_claim_class: causal
+    requested_scope_id: all_eligible
+    basis_kind: mechanical_decomposition
+    supporting_reference_id: r4_decomposition_result_002
+    causal_authority_reference_id: causal_identification_standard_v1
+    causal_authority_reference_present: false
+    causal_support_evaluated: false
+  unique_outcome_rationale: The producer preserves the structured mechanical basis and blocks the causal Claim boundary because separate causal authority is absent.

@@ -1,0 +1,90 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-DIAG-012A",
+  "fixture_version": "1.0.0",
+  "title": "Direct causal request is refused",
+  "status": "ACTIVE",
+  "family": "DIAG",
+  "layer": "C",
+  "purpose": "Instantiate frozen FX-R5-DIAG-012A through the existing deterministic current_claim_class_restriction production boundary.",
+  "primary_authority": {
+    "document": "DIAGNOSTIC_REASONING_SPECIFICATION.md",
+    "frozen_version": "R1 v1.0",
+    "section": "§§6–24",
+    "controlling_rule": "Frozen FX-R5-DIAG-012A fixes the exact material disposition and first-blocker boundary."
+  },
+  "supporting_authorities": [
+    {
+      "document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md",
+      "frozen_version": "R5 v1.0",
+      "section": "§23",
+      "controlling_rule": "FX-R5-DIAG-012A is the controlling active frozen fixture definition."
+    }
+  ],
+  "execution": {
+    "mode": "component_boundary",
+    "adapter_id": "unsupported_claim_policy",
+    "required_capability": "current_claim_class_restriction",
+    "required_capability_version": "p8_001_v1"
+  },
+  "inputs": [
+    {
+      "path": "candidate.json",
+      "role": "claim_candidate",
+      "media_type": "application/json",
+      "sha256": "8ef9fd2a2b1a761b927b41fedfc2e7a771917e08c200ea2001a41cf4d6abdcf0"
+    }
+  ],
+  "context": {
+    "question_or_proposition": "Direct causal request is refused",
+    "execution_context": "Isolated PF2 execution of current_claim_class_restriction.",
+    "intended_use": "Exact frozen conformance use only.",
+    "scope": null,
+    "population": null,
+    "periods": [],
+    "currency": null
+  },
+  "bindings": {
+    "metric_version": null,
+    "r3_profile_version": null,
+    "r4_method_version": null,
+    "policy_version": "p8_001_v1",
+    "validator_version": null,
+    "precision_version": null
+  },
+  "expected": {
+    "expectation_kind": "negative",
+    "material_path": [
+      {
+        "stage": "claim_decision",
+        "reachability": "blocked",
+        "outcome": "CLAIM_PROHIBITED__CAUSAL_AUTHORITY_UNAVAILABLE",
+        "controlling_reason": "unsupported_claim_type",
+        "authority_ref": "R1 v1.0 §20"
+      }
+    ],
+    "chain_dispositions": {
+      "main": "claim_prohibited"
+    },
+    "first_controlling_blocker": {
+      "blocker_id": "causal_claim_class_restriction",
+      "stage": "claim_decision",
+      "reason": "unsupported_claim_type",
+      "authority_ref": "R1 v1.0 §20"
+    },
+    "final_disposition": "CLAIM_PROHIBITED__CAUSAL_AUTHORITY_UNAVAILABLE",
+    "permitted_meaning": [
+      "Only the exact frozen CLAIM_PROHIBITED__CAUSAL_AUTHORITY_UNAVAILABLE disposition is authorized."
+    ],
+    "prohibited_meaning": [
+      "No diagnostic, causal, or broader authority is created by this fixture."
+    ],
+    "trace_integrity_expectation": {
+      "claim_state": "Inadmissible",
+      "failure_code": "unsupported_claim_type",
+      "policy_version": "p8_001_v1"
+    },
+    "unique_outcome_rationale": "The configured synthetic precondition is evaluated by current_claim_class_restriction; the harness only projects its deterministic output."
+  }
+}
+

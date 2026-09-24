@@ -1,0 +1,68 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-VERSION-009A
+fixture_version: 1.0.0
+title: An old ClaimDecision cannot be rebound to a new proposition
+status: ACTIVE
+family: VERSION
+layer: CROSS_CUTTING
+purpose: Compare the exact proposition bound by a ClaimDecision with the currently requested proposition.
+primary_authority:
+  document: ARCHITECTURE_SPECIFICATION.md
+  frozen_version: v1.0
+  section: §19
+  controlling_rule: ClaimDecision authority remains bound to its exact proposition identity.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §§7, 10–11
+    controlling_rule: Proposition identity and ClaimDecision references remain exact.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §31
+    controlling_rule: Rebinding an old ClaimDecision to a new proposition is blocked.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_version_boundary
+  required_capability: pf3_controlled_version_boundary
+  required_capability_version: pf3_3_v1
+inputs:
+  - path: version_state.json
+    role: version_state
+    media_type: application/json
+    sha256: 86841c5f0926e69b5c8bd777f0b8d2de442abcbf6f2b32d6824341ed9d9f7dfc
+context:
+  question_or_proposition: An old ClaimDecision is rebound to a new proposition.
+  execution_context: PF3-3 controlled version-binding boundary evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings:
+  policy_version: p8_001_v1
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: claim_decision
+      reachability: blocked
+      outcome: CLAIMDECISION_BINDING_MISMATCH__BLOCKED
+      controlling_reason: claimdecision_proposition_binding_mismatch
+      authority_ref: Architecture v1.0 §19
+  chain_dispositions: {main: decision_binding_blocked}
+  first_controlling_blocker:
+    blocker_id: claimdecision_proposition_binding
+    stage: claim_decision
+    reason: claimdecision_proposition_binding_mismatch
+    authority_ref: Architecture v1.0 §19
+  final_disposition: CLAIMDECISION_BINDING_MISMATCH__BLOCKED
+  permitted_meaning:
+    - The old ClaimDecision does not authorize the new proposition identity.
+  prohibited_meaning:
+    - Proposition substitution cannot reuse historical ClaimDecision authority.
+  trace_integrity_expectation:
+    claim_decision_reference_id: claim_decision_009
+    claim_decision_reference_present: false
+    requested_proposition_id: revenue_decline_new_proposition
+    decision_proposition_id: null
+    binding_matches: false
+  unique_outcome_rationale: The controlled producer resolves the exact ClaimDecision record and compares its proposition binding to the requested proposition.

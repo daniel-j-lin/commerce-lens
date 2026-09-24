@@ -1,0 +1,114 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-R4-020A",
+  "fixture_version": "1.0.0",
+  "title": "Overlapping Entry Exit Continuing partition",
+  "status": "ACTIVE",
+  "family": "R4",
+  "layer": "B",
+  "purpose": "Submit a factual hostile actual for Overlapping Entry Exit Continuing partition to the governed production boundary.",
+  "primary_authority": {
+    "document": "DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md",
+    "frozen_version": "R4 v1.0",
+    "section": "§§25–26, 29–30",
+    "controlling_rule": "Overlapping Entry Exit Continuing partition must be rejected at its truthful production failure layer."
+  },
+  "supporting_authorities": [
+    {
+      "document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md",
+      "frozen_version": "R5 v1.0",
+      "section": "§§19, 33",
+      "controlling_rule": "FX-R5-R4-020A is the controlling Frozen R5 variant."
+    }
+  ],
+  "execution": {
+    "mode": "component_boundary",
+    "adapter_id": "production_r4_partition_overlap_gate",
+    "required_capability": "production_r4_repository_trace_contract",
+    "required_capability_version": "R4 v1.0"
+  },
+  "inputs": [
+    {
+      "path": "orders.csv",
+      "role": "orders",
+      "media_type": "text/csv",
+      "sha256": "d28ddca816c7de5e6172f76f751ad4165b1f78cf0f81f37489a99d0ab4fc0e8c"
+    }
+  ],
+  "context": {
+    "question_or_proposition": "Validate the completed production R4 result and retained trace.",
+    "execution_context": "PF4 hostile actual submission to production validation or repository boundary.",
+    "intended_use": "Exact Frozen R5 conformance evaluation only.",
+    "scope": {
+      "scope_id": "all_eligible"
+    },
+    "population": {
+      "eligibility": "paid"
+    },
+    "periods": [
+      {
+        "period_id": "baseline_q3_2026",
+        "label": "Baseline Q3 2026",
+        "start_date": "2026-07-01",
+        "end_date": "2026-09-30",
+        "date_convention_ref": "order_date_calendar_day"
+      },
+      {
+        "period_id": "comparison_q4_2026",
+        "label": "Comparison Q4 2026",
+        "start_date": "2026-10-01",
+        "end_date": "2026-12-31",
+        "date_convention_ref": "order_date_calendar_day"
+      }
+    ],
+    "currency": "USD"
+  },
+  "bindings": {
+    "r4_method_version": "R4 v1.0",
+    "validator_version": "r4_v1_0_validation_v1",
+    "precision_version": "v1.0"
+  },
+  "expected": {
+    "expectation_kind": "negative",
+    "material_path": [
+      {
+        "stage": "r4_method_eligibility",
+        "reachability": "reached",
+        "outcome": "eligible"
+      },
+      {
+        "stage": "execution",
+        "reachability": "reached",
+        "outcome": "completed"
+      },
+      {
+        "stage": "validation",
+        "reachability": "blocked",
+        "outcome": "partition_overlap",
+        "controlling_reason": "partition_overlap",
+        "authority_ref": "R4 v1.0 §§25–26, 29, 30.3"
+      }
+    ],
+    "chain_dispositions": {
+      "main": "executed_r4_result_rejected"
+    },
+    "first_controlling_blocker": {
+      "blocker_id": "partition_overlap",
+      "stage": "validation",
+      "reason": "partition_overlap",
+      "authority_ref": "R4 v1.0 §§25–26, 29, 30.3"
+    },
+    "final_disposition": "EXECUTED_R4_RESULT_REJECTED__PARTITION_OVERLAP",
+    "permitted_meaning": [
+      "The hostile actual is rejected by the production repository or independent validator."
+    ],
+    "prohibited_meaning": [
+      "Expected output is not used to construct the hostile actual."
+    ],
+    "trace_integrity_expectation": {
+      "failure_layer": "RESULT_VALIDATION_OR_INTEGRITY",
+      "controlling_validation_check": "R4ArtifactIntegrityError"
+    },
+    "unique_outcome_rationale": "Frozen R5 fixes partition_overlap as the exact post-execution rejection."
+  }
+}

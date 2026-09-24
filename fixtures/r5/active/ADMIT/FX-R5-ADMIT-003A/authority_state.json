@@ -1,0 +1,20 @@
+{
+  "required_authority_id": "diagnostic_input_admission_profile_v1",
+  "authority_records": [
+    {
+      "id": "descriptive_result_authority_1",
+      "fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+      "version": "metric_dictionary_v1"
+    }
+  ],
+  "observed_result": {
+    "id": "validated_descriptive_result_1",
+    "fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+    "version": "metric_dictionary_v1"
+  },
+  "requested_use": {
+    "claim_class": "diagnostic",
+    "scope_id": "all_eligible",
+    "period_id": "comparison"
+  }
+}

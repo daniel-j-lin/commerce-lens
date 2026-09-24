@@ -1,0 +1,107 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-DIAG-001A",
+  "fixture_version": "1.0.0",
+  "title": "Validated descriptive result has no diagnostic meaning",
+  "status": "ACTIVE",
+  "family": "DIAG",
+  "layer": "C",
+  "purpose": "Instantiate frozen FX-R5-DIAG-001A through the existing deterministic public_claim_decision_render_gate production boundary.",
+  "primary_authority": {
+    "document": "DIAGNOSTIC_REASONING_SPECIFICATION.md",
+    "frozen_version": "R1 v1.0",
+    "section": "§§6–24",
+    "controlling_rule": "Frozen FX-R5-DIAG-001A fixes the exact material disposition and first-blocker boundary."
+  },
+  "supporting_authorities": [
+    {
+      "document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md",
+      "frozen_version": "R5 v1.0",
+      "section": "§23",
+      "controlling_rule": "FX-R5-DIAG-001A is the controlling active frozen fixture definition."
+    }
+  ],
+  "execution": {
+    "mode": "application_service",
+    "adapter_id": "public_claim_authority_boundary",
+    "required_capability": "public_claim_decision_render_gate",
+    "required_capability_version": "public_v0_1"
+  },
+  "inputs": [
+    {
+      "path": "orders.csv",
+      "role": "orders",
+      "media_type": "text/csv",
+      "sha256": "2d36b7ab0c1f008e1bfe85fb4ecc9514e98b2232fcbc3756ba33093a8b17723a"
+    },
+    {
+      "path": "scenario.json",
+      "role": "scenario",
+      "media_type": "application/json",
+      "sha256": "45fd2f746d4b486d9de2600a795df4341c6d629630649ccfb2c0fba7bbe7d78e"
+    }
+  ],
+  "context": {
+    "question_or_proposition": "Validated descriptive result has no diagnostic meaning",
+    "execution_context": "Isolated PF2 execution of public_claim_decision_render_gate.",
+    "intended_use": "Exact frozen conformance use only.",
+    "scope": {
+      "scope_id": "all_eligible"
+    },
+    "population": {
+      "eligibility": "paid"
+    },
+    "periods": [
+      {
+        "period_id": "baseline",
+        "label": "Q3 2026",
+        "start_date": "2026-07-01",
+        "end_date": "2026-09-30",
+        "date_convention_ref": "order_date_utc"
+      },
+      {
+        "period_id": "comparison",
+        "label": "Q4 2026",
+        "start_date": "2026-10-01",
+        "end_date": "2026-12-31",
+        "date_convention_ref": "order_date_utc"
+      }
+    ],
+    "currency": "USD"
+  },
+  "bindings": {
+    "metric_version": "metric_dictionary_v1",
+    "r3_profile_version": null,
+    "r4_method_version": null,
+    "policy_version": "p8_001_v1",
+    "validator_version": "p5_001_v1",
+    "precision_version": null
+  },
+  "expected": {
+    "expectation_kind": "positive",
+    "material_path": [
+      {
+        "stage": "validation",
+        "reachability": "reached",
+        "outcome": "validated_descriptive_result"
+      }
+    ],
+    "chain_dispositions": {
+      "main": "descriptive_result_only"
+    },
+    "first_controlling_blocker": "NONE",
+    "final_disposition": "VALIDATED_DESCRIPTIVE_RESULT_ONLY__NO_DIAGNOSTIC_MEANING",
+    "permitted_meaning": [
+      "Only the exact frozen VALIDATED_DESCRIPTIVE_RESULT_ONLY__NO_DIAGNOSTIC_MEANING disposition is authorized."
+    ],
+    "prohibited_meaning": [
+      "No diagnostic, causal, or broader authority is created by this fixture."
+    ],
+    "trace_integrity_expectation": {
+      "descriptive_supported": true,
+      "diagnostic_claim_denied": true,
+      "diagnostic_findings": 0
+    },
+    "unique_outcome_rationale": "The configured synthetic precondition is evaluated by public_claim_decision_render_gate; the harness only projects its deterministic output."
+  }
+}

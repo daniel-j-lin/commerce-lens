@@ -1,0 +1,25 @@
+{
+  "requested_claim": {
+    "claim_class": "causal",
+    "scope_id": "all_eligible",
+    "proposition": {
+      "id": "causal_request_016",
+      "fingerprint": "9999999999999999999999999999999999999999999999999999999999999999",
+      "version": "r1_v1"
+    }
+  },
+  "causal_refusal_reference": {
+    "id": "causal_refusal_016",
+    "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "version": "r1_v1"
+  },
+  "authority_records": [
+    {
+      "record_type": "causal_refusal",
+      "id": "causal_refusal_016",
+      "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": "r1_v1",
+      "refusal_kind": "causal_claim_class_restriction"
+    }
+  ]
+}

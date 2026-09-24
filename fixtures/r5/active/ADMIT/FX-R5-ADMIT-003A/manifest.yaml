@@ -1,0 +1,101 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-ADMIT-003A",
+  "fixture_version": "1.0.0",
+  "title": "Descriptive result cannot bypass diagnostic admission",
+  "status": "ACTIVE",
+  "family": "ADMIT",
+  "layer": "A",
+  "purpose": "Prove that a descriptive result cannot be copied into diagnostic output when the controlled authority graph lacks diagnostic intended-use admission.",
+  "primary_authority": {
+    "document": "REQUIRED_EVIDENCE_MATRIX_SPECIFICATION.md",
+    "frozen_version": "R3 v1.0",
+    "section": "§26",
+    "controlling_rule": "Diagnostic intended-use admission is a distinct evidence boundary and cannot be inferred from descriptive authority."
+  },
+  "supporting_authorities": [
+    {
+      "document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md",
+      "frozen_version": "R5 v1.0",
+      "section": "§18",
+      "controlling_rule": "The exact active variant blocks diagnostic output when admission authority is absent."
+    },
+    {
+      "document": "DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md",
+      "frozen_version": "R4 v1.0",
+      "section": "§23.3",
+      "controlling_rule": "A mechanical or descriptive result does not itself establish diagnostic admissibility."
+    }
+  ],
+  "execution": {
+    "mode": "controlled_case",
+    "adapter_id": "controlled_diagnostic_admission",
+    "required_capability": "pf3_controlled_diagnostic_admission",
+    "required_capability_version": "pf3_1_v1"
+  },
+  "inputs": [
+    {
+      "path": "authority_state.json",
+      "role": "authority_state",
+      "media_type": "application/json",
+      "sha256": "9289d287f96f82e0d694493f047a5e0f787c9830275d24e8b471df1bf83e4fff"
+    }
+  ],
+  "context": {
+    "question_or_proposition": "A descriptive result is presented as diagnostic output without diagnostic admission authority.",
+    "execution_context": "PF3-1 controlled authority-boundary evaluation.",
+    "intended_use": "Exact frozen conformance use only.",
+    "scope": {"scope_id": "all_eligible"},
+    "population": {"eligibility": "paid"},
+    "periods": [
+      {
+        "period_id": "comparison",
+        "label": "Q4 2026",
+        "start_date": "2026-10-01",
+        "end_date": "2026-12-31",
+        "date_convention_ref": "order_date_utc"
+      }
+    ],
+    "currency": "USD"
+  },
+  "bindings": {
+    "metric_version": "metric_dictionary_v1"
+  },
+  "expected": {
+    "expectation_kind": "negative",
+    "material_path": [
+      {
+        "stage": "evidence_admissibility",
+        "reachability": "blocked",
+        "outcome": "AUTHORITY_BYPASS__DIAGNOSTIC_OUTPUT_BLOCKED",
+        "controlling_reason": "diagnostic_intended_use_admission_absent",
+        "authority_ref": "R3 v1.0 §26"
+      },
+      {
+        "stage": "claim_decision",
+        "reachability": "not_reached",
+        "not_reached_due_to": "evidence_admissibility"
+      }
+    ],
+    "chain_dispositions": {"main": "diagnostic_output_blocked"},
+    "first_controlling_blocker": {
+      "blocker_id": "diagnostic_intended_use_admission",
+      "stage": "evidence_admissibility",
+      "reason": "diagnostic_intended_use_admission_absent",
+      "authority_ref": "R3 v1.0 §26"
+    },
+    "final_disposition": "AUTHORITY_BYPASS__DIAGNOSTIC_OUTPUT_BLOCKED",
+    "permitted_meaning": [
+      "Only the exact frozen AUTHORITY_BYPASS__DIAGNOSTIC_OUTPUT_BLOCKED disposition is authorized."
+    ],
+    "prohibited_meaning": [
+      "A descriptive result must not be treated as diagnostic evidence or a diagnostic Finding."
+    ],
+    "trace_integrity_expectation": {
+      "required_authority_id": "diagnostic_input_admission_profile_v1",
+      "authority_reference_present": false,
+      "observed_result_id": "validated_descriptive_result_1"
+    },
+    "unique_outcome_rationale": "The producer resolves only the supplied lower-level authority references; the absent diagnostic admission reference blocks the later diagnostic output path."
+  }
+}

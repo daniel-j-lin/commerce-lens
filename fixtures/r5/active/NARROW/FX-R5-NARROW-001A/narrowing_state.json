@@ -1,0 +1,33 @@
+{
+  "original_proposition": {
+    "id": "revenue_decline_all_eligible",
+    "fingerprint": "9999999999999999999999999999999999999999999999999999999999999999",
+    "version": "r2_v1",
+    "population_id": "all_eligible"
+  },
+  "original_evaluation": {
+    "id": "evaluation_revenue_decline_all_eligible",
+    "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "version": "r2_v1"
+  },
+  "rendered_proposition": {
+    "id": "revenue_decline_all_eligible",
+    "fingerprint": "9999999999999999999999999999999999999999999999999999999999999999",
+    "version": "r2_v1",
+    "population_id": "all_eligible"
+  },
+  "rendered_evaluation": {
+    "id": "evaluation_revenue_decline_all_eligible",
+    "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "version": "r2_v1"
+  },
+  "coverage": {
+    "original_population_id": "all_eligible",
+    "covered_population_id": "paid_orders",
+    "required_member_count": 1000,
+    "covered_member_count": 620
+  },
+  "rendering": {
+    "disclaimer_text": "This statement is limited and should not be overgeneralized."
+  }
+}

@@ -1,0 +1,58 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-LANG-009A
+fixture_version: 1.0.0
+title: Exact observed-finding wording with ClaimDecision authority
+status: ACTIVE
+family: LANG
+layer: D
+purpose: Controlled exact-form conformance requiring structured descriptive ClaimDecision and rendering authority.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §§21–22
+  controlling_rule: Observed Finding wording requires descriptive ClaimDecision and bounded rendering authority.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §28
+    controlling_rule: Rendering preserves exact structured authority.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §30
+    controlling_rule: Exact wording is not general language authorization.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_language_corpus
+  required_capability: pf3_controlled_language_corpus
+  required_capability_version: pf3_5_v1
+inputs:
+  - path: utterance.txt
+    role: utterance
+    media_type: text/plain
+    sha256: 2add9a6a41037fc252a8f41ad1db5579e7cec90bfbe6519237c402b119f2c627
+  - path: language_state.json
+    role: language_state
+    media_type: application/json
+    sha256: b78e7b8deda567d084d97ed33ab008b6b67f979cda78cdeebec670b18e61afe6
+context:
+  question_or_proposition: Exact observed-finding wording with current descriptive authority.
+  execution_context: PF3-5 controlled exact-form language corpus.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {policy_version: p8_001_v1}
+expected:
+  expectation_kind: positive
+  material_path:
+    - stage: rendering
+      reachability: reached
+      outcome: {classification: PERMITTED_OBSERVED_FINDING_WORDING, text: "The validated descriptive result shows Revenue declined by USD 20.00 for all eligible orders.\n"}
+  chain_dispositions: {main: controlled_language_classification}
+  first_controlling_blocker: NONE
+  final_disposition: PERMITTED_OBSERVED_FINDING_WORDING
+  permitted_meaning: [The exact form is recognized only with exact descriptive authority.]
+  prohibited_meaning: [The text alone does not authorize a Finding.]
+  trace_integrity_expectation: {exact_form_match: true, authority_required: true, authority_binding_resolved: true}
+  unique_outcome_rationale: The exact observed-finding form is bound to validated result, ClaimDecision, and rendering records.

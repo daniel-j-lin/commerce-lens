@@ -1,0 +1,17 @@
+{
+  "fixture_schema_version": "r5_pf0_v1",
+  "fixture_id": "FX-R5-R4-035A",
+  "fixture_version": "1.0.0",
+  "title": "Canonical source-row order invariance",
+  "status": "ACTIVE",
+  "family": "R4",
+  "layer": "B",
+  "purpose": "Compare production R4 material output for identical canonical records supplied in different source-row order.",
+  "primary_authority": {"document": "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md", "frozen_version": "R5 v1.0", "section": "§21", "controlling_rule": "Canonical row-order changes must not change the authoritative result."},
+  "supporting_authorities": [{"document": "DETERMINISTIC_REVENUE_DECOMPOSITION_SPECIFICATION.md", "frozen_version": "R4 v1.0", "section": "§§30.4, 35, 38, 42", "controlling_rule": "Storage and input ordering are non-material where governed records are unchanged."}],
+  "execution": {"mode": "component_boundary", "adapter_id": "production_r4_row_order_conformance", "required_capability": "production_r4_canonical_row_order_invariance", "required_capability_version": "R4 v1.0"},
+  "inputs": [{"path": "orders.csv", "role": "orders", "media_type": "text/csv", "sha256": "72f371615a07b5694ad755755fa43e5ec040b12288dbe50af7f352f1f6d79099"}, {"path": "orders_shuffled.csv", "role": "orders_shuffled", "media_type": "text/csv", "sha256": "2cf180a76b6830583dace6fc31c1dbf8ab7a19cf4cecd0cbb9e493e8d87db7d0"}],
+  "context": {"question_or_proposition": "Does source-row ordering change the authoritative R4 result?", "execution_context": "same-evaluator conformance", "intended_use": "Frozen R5 determinism conformance", "scope": {"scope_id": "all_eligible"}, "population": {"eligibility": "paid"}, "periods": [{"period_id": "baseline_q3_2026", "label": "Baseline Q3 2026", "start_date": "2026-07-01", "end_date": "2026-09-30", "date_convention_ref": "order_date_calendar_day"}, {"period_id": "comparison_q4_2026", "label": "Comparison Q4 2026", "start_date": "2026-10-01", "end_date": "2026-12-31", "date_convention_ref": "order_date_calendar_day"}], "currency": "USD"},
+  "bindings": {"r4_method_version": "R4 v1.0", "validator_version": "r4_v1_0_validation_v1", "precision_version": "v1.0"},
+  "expected": {"expectation_kind": "positive", "material_path": [{"stage": "execution", "reachability": "reached", "outcome": "repeated_same_evaluator"}, {"stage": "validation", "reachability": "reached", "outcome": "authoritative_result_unchanged"}], "chain_dispositions": {"main": "canonical_row_order_conforming"}, "first_controlling_blocker": "NONE", "final_disposition": "AUTHORITATIVE_RESULT_UNCHANGED", "permitted_meaning": ["A source-row permutation leaves the material R4 result unchanged."], "prohibited_meaning": ["Semantically different records are not normalized away."], "trace_integrity_expectation": {"material_difference_count": 0, "source_row_order_differed": true}, "unique_outcome_rationale": "Only physical source order differs; governed records and authority are identical."}
+}

@@ -1,0 +1,64 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-CLAIM-001A
+fixture_version: 1.0.0
+title: Diagnostic candidate denied by current ClaimDecision policy
+status: ACTIVE
+family: CLAIM
+layer: C
+purpose: Prove that current descriptive-only ClaimDecision authority denies a diagnostic material ClaimCandidate.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §20
+  controlling_rule: Material Claim permission remains solely governed by an authoritative ClaimDecision for the exact claim class.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §§18, 27
+    controlling_rule: Derived diagnostic disposition cannot authorize a Claim or repair a denied ClaimDecision.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §27
+    controlling_rule: FX-R5-CLAIM-001A requires unsupported-claim-type denial under current policy.
+execution:
+  mode: component_boundary
+  adapter_id: claim_decision_policy
+  required_capability: current_claim_admissibility_policy
+  required_capability_version: p8_001_v1
+inputs:
+  - path: candidate.json
+    role: claim_candidate
+    media_type: application/json
+    sha256: fec528d5f8b8f54650d655e4e66d4800d9af68f77b872dbe31f4f62088f48cb3
+context:
+  question_or_proposition: Revenue declined because of a diagnostic cause.
+  execution_context: Existing P8 ClaimDecision component boundary.
+  intended_use: Diagnostic material Claim permission.
+  scope: {scope_id: all_eligible}
+  population: null
+  periods: []
+  currency: USD
+bindings:
+  policy_version: p8_001_v1
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: claim_decision
+      reachability: blocked
+      outcome: CLAIM_PROHIBITED__UNSUPPORTED_CLAIM_TYPE
+      controlling_reason: unsupported_claim_type
+      authority_ref: R1 v1.0 §20
+  chain_dispositions: {main: claim_prohibited}
+  first_controlling_blocker:
+    blocker_id: requested_claim_class_restriction
+    stage: claim_decision
+    reason: unsupported_claim_type
+    authority_ref: R1 v1.0 §20
+  final_disposition: CLAIM_PROHIBITED__UNSUPPORTED_CLAIM_TYPE
+  permitted_meaning:
+    - Current ClaimDecision policy denied the diagnostic ClaimCandidate.
+  prohibited_meaning:
+    - The diagnostic proposition is supported, authorized, or a Finding.
+    - Descriptive authority was promoted into diagnostic permission.
+  trace_integrity_expectation: {claim_state: Inadmissible, failure_code: unsupported_claim_type, policy_version: p8_001_v1}
+  unique_outcome_rationale: The exact requested claim class is unsupported by current descriptive-only policy, so authoritative refusal is the only permitted disposition.

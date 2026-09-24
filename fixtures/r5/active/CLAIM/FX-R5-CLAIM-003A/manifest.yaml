@@ -1,0 +1,74 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-CLAIM-003A
+fixture_version: 1.0.0
+title: Lower-authority ClaimDecision cannot authorize stronger rendering
+status: ACTIVE
+family: CLAIM
+layer: C
+purpose: Compare structured ClaimDecision class, scope, proposition binding, and attempted rendering without free-text inference.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §20
+  controlling_rule: ClaimDecision remains the sole material Claim-permission authority and language cannot exceed it.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §§18, 27
+    controlling_rule: Rendering must remain within the exact ClaimDecision class, scope, and proposition binding.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §27
+    controlling_rule: The frozen variant blocks stronger wording when a lower-authority decision is reused.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_claim_decision_boundary
+  required_capability: pf3_controlled_claim_decision
+  required_capability_version: pf3_2_v1
+inputs:
+  - path: claim_state.json
+    role: claim_state
+    media_type: application/json
+    sha256: e01d88ab3de7a6d1a32887c387ec815029e6c6cc37a9e22dcd882a9f7145c264
+context:
+  question_or_proposition: A descriptive ClaimDecision is reused for stronger diagnostic wording.
+  execution_context: PF3-2 controlled ClaimDecision boundary evaluation.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings:
+  policy_version: p8_001_v1
+expected:
+  expectation_kind: negative
+  material_path:
+    - stage: claim_decision
+      reachability: reached
+      outcome: claim_decision_record_observed
+    - stage: rendering
+      reachability: blocked
+      outcome: CLAIMDECISION_SCOPE_OR_STRENGTH_MISMATCH__RENDER_BLOCKED
+      controlling_reason: claim_decision_scope_or_strength_mismatch
+      authority_ref: R1 v1.0 §20
+  chain_dispositions: {main: render_blocked}
+  first_controlling_blocker:
+    blocker_id: claimdecision_scope_or_strength
+    stage: rendering
+    reason: claim_decision_scope_or_strength_mismatch
+    authority_ref: R1 v1.0 §20
+  final_disposition: CLAIMDECISION_SCOPE_OR_STRENGTH_MISMATCH__RENDER_BLOCKED
+  permitted_meaning:
+    - The attempted rendering exceeds the structured ClaimDecision binding.
+  prohibited_meaning:
+    - No diagnostic or causal Claim permission is created by the mismatch.
+  trace_integrity_expectation:
+    requested_claim_class: diagnostic
+    decision_claim_class: descriptive
+    requested_scope_id: all_eligible
+    decision_scope_id: all_eligible
+    decision_matches_request: false
+    rendering_matches_decision: false
+    decision_proposition_id: revenue_decline_diagnostic_proposition
+    rendering_proposition_id: revenue_decline_diagnostic_proposition
+  unique_outcome_rationale: The controlled producer compares structured class, scope, and proposition identities before permitting rendering progression.

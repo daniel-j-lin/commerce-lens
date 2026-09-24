@@ -1,0 +1,208 @@
+binding:
+  registry_role: DERIVED_IMPLEMENTATION_INDEX
+  semantic_authority: FROZEN_R5_SPECIFICATION
+  r5_version: "R5 v1.0"
+  spec_path: docs/frozen/DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+  spec_sha256: d8aff7a381b9a7d058308a1862ecc202af564c5bdaf5fb2a0a05b015593ebbc7
+entries:
+  - deferred_id: DF-R5-ADMIT-001
+    family: ADMIT
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §18"
+    missing_authority: "Concrete exact proposition-, role-, profile-, scope-, period-, and use-specific diagnostic admission authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-ALT-001
+    family: ALT
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §26"
+    missing_authority: "Concrete diagnostic evaluation, alternative-check, and where applicable future diagnostic Claim policy authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-ALT-002
+    family: ALT
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §26"
+    missing_authority: "Concrete diagnostic evaluation, alternative-check, and where applicable future diagnostic Claim policy authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-ALT-003
+    family: ALT
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §26"
+    missing_authority: "Concrete diagnostic evaluation, alternative-check, and where applicable future diagnostic Claim policy authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-ALT-004
+    family: ALT
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §26"
+    missing_authority: "Concrete diagnostic evaluation, alternative-check, and where applicable future diagnostic Claim policy authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-ALT-005
+    family: ALT
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §26"
+    missing_authority: "Concrete diagnostic evaluation, alternative-check, and where applicable future diagnostic Claim policy authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-CLAIM-001
+    family: CLAIM
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §27"
+    missing_authority: "Approved diagnostic Claim representation and positive Claim policy"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-DIAG-001
+    family: DIAG
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §23"
+    missing_authority: "Concrete diagnostic method, criteria, exact profile/admission, evaluation, or positive Claim/rendering authority named by the obligation"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-DIAG-002
+    family: DIAG
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §23"
+    missing_authority: "Concrete diagnostic method, criteria, exact profile/admission, evaluation, or positive Claim/rendering authority named by the obligation"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-DIAG-003
+    family: DIAG
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §23"
+    missing_authority: "Concrete diagnostic method, criteria, exact profile/admission, evaluation, or positive Claim/rendering authority named by the obligation"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-DIAG-004
+    family: DIAG
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §23"
+    missing_authority: "Concrete diagnostic method, criteria, exact profile/admission, evaluation, or positive Claim/rendering authority named by the obligation"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-DIAG-005
+    family: DIAG
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §23"
+    missing_authority: "Concrete diagnostic method, criteria, exact profile/admission, evaluation, or positive Claim/rendering authority named by the obligation"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-DIAG-006
+    family: DIAG
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §23"
+    missing_authority: "Concrete diagnostic method, criteria, exact profile/admission, evaluation, or positive Claim/rendering authority named by the obligation"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-DIAG-007
+    family: DIAG
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §23"
+    missing_authority: "Concrete diagnostic method, criteria, exact profile/admission, evaluation, or positive Claim/rendering authority named by the obligation"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-EVID-001
+    family: EVID
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §16"
+    missing_authority: "Concrete exact diagnostic profile, binding, admission, and evaluation authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-EVID-002
+    family: EVID
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §16"
+    missing_authority: "Concrete exact diagnostic profile, binding, admission, and evaluation authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-EVID-003
+    family: EVID
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §16"
+    missing_authority: "Concrete exact diagnostic profile, binding, admission, and evaluation authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-LANG-001
+    family: LANG
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §30"
+    missing_authority: "Concrete governed diagnostic test or supported diagnostic ClaimDecision/rendering authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-LANG-002
+    family: LANG
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §30"
+    missing_authority: "Concrete governed diagnostic test or supported diagnostic ClaimDecision/rendering authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-MEAS-001
+    family: MEAS
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §17"
+    missing_authority: "Approved bounded positive governed-proxy definition and maximum Claim boundary"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-NARROW-001
+    family: NARROW
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §29"
+    missing_authority: "Concrete original and narrowed proposition, binding/profile, and evaluation authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-PREC-001
+    family: PREC
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §34"
+    missing_authority: "Concrete approved profile versions for the exact diagnostic precedence path"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-R4-001
+    family: R4
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §20"
+    missing_authority: "Concrete approved exact R3 diagnostic profile with complete R4 method binding"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-VERSION-001
+    family: VERSION
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §31"
+    missing_authority: "Concrete approved exact R3 profile versions and diagnostic result-to-profile binding authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+  - deferred_id: DF-R5-VERSION-002
+    family: VERSION
+    semantic_status: FUTURE_REQUIRED_DEFERRED
+    implementation_status: NOT_IMPLEMENTED
+    executable: false
+    frozen_authority_reference: "DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md §31"
+    missing_authority: "Concrete approved exact R3 profile versions and diagnostic result-to-profile binding authority"
+    activation_prerequisite: "Separate frozen governance approval and assignment of a new canonical ACTIVE FX-R5 identity"
+

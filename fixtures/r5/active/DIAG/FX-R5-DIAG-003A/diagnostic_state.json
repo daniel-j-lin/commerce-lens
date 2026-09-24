@@ -1,0 +1,26 @@
+{
+  "required_authority_id": "diagnostic_test_support_definition_v1",
+  "proposition": {
+    "id": "product_mix_relationship_1",
+    "fingerprint": "6666666666666666666666666666666666666666666666666666666666666666",
+    "version": "r2_v1",
+    "observed_metric": "aov",
+    "candidate_factor": "product_mix"
+  },
+  "observed_result": {
+    "id": "validated_aov_decline_1",
+    "fingerprint": "7777777777777777777777777777777777777777777777777777777777777777",
+    "version": "metric_dictionary_v1"
+  },
+  "authority_records": [
+    {
+      "id": "descriptive_result_authority_1",
+      "fingerprint": "8888888888888888888888888888888888888888888888888888888888888888",
+      "version": "r3_v1"
+    }
+  ],
+  "scope": {
+    "population_id": "all_eligible",
+    "period_id": "comparison"
+  }
+}

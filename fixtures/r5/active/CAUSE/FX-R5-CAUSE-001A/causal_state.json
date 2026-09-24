@@ -1,0 +1,32 @@
+{
+  "requested_claim": {
+    "claim_class": "causal",
+    "scope_id": "all_eligible",
+    "proposition": {
+      "id": "revenue_decline_transactional_cause",
+      "fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+      "version": "r2_v1"
+    }
+  },
+  "authenticated_supporting_basis": {
+    "basis_kind": "historical_transactional_correlation",
+    "reference": {
+      "id": "historical_transactional_correlation_001",
+      "fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+      "version": "evidence_v1"
+    }
+  },
+  "causal_authority_reference": {
+    "id": "causal_identification_standard_v1",
+    "fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+    "version": "r1_v1"
+  },
+  "authority_records": [
+    {
+      "id": "historical_transactional_correlation_001",
+      "fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+      "version": "evidence_v1",
+      "record_type": "authenticated_supporting_basis"
+    }
+  ]
+}

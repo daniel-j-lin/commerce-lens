@@ -1,0 +1,54 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-LANG-015A
+fixture_version: 1.0.0
+title: Exact external-evidence-required wording
+status: ACTIVE
+family: LANG
+layer: D
+purpose: Controlled exact-form conformance for unresolved external evidence wording.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §§19, 21–22
+  controlling_rule: An unresolved external hypothesis remains External Evidence Required.
+supporting_authorities:
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §30
+    controlling_rule: Exact wording is not general language authorization.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_language_corpus
+  required_capability: pf3_controlled_language_corpus
+  required_capability_version: pf3_5_v1
+inputs:
+  - path: utterance.txt
+    role: utterance
+    media_type: text/plain
+    sha256: 1bcd509dbb7e8b3388e9ed2e2c70eb14af5d22e997a3f6b06de770c35d5e81ad
+  - path: language_state.json
+    role: language_state
+    media_type: application/json
+    sha256: 5d4bb116cf6a594d49c272f9e4e1ace584d959b7163951916133dd858ae46b96
+context:
+  question_or_proposition: Exact external-evidence-required wording.
+  execution_context: PF3-5 controlled exact-form language corpus.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {policy_version: r1_v1}
+expected:
+  expectation_kind: positive
+  material_path:
+    - stage: rendering
+      reachability: reached
+      outcome: {classification: PERMITTED_EXTERNAL_EVIDENCE_WORDING, text: "External evidence is required before evaluating this explanation.\n"}
+  chain_dispositions: {main: controlled_language_classification}
+  first_controlling_blocker: NONE
+  final_disposition: PERMITTED_EXTERNAL_EVIDENCE_WORDING
+  permitted_meaning: [The exact form preserves the unresolved external-evidence boundary.]
+  prohibited_meaning: [No external support is inferred from the text.]
+  trace_integrity_expectation: {exact_form_match: true, authority_required: true, authority_binding_resolved: true}
+  unique_outcome_rationale: The exact external-evidence form is bound to an unresolved external dependency record.

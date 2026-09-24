@@ -1,0 +1,58 @@
+fixture_schema_version: r5_pf0_v1
+fixture_id: FX-R5-LANG-011A
+fixture_version: 1.0.0
+title: Exact diagnostic hypothesis wording
+status: ACTIVE
+family: LANG
+layer: D
+purpose: Controlled exact-form conformance for explicitly labeled hypothesis wording.
+primary_authority:
+  document: DIAGNOSTIC_REASONING_SPECIFICATION.md
+  frozen_version: R1 v1.0
+  section: §§6, 21–22
+  controlling_rule: A Diagnostic Hypothesis is not a Finding or Claim permission.
+supporting_authorities:
+  - document: HYPOTHESIS_FINDING_STATE_MODEL_SPECIFICATION.md
+    frozen_version: R2 v1.0
+    section: §28
+    controlling_rule: Hypothesis wording remains explicitly non-promotional.
+  - document: DIAGNOSTIC_SYNTHETIC_FIXTURE_SUITE_SPECIFICATION.md
+    frozen_version: R5 v1.0
+    section: §30
+    controlling_rule: Exact wording is not general language authorization.
+execution:
+  mode: controlled_case
+  adapter_id: controlled_language_corpus
+  required_capability: pf3_controlled_language_corpus
+  required_capability_version: pf3_5_v1
+inputs:
+  - path: utterance.txt
+    role: utterance
+    media_type: text/plain
+    sha256: cacf73bdf11bb5c9728f0b0f2ab46c111b1df90d23caf2c5264d1b1db3b39c44
+  - path: language_state.json
+    role: language_state
+    media_type: application/json
+    sha256: 8e021c38b353df83af21487b2da277831de797f8829c8b19bffc51a94576f78a
+context:
+  question_or_proposition: Explicitly labeled diagnostic hypothesis wording.
+  execution_context: PF3-5 controlled exact-form language corpus.
+  intended_use: Exact frozen conformance use only.
+  scope: {scope_id: all_eligible}
+  population: {eligibility: paid}
+  periods: []
+  currency: USD
+bindings: {policy_version: r2_v1}
+expected:
+  expectation_kind: positive
+  material_path:
+    - stage: rendering
+      reachability: reached
+      outcome: {classification: PERMITTED_HYPOTHESIS_WORDING__NO_FINDING, text: "Hypothesis: continuing products may explain the USD 20.00 decline; this is not a Finding.\n"}
+  chain_dispositions: {main: controlled_language_classification}
+  first_controlling_blocker: NONE
+  final_disposition: PERMITTED_HYPOTHESIS_WORDING__NO_FINDING
+  permitted_meaning: [The exact form remains an explicitly labeled hypothesis.]
+  prohibited_meaning: [No Finding or causal permission is created.]
+  trace_integrity_expectation: {exact_form_match: true, authority_required: true, authority_binding_resolved: true}
+  unique_outcome_rationale: The exact hypothesis form is bound to an explicit structured hypothesis authority.

@@ -1,0 +1,58 @@
+{
+  "evidence_admissibility_request": {
+    "evidence_reference": {
+      "id": "evidence_prec002",
+      "fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+      "version": "orders_evidence_v1"
+    },
+    "validation_reference": {
+      "id": "validation_prec002",
+      "fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+      "version": "validator_v1"
+    },
+    "admissibility_authority_reference": {
+      "id": "p6_evidence_admissibility",
+      "fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+      "version": "p6_001_p7_001_v1"
+    },
+    "requested_use": {
+      "claim_class": "diagnostic",
+      "scope_id": "all_eligible"
+    },
+    "later_support_assertion_reference": {
+      "id": "hypothetical_support_prec002",
+      "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+      "version": "support_v1"
+    },
+    "authority_records": [
+      {
+        "record_type": "evidence_reference",
+        "id": "evidence_prec002",
+        "fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+        "version": "orders_evidence_v1",
+        "evidence_kind": "transactional_order_lines"
+      },
+      {
+        "record_type": "validation_reference",
+        "id": "validation_prec002",
+        "fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+        "version": "validator_v1",
+        "validation_state": "passed"
+      },
+      {
+        "record_type": "evidence_admissibility_authority",
+        "id": "p6_evidence_admissibility",
+        "fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+        "version": "p6_001_p7_001_v1",
+        "supported_claim_class": "descriptive"
+      },
+      {
+        "record_type": "later_support_assertion",
+        "id": "hypothetical_support_prec002",
+        "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+        "version": "support_v1",
+        "basis_kind": "hypothetical_support"
+      }
+    ]
+  }
+}
