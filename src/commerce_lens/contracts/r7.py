@@ -259,7 +259,7 @@ class ExecutedDiagnosticResult(ContractBase):
     validation_profile: R7AuthorityReference
     implementation: R7AuthorityReference
     baseline_product_set_fingerprint: str = Field(pattern=SHA256_PATTERN)
-    baseline_product_count: int = Field(gt=0)
+    baseline_product_count: int = Field(ge=0)
     observations: tuple[WeeklyDiagnosticObservation, ...]
     excluded_observations: tuple[ExcludedWeeklyObservation, ...] = ()
     baseline_week_count: int = Field(ge=0)
