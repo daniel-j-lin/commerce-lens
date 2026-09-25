@@ -1,7 +1,7 @@
 # CommerceLens Public Usage
 
 This document keeps operational details out of the main README while preserving
-the current CommerceLens v0.2.0 usage surface while preserving the Public v0.1
+the current CommerceLens v0.3.0 usage surface while preserving the Public v0.1
 analytical contract.
 
 ## Install The Codex Plugin
@@ -62,7 +62,7 @@ Why did revenue drop from Q3 2026 to Q4 2026?
 What was AOV in Q4 2026?
 ```
 
-CommerceLens v0.2.0 supports:
+CommerceLens v0.3.0 supports:
 
 - single-period Revenue;
 - single-period Orders;
@@ -121,7 +121,7 @@ confirmation and deterministic validation.
 ## Deterministic Runner
 
 CommerceLens does not expose a standalone `commerce-lens` shell CLI or hosted
-API in CommerceLens v0.2.0. The repository includes a deterministic runner script used
+API in CommerceLens v0.3.0. The repository includes a deterministic runner script used
 by the Skill and developer verification.
 
 The default is temporary: without `--retention-root`, isolated stores are

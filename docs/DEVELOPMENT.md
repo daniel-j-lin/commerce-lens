@@ -119,12 +119,12 @@ artifact/record linkages, integrity checks, and final `complete.marker` all
 agree. Runs without that finalization state remain visible as incomplete or
 failed and must not be treated as retained evidence.
 
-The supported answer is absolute Revenue Change. CommerceLens v0.2.0 does not add a
+The supported answer is absolute Revenue Change. CommerceLens v0.3.0 does not add a
 percentage, causal explanation, or recommendation.
 
 ## Verification
 
-CommerceLens v0.2.0 release verification records the exact focused and full
+CommerceLens v0.3.0 release verification records the exact focused and full
 suite results in the local release report. Test counts are evidence from a
 specific run, not a permanent contract.
 
@@ -249,3 +249,18 @@ patch an installed cache directly. Verify plugin version, canonical/installed
 Skill and runner hashes, Dataset A temporary and retained behavior, Dataset B
 blocking, diagnostic refusal, and absence of a retained run in temporary mode.
 Any divergence is fixed in canonical repository source, committed, and retested.
+# R7 repository capability and public boundary
+
+CommerceLens v0.3.0 contains the approved R7 repository/MVP diagnostic vertical
+for `product_composition_association` through
+`weekly_product_presence_revenue_association@1.0.0`. The R7 application service
+authenticates admitted evidence, verifies complete R6→R7 lineage, executes the
+deterministic weekly product-presence/Revenue association, and validates it by
+independent recomputation before authoritative completion.
+
+This service is not wired into the installed Public v0.1 Skill, public runner,
+or `run_public_analysis(...)`. The public path continues to return its governed
+diagnostic refusal. Do not present the R7 service as public usage or route around
+the public `ClaimDecision` boundary. R7 `CRITERION_MET` records only that the
+governed analytical criterion was met; it is not causality, a sole/primary-cause
+determination, a `ClaimDecision`, or a `Finding`.

@@ -1,31 +1,29 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
-from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-README = REPO_ROOT / "README.md"
-EN_ANCHOR = '<a id="english"></a>'
-ZH_ANCHOR = '<a id="traditional-chinese"></a>'
+ROOT = Path(__file__).resolve().parents[2]
+README = ROOT / "README.md"
 FACT_RE = re.compile(r"<!-- fact: ([^>]+) -->")
-LINK_RE = re.compile(r"!?(?:\[[^]]*\])\(([^)]+)\)")
+LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 BASH_RE = re.compile(r"```bash\n(.*?)\n```", re.DOTALL)
-CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
-
-EXPECTED_FACTS = [
-    "inputs=csv,xlsx",
-    "metrics=revenue,orders,aov,absolute-revenue-change",
-    "unsupported=diagnostic,causal,predictive,prescriptive,revenue-change-percentage,product-category-contribution-ranking",
-    "retention=temporary-default,opt-in,list-inspect-verify,plaintext,no-ttl,no-encryption,no-secure-erase",
-    "release=v0.2.0,public,tag-v0.2.0",
-    "validation=p00-pass-internal,p01-not-run,p15-not-pass",
-]
-
-FLOW_ASSETS = {
+ANCHORS = (
+    '<a id="english"></a>',
+    '<a id="traditional-chinese"></a>',
+    '<a id="simplified-chinese"></a>',
+)
+FLOW_ASSETS = (
     "docs/assets/readme/commerce-lens-flow-en.svg",
     "docs/assets/readme/commerce-lens-flow-zh-TW.svg",
+    "docs/assets/readme/commerce-lens-flow-zh-CN.svg",
+)
+TOPOLOGY_IDS = {
+    "input", "mapping", "calculation", "decomposition", "hypothesis",
+    "admission", "refusal", "diagnostic", "validation", "explanation",
 }
 
 
@@ -33,122 +31,88 @@ def _text() -> str:
     return README.read_text(encoding="utf-8")
 
 
-def _sections() -> tuple[str, str, str]:
+def _sections() -> tuple[str, str, str, str]:
     text = _text()
-    assert text.count(EN_ANCHOR) == 1
-    assert text.count(ZH_ANCHOR) == 1
-    preface, remainder = text.split(EN_ANCHOR, 1)
-    english, traditional_chinese = remainder.split(ZH_ANCHOR, 1)
-    return preface, english, traditional_chinese
+    assert all(text.count(anchor) == 1 for anchor in ANCHORS)
+    preface, tail = text.split(ANCHORS[0], 1)
+    english, tail = tail.split(ANCHORS[1], 1)
+    traditional, simplified = tail.split(ANCHORS[2], 1)
+    return preface, english, traditional, simplified
 
 
 def test_language_navigation_and_sections_are_stable() -> None:
-    preface, english, traditional_chinese = _sections()
+    preface, english, traditional, simplified = _sections()
     assert "[English](#english)" in preface
     assert "[繁體中文](#traditional-chinese)" in preface
+    assert "[简体中文](#simplified-chinese)" in preface
     assert english.lstrip().startswith("## English")
-    assert traditional_chinese.lstrip().startswith("## 繁體中文")
+    assert traditional.lstrip().startswith("## 繁體中文")
+    assert simplified.lstrip().startswith("## 简体中文")
 
 
-def test_material_facts_match_without_requiring_literal_translation() -> None:
-    _, english, traditional_chinese = _sections()
-    assert FACT_RE.findall(english) == EXPECTED_FACTS
-    assert FACT_RE.findall(traditional_chinese) == EXPECTED_FACTS
+def test_material_facts_and_commands_match_across_all_languages() -> None:
+    _, *sections = _sections()
+    facts = [FACT_RE.findall(section) for section in sections]
+    commands = [BASH_RE.findall(section) for section in sections]
+    assert facts[0] == facts[1] == facts[2]
+    assert commands[0] == commands[1] == commands[2]
+    assert len(commands[0]) == 2
 
 
-def test_install_and_retention_commands_match_exactly() -> None:
-    _, english, traditional_chinese = _sections()
-    assert BASH_RE.findall(english) == BASH_RE.findall(traditional_chinese)
-    assert len(BASH_RE.findall(english)) == 2
-
-
-def test_release_validation_and_synthetic_example_are_factually_paired() -> None:
-    _, english, traditional_chinese = _sections()
-    for section in (english, traditional_chinese):
-        for value in (
-            "v0.2.0",
-            "12,000 USD",
-            "10,800 USD",
-            "-1,200 USD",
-            "USER_DECLARED",
-            "retained_complete",
-            "P00",
-            "PASS",
-            "P01",
-            "NOT RUN",
-            "P15",
-            "NOT PASS",
-        ):
-            assert value in section
-
-    text = _text()
-    stale_release_phrases = (
-        "local release candidate only",
-        "publication requires explicit authorization",
-        "No tag, GitHub Release",
+def test_all_languages_preserve_diagnostic_values_limits_and_public_boundary() -> None:
+    _, *sections = _sections()
+    required = (
+        "v0.3.0", "18%", "8", "4", "-1.0", "rho <= -0.50",
+        "CRITERION_MET", "ClaimDecision", "Finding",
+        "product_composition_association",
+        "weekly_product_presence_revenue_association@1.0.0",
+        "product_id", "Revenue", "P00", "PASS", "P01", "NOT RUN", "P15", "NOT PASS",
     )
-    assert not any(phrase in text for phrase in stale_release_phrases)
+    for section in sections:
+        assert all(value in section for value in required)
+        assert "repository/MVP" in section
+        assert "public" in section.lower() or "公開" in section or "公开" in section
+        assert "seasonality" in section.lower() or "季節性" in section or "季节性" in section
+        assert "external" in section.lower() or "外部" in section
 
 
-def test_english_section_has_no_unexplained_chinese_prose() -> None:
-    _, english, _ = _sections()
-    assert CJK_RE.search(english) is None
+def test_no_stale_universal_diagnostic_unavailability_or_causal_claim() -> None:
+    text = _text()
+    assert "unsupported=diagnostic" not in text
+    assert "| Calculate Revenue | Explain why Revenue changed |" not in text
+    prohibited = (
+        "product composition caused Revenue decline",
+        "product composition is the primary cause",
+        "product composition is the sole cause",
+        "statistically significant",
+        "proves a causal effect",
+    )
+    assert not any(phrase.lower() in text.lower() for phrase in prohibited)
 
 
-def test_traditional_chinese_uses_localized_user_facing_explanations() -> None:
-    _, _, traditional_chinese = _sections()
-    for phrase in (
-        "資料不完整時",
-        "合成資料範例",
-        "提出商務問題",
-        "確認匯出資料是否完整",
-        "資料不足時會停止回答",
-        "保留在本機的資料是明文",
-    ):
-        assert phrase in traditional_chinese
-
-    for old_english_block in (
-        "Executed Result != Validated Result",
-        "Business Question",
-        "Coverage proposal:",
-        "Insufficient evidence to conclude why Revenue declined.",
-        "ClaimDecision",
-        "MetricState",
-        "ClaimState",
-    ):
-        assert old_english_block not in traditional_chinese
-
-
-def test_critical_links_exist_in_both_languages() -> None:
-    _, english, traditional_chinese = _sections()
-    required = {
-        "docs/USAGE.md",
-        "docs/DEVELOPMENT.md",
-        "examples/public_v0_1/README.md",
-        "validation/p15/P00_INTERNAL_PROTOCOL_REHEARSAL_CLOSEOUT.md",
-        "release-notes/v0.2.0.md",
-        "LICENSE",
-    }
-    for section in (english, traditional_chinese):
-        assert required <= set(LINK_RE.findall(section))
-
-
-def test_all_local_readme_links_and_images_resolve() -> None:
+def test_links_release_note_and_versions_resolve() -> None:
     for target in LINK_RE.findall(_text()):
         if target.startswith(("#", "http://", "https://")):
             continue
-        path = target.split("#", 1)[0]
-        assert (REPO_ROOT / path).exists(), target
+        assert (ROOT / target.split("#", 1)[0]).exists(), target
+    assert (ROOT / "release-notes/v0.3.0.md").exists()
+    assert 'version = "0.3.0"' in (ROOT / "pyproject.toml").read_text()
+    assert '__version__ = "0.3.0"' in (ROOT / "src/commerce_lens/__init__.py").read_text()
+    assert json.loads((ROOT / ".codex-plugin/plugin.json").read_text())["version"] == "0.3.0"
 
 
-def test_bilingual_flow_assets_are_accessible_valid_svg() -> None:
-    text = _text()
-    assert FLOW_ASSETS <= set(LINK_RE.findall(text))
+def test_three_flow_assets_are_valid_and_share_topology() -> None:
+    assert set(FLOW_ASSETS) <= set(LINK_RE.findall(_text()))
     namespace = {"svg": "http://www.w3.org/2000/svg"}
-    for relative_path in FLOW_ASSETS:
-        root = ET.parse(REPO_ROOT / relative_path).getroot()
+    observed = []
+    for relative in FLOW_ASSETS:
+        root = ET.parse(ROOT / relative).getroot()
         assert root.tag == "{http://www.w3.org/2000/svg}svg"
         assert root.attrib.get("role") == "img"
         assert root.attrib.get("aria-labelledby") == "title desc"
         assert root.find("svg:title", namespace) is not None
         assert root.find("svg:desc", namespace) is not None
+        ids = {node.attrib["id"] for node in root.iter() if "id" in node.attrib}
+        assert TOPOLOGY_IDS <= ids
+        observed.append(ids & TOPOLOGY_IDS)
+    assert observed[0] == observed[1] == observed[2]

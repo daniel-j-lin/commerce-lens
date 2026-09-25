@@ -1,85 +1,114 @@
 # CommerceLens
 
-[English](#english) | [繁體中文](#traditional-chinese)
+[English](#english) | [繁體中文](#traditional-chinese) | [简体中文](#simplified-chinese)
 
 <a id="english"></a>
 
 ## English
 
-Ask questions about your commerce CSV or Excel data—without letting the AI
-guess when the data is incomplete.
+CommerceLens is an open-source Codex plugin and evidence-governed analytics repository for commerce CSV/XLSX data. It separates what happened, how an observed Revenue change was composed, and whether one approved diagnostic hypothesis meets a predefined evidence-backed criterion.
 
-CommerceLens is an open-source Codex plugin for Revenue, Orders, AOV, and
-absolute Revenue Change. Before returning a business conclusion, it checks
-whether the available data actually supports that conclusion. To try it,
-[install the plugin](#quick-start), provide a CSV or XLSX file, and ask a
-supported question.
+The installed public plugin currently supports descriptive analysis. The repository/MVP additionally implements mechanical product-level Revenue decomposition and one governed diagnostic family; those two capabilities are not yet wired into the installed public plugin interaction surface.
 
 <!-- fact: inputs=csv,xlsx -->
 <!-- fact: metrics=revenue,orders,aov,absolute-revenue-change -->
+<!-- fact: analytical-layers=descriptive,mechanical-decomposition,governed-diagnostic-testing -->
+<!-- fact: diagnostic-scope=repository-mvp-only,product_composition_association,weekly_product_presence_revenue_association@1.0.0 -->
 
-> CommerceLens calculates what the data supports and refuses to guess what it
-> does not.
+> CommerceLens states only conclusions supported by governed evidence and refuses unsupported explanations.
 
-### A 30-second synthetic example
+### Three analytical levels
+
+1. **Descriptive — What happened?** Calculate Revenue, Orders, AOV, and absolute Revenue Change within a governed scope and period.
+2. **Mechanical decomposition — How was the observed Revenue change composed?** Decompose product-level Revenue contributions where applicable, without treating contribution as causation.
+3. **Governed diagnostic testing — Does one approved hypothesis meet a predefined evidence-backed criterion?** The MVP supports exactly `product_composition_association` through `weekly_product_presence_revenue_association@1.0.0` in the repository R7 service. This is not currently available through the installed public plugin workflow.
+
+### Synthetic examples
+
+#### Example 1 — insufficient evidence
 
 **Synthetic example — not real merchant or customer data.**
 
-You ask:
+> **Question:** Why did Revenue decline from Q3 to Q4?
+>
+> **Illustrative output:** Revenue declined by 18%. The available evidence is sufficient to calculate the Revenue change, but insufficient to test a governed diagnostic explanation. Insufficient evidence to conclude why Revenue declined.
 
-> How did revenue change from 2025 Q1 to 2026 Q1, and why did it decline?
+No possible cause is invented. This is the behavior of the current installed public plugin for a diagnostic question.
 
-After source completeness is confirmed, CommerceLens can report:
+#### Example 2 — sufficient evidence in the repository/MVP diagnostic service
 
-| Supported by the data | Not supported by the data |
+**Synthetic example — not real merchant or customer data.**
+
+These values come from the independently recomputed canonical R7 conformance fixture `FX-R7-PROD-001A`, not from a production benchmark:
+
+| Item | Synthetic value |
+|---|---:|
+| Revenue decline | 18% |
+| Valid weekly observations | 8 |
+| Baseline weeks | 4 |
+| Comparison weeks | 4 |
+| Validated Spearman rho | -1.0 |
+| Support criterion | rho <= -0.50 |
+| Analytical outcome | `CRITERION_MET` |
+
+Product composition was tested as one governed diagnostic hypothesis. Across the governed weekly observations, greater product-presence composition distance was associated with lower weekly Revenue performance. The independently validated Spearman rho was -1.0, which met the predefined support criterion of rho <= -0.50. The evidence therefore supports product composition as one plausible contributor to retain in the diagnostic explanation.
+
+This does not establish causality and does not show that product composition was the sole or primary cause. Seasonality, discounting, inventory, overall demand, promotions, customer mix, time trend, and external market conditions remain alternative explanations.
+
+`CRITERION_MET` is not causality, a sole-cause determination, a `ClaimDecision`, or a `Finding`.
+
+![CommerceLens workflow from business question through evidence admission, with refusal on insufficient evidence and a validated bounded diagnostic explanation on sufficient evidence.](docs/assets/readme/commerce-lens-flow-en.svg)
+
+### Core workflow
+
+```text
+Business Question
+↓
+Metric / Scope / Period Definition
+↓
+Source Mapping
+↓
+Source Completeness Check
+↓
+Deterministic Metric Calculation
+↓
+Mechanical Decomposition where applicable
+↓
+Governed Hypothesis Generation
+↓
+Required Evidence / Admission Check
+↓
+Evidence sufficient?
+├─ NO  → refuse unsupported explanation → explain missing evidence
+└─ YES → approved diagnostic test → deterministic execution
+        → independent validation → bounded analytical outcome
+        → bounded why-explanation → limitations + alternative explanations
+```
+
+**Association != causation.**
+
+### Capabilities and boundaries
+
+| Capability | Status |
 |---|---|
-| Revenue: `12,000 USD` → `10,800 USD` | The reason revenue declined |
-| Absolute Revenue Change: `-1,200 USD` | Any guessed cause or recommendation |
+| Calculate Revenue, count Orders, calculate AOV, compare absolute Revenue Change | Installed public plugin |
+| Read CSV/XLSX; use confirmed non-standard mapping | Installed public plugin |
+| Mechanical product-level Revenue decomposition where applicable | Repository/MVP only; not wired into the installed public plugin |
+| Generate governed diagnostic hypotheses | Repository/MVP only; not wired into the installed public plugin |
+| Test `product_composition_association` with `weekly_product_presence_revenue_association@1.0.0` when evidence is sufficient | Repository/MVP only; not wired into the installed public plugin |
+| Return a bounded supported why-explanation for that one diagnostic lane | Repository/MVP only; not wired into the installed public plugin |
+| Causal explanation; primary/sole-cause determination; arbitrary root-cause analysis | Not established |
+| Discount, inventory, or external-market diagnostic execution | Not available |
+| Forecasting; prescriptive recommendations; statistical-significance claims | Not available / not established |
+| Revenue Change Percentage; generic product/category ranking | Not supported by the installed public plugin |
 
-The calculation is supported. The reason is not, so CommerceLens does not
-invent one.
+<!-- fact: public-plugin=revenue,orders,aov,absolute-revenue-change,csv,xlsx,confirmed-mapping -->
+<!-- fact: repository-mvp=mechanical-product-revenue-decomposition,governed-hypothesis-generation,one-product-composition-diagnostic,bounded-why-explanation -->
+<!-- fact: unavailable=causal,primary-or-sole-cause,general-root-cause,discount-diagnostic,inventory-diagnostic,external-market-diagnostic,forecasting,prescriptive,statistical-significance -->
 
-![CommerceLens product flow: provide a CSV or Excel file, ask a business question, confirm columns and source completeness, calculate and validate, then receive a supported answer or a request for clarification.](docs/assets/readme/commerce-lens-flow-en.svg)
+Revenue is eligible post-discount merchandise value excluding tax and shipping. Orders counts distinct eligible orders. AOV is Revenue divided by Orders for the same population and is `Undefined` when Orders is zero. Absolute Revenue Change is comparison Revenue minus baseline Revenue.
 
-### Why this is different from asking an AI to analyze a file
-
-A number can be calculated correctly and still be unsupported if the source
-file is incomplete. CommerceLens separates calculation from the decision to
-present a business conclusion:
-
-- the Codex plugin interprets the question, inspects columns, and asks for
-  missing information;
-- the deterministic runtime calculates and validates supported metrics;
-- the evidence checks decide whether the conclusion can be stated;
-- unsupported gaps stay blocked instead of being filled with plausible prose.
-
-### What CommerceLens can and cannot do
-
-<!-- fact: unsupported=diagnostic,causal,predictive,prescriptive,revenue-change-percentage,product-category-contribution-ranking -->
-
-| Available now | Not available now |
-|---|---|
-| Calculate Revenue | Explain why Revenue changed |
-| Count Orders | Make causal claims |
-| Calculate AOV | Forecast future Revenue |
-| Compare absolute Revenue Change between two periods | Recommend business actions |
-| Read CSV and XLSX files | Calculate Revenue Change Percentage |
-| Analyze non-standard column names after confirmed mapping | Rank product/category contribution |
-
-Metric meanings are intentionally narrow:
-
-- **Revenue** is post-discount eligible merchandise value, excluding tax and
-  shipping, within the confirmed scope and period. It is not accounting revenue
-  or cash collected.
-- **Orders** counts distinct eligible orders.
-- **AOV** is Revenue divided by Orders for the same governed population. When
-  Orders is zero, AOV is `Undefined`, not numeric zero.
-- **Absolute Revenue Change** is comparison-period Revenue minus baseline-period
-  Revenue. Percentage change is not supported.
-
-### Quick Start
-
-Verify Codex and install the plugin:
+### Quick start for the installed public plugin
 
 ```bash
 codex --version
@@ -88,64 +117,15 @@ codex plugin add commerce-lens --marketplace commerce-lens
 codex plugin list
 ```
 
-Start a fresh Codex session after installation, provide a CSV or XLSX file, and
-ask a supported question such as:
+Start a fresh Codex session, provide a CSV or XLSX file, and ask a supported descriptive question such as: “How did Revenue change from Q3 2026 to Q4 2026?” The public workflow asks for mapping or completeness clarification when needed, then calculates and validates the supported metric. A normal installed user cannot yet execute R7 or receive its positive bounded why-explanation through the public runner. See [Public usage](docs/USAGE.md).
 
-> How did revenue change from Q3 2026 to Q4 2026?
+### Evidence, reliability, and retention
 
-See [Public usage](docs/USAGE.md) for the complete workflow and supported input
-formats.
+Source completeness is separate from column mapping. A date range does not prove every relevant page, record, status, or filter is present. Confirmed user-provided completeness is `USER_DECLARED`, not independent verification.
 
-### What the user workflow looks like
+Execution and validation are separate. For R7, validation independently recomputes the diagnostic result, evidence admission is authenticated, and complete R6→R7 lineage is verified before authoritative completion. Language-model reasoning never substitutes for deterministic execution evidence or a `ClaimDecision`.
 
-1. Provide a CSV or XLSX file and ask a supported business question.
-2. Confirm or correct any proposed source-column mapping. CommerceLens does not
-   rename or overwrite the source file.
-3. Confirm whether the export includes all relevant pages, records, statuses,
-   periods, and filters.
-4. CommerceLens calculates and validates the supported metric.
-5. It returns a supported answer or explains what evidence is still missing.
-
-### How source completeness is confirmed
-
-A file containing the requested dates does not prove that the export is
-complete. CommerceLens separately checks whether all relevant pages and records
-were included, how order statuses were handled, whether hidden filters existed,
-and how current the export is.
-
-Known facts are shown once. Only missing, ambiguous, or contradictory facts
-trigger clarification. A complete English confirmation ends with:
-
-```text
-Please confirm that the information above is correct.
-```
-
-A simple reply such as `Confirm` is enough. Confirmation is bound to the exact
-source, mapping, scope, periods, and completeness statement shown at that time;
-changing them invalidates the old confirmation.
-
-When completeness is confirmed by the user, the system records the formal
-identifier `USER_DECLARED`. This is user-provided authority, not independent
-verification by CommerceLens. Mapping confirmation and source-completeness
-confirmation are separate steps.
-
-### What happens when evidence is insufficient
-
-Unknown, ambiguous, contradictory, or incomplete source coverage blocks
-material conclusions. CommerceLens may calculate that Revenue decreased by
-`1,200 USD`, but if the file contains no evidence explaining why, it refuses the
-reason request and does not list speculative causes.
-
-### Optional retained evidence
-
-<!-- fact: retention=temporary-default,opt-in,list-inspect-verify,plaintext,no-ttl,no-encryption,no-secure-erase -->
-
-If you need an audit trail, CommerceLens can explicitly save the source
-snapshot, analysis result, and verification metadata for later inspection.
-Retention is opt-in; the default temporary mode creates no retained run.
-
-After an explicit retention request, operators can list, inspect, and verify a
-retained run:
+Retention is opt-in; temporary execution is the default. Operators may list, inspect, and verify an explicitly retained run:
 
 ```bash
 python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root ROOT --list-retained
@@ -153,66 +133,41 @@ python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root 
 python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root ROOT --verify-run RUN_ID
 ```
 
-A successfully saved bundle is reported as `retained_complete` only after its
-stored data passes integrity checks. Retention does not make the analytical
-conclusion more correct and does not upgrade `USER_DECLARED` to independent
-verification. Retained local data is plaintext and has no TTL, encryption, or
-secure erase.
+A retained bundle reports `retained_complete` only after integrity checks and the completion marker succeed. Local retained data is plaintext with no TTL, encryption, or secure erase. See [Development notes](docs/DEVELOPMENT.md).
 
-### How reliability is enforced
+<!-- fact: retention=temporary-default,opt-in,list-inspect-verify,plaintext,no-ttl,no-encryption,no-secure-erase -->
 
-CommerceLens keeps calculation, validation, evidence, and claim authorization
-separate. The deterministic runtime—not language-model mental math—owns metric
-values and validation. Stale confirmations, unsupported mappings, incomplete
-coverage, inconsistent currency, or failed retention finalization do not become
-supported conclusions or successful retained runs.
+### Diagnostic limitations
 
-The formal contracts, states, proposal binding, persistence manifest, and
-completion-marker design are documented in [Development notes](docs/DEVELOPMENT.md).
+- Only one governed diagnostic family/method is implemented for the MVP.
+- The result is an observed association, not causal proof, a primary-cause determination, or a statistical-significance claim.
+- Time trend, seasonality, promotions, inventory, demand, customer mix, discounting, and external conditions remain possible alternative explanations.
+- The method requires sufficient valid full-week observations and governed `product_id` / Revenue evidence.
+- The installed public plugin is narrower than the repository/MVP and currently refuses positive diagnostic explanations.
+- External validation is not established; public examples and fixtures are synthetic.
 
 ### Current release and validation status
 
-<!-- fact: release=v0.2.0,public,tag-v0.2.0 -->
+<!-- fact: release=v0.3.0,public,tag-v0.3.0 -->
 <!-- fact: validation=p00-pass-internal,p01-not-run,p15-not-pass -->
 
-- Current version: `v0.2.0`.
-- Release: **[PUBLICLY RELEASED](https://github.com/daniel-j-lin/commerce-lens/releases/tag/v0.2.0)** on GitHub.
-- Git tag: `v0.2.0`.
-- P00: **PASS** — internal expert protocol rehearsal with 0 external participants.
-- P01 external first-user pilot: **NOT RUN**.
-- P15: **NOT PASS**.
+- Current version: `v0.3.0`; Git tag: `v0.3.0`; GitHub release: public after the publication gate.
+- P00: **PASS** — internal expert rehearsal with 0 external participants.
+- P01 external first-user pilot: **NOT RUN**. P15: **NOT PASS**.
 
-P00 is internal rehearsal evidence only. It is not external validation,
-usability proof, or production-readiness evidence. See the
-[P00 closeout](validation/p15/P00_INTERNAL_PROTOCOL_REHEARSAL_CLOSEOUT.md).
-
-### Current limitations and data safety
-
-- The public workflow supports ungrouped CSV/XLSX analysis only. It does not
-  directly connect to Shopify, Amazon, or other marketplace/vendor systems.
-- CommerceLens is not a hosted SaaS, REST API, or cloud deployment.
-- Source completeness is not independently verified by CommerceLens.
-- Public examples and fixtures are synthetic.
-- Do not commit secrets, credentials, participant information, customer data,
-  confidential employer data, private URLs, retained runtime bundles,
-  databases, logs, caches, or local environments.
-- CommerceLens does not claim external user validation, production readiness,
-  proven usability, enterprise security certification, or product-market fit.
+P00 is internal rehearsal evidence only, not external validation, usability proof, or production-readiness evidence. See the [P00 closeout](validation/p15/P00_INTERNAL_PROTOCOL_REHEARSAL_CLOSEOUT.md).
 
 ### Documentation, license, and release
 
 - [Public usage](docs/USAGE.md)
 - [Development notes](docs/DEVELOPMENT.md)
 - [Public examples](examples/public_v0_1/README.md)
-- [Metric Dictionary](docs/frozen/CANONICAL_DATASET_AND_METRIC_DICTIONARY.md)
-- [Evidence Contract](docs/frozen/EVIDENCE_CONTRACT_SPECIFICATION.md)
-- [Architecture Specification](docs/frozen/ARCHITECTURE_SPECIFICATION.md)
-- [v0.2.0 release notes](release-notes/v0.2.0.md)
+- [R7 method authority](decisions/R7-001-first-diagnostic-method-authority.md)
+- [v0.3.0 release notes](release-notes/v0.3.0.md)
+- [v0.2.0 historical release notes](release-notes/v0.2.0.md)
 - [MIT License](LICENSE)
 
-The frozen specifications remain the project authority. This README explains
-the current public surface in user-facing language; it does not replace those
-specifications.
+The frozen specifications remain authoritative. This README describes the current public surface and repository/MVP capability without replacing them.
 
 ---
 
@@ -220,73 +175,109 @@ specifications.
 
 ## 繁體中文
 
-用自然語言分析電商 CSV 或 Excel 資料；資料不完整時，CommerceLens 不會自行猜測。
+CommerceLens 是開源 Codex 外掛程式與受證據治理的電商 CSV/XLSX 分析 repository。它將「發生了什麼」、「觀察到的 Revenue 變化如何組成」，以及「一個已核准的診斷假設是否符合預先定義、由證據支持的準則」分開處理。
 
-CommerceLens 是開源的 Codex 外掛程式，目前可以計算營收、訂單數、平均客單價，
-以及兩個期間之間的絕對營收變化。在提出商務結論前，它會先檢查現有資料是否真的
-足以支持該結論。若要開始使用，請先[安裝外掛程式](#快速開始)，再提供 CSV 或
-XLSX 檔案並提出支援的問題。
+目前安裝後的公開外掛程式支援描述性分析。repository/MVP 另外實作產品層級 Revenue 機械式分解與一個受治理的診斷 family；這兩項能力尚未接到安裝後的公開外掛程式互動介面。
 
 <!-- fact: inputs=csv,xlsx -->
 <!-- fact: metrics=revenue,orders,aov,absolute-revenue-change -->
+<!-- fact: analytical-layers=descriptive,mechanical-decomposition,governed-diagnostic-testing -->
+<!-- fact: diagnostic-scope=repository-mvp-only,product_composition_association,weekly_product_presence_revenue_association@1.0.0 -->
 
-> CommerceLens 只計算資料真正支持的結果；資料沒有證明的部分，不會自行猜測。
+> CommerceLens 只陳述受治理證據支持的結論，並拒絕不受支持的解釋。
 
-### 30 秒合成資料範例
+### 三個分析層級
 
-**這是合成資料範例，不是真實商家或客戶案例。**
+1. **描述性——發生了什麼？** 在受治理的範圍與期間內計算 Revenue、Orders、AOV 與絕對 Revenue Change。
+2. **機械式分解——觀察到的 Revenue 變化如何組成？** 在適用時分解產品層級 Revenue contribution，但不把 contribution 視為因果關係。
+3. **受治理的診斷測試——一個已核准的假設是否符合預先定義、由證據支持的準則？** MVP 只支援 repository R7 service 中的 `product_composition_association`，方法為 `weekly_product_presence_revenue_association@1.0.0`。安裝後的公開外掛程式目前尚未提供此能力。
 
-你問：
+### 合成資料範例
 
-> 2025 年第一季到 2026 年第一季，營收變化多少？為什麼下降？
+#### 範例 1——證據不足
 
-確認來源資料完整後，CommerceLens 可以回答：
+**合成資料範例——不是真實商家或客戶資料。**
 
-| 資料可以支持 | 資料無法支持 |
+> **問題：** Revenue 為什麼從 Q3 下降到 Q4？
+>
+> **示意輸出：** Revenue 下降 18%。現有證據足以計算 Revenue 變化，但不足以測試受治理的診斷解釋。證據不足，無法判定 Revenue 下降的原因。
+
+系統不會編造任何可能原因。這是目前安裝後的公開外掛程式面對診斷問題的行為。
+
+#### 範例 2——repository/MVP 診斷 service 的證據充足情境
+
+**合成資料範例——不是真實商家或客戶資料。**
+
+下列數值來自經獨立重新計算的 canonical R7 conformance fixture `FX-R7-PROD-001A`，不是 production benchmark：
+
+| 項目 | 合成數值 |
+|---|---:|
+| Revenue 降幅 | 18% |
+| 有效每週觀察值 | 8 |
+| Baseline 週數 | 4 |
+| Comparison 週數 | 4 |
+| 經驗證的 Spearman rho | -1.0 |
+| 支持準則 | rho <= -0.50 |
+| 分析結果 | `CRITERION_MET` |
+
+系統將產品組合作為一個受治理的診斷假設進行測試。在受治理的每週觀察值中，較大的 product-presence composition distance 與較低的每週 Revenue 表現有關。獨立驗證的 Spearman rho 為 -1.0，符合預先定義的支持準則 rho <= -0.50。因此，證據支持把產品組合保留為診斷解釋中的一個可能貢獻因素。
+
+這不建立因果關係，也不表示產品組合是唯一或主要原因。季節性、折扣、庫存、整體需求、促銷、客戶組合、時間趨勢與外部市場狀況仍是其他可能解釋。
+
+`CRITERION_MET` 不等於因果關係、唯一原因判定、`ClaimDecision` 或 `Finding`。
+
+![CommerceLens 流程：商務問題經過證據 admission；證據不足時拒絕不受支持的解釋，證據充足時才產生經驗證且有界的診斷解釋。](docs/assets/readme/commerce-lens-flow-zh-TW.svg)
+
+### 核心流程
+
+```text
+商務問題
+↓
+指標／範圍／期間定義
+↓
+來源 mapping
+↓
+來源完整性檢查
+↓
+確定性指標計算
+↓
+適用時執行機械式分解
+↓
+產生受治理的假設
+↓
+必要證據／admission 檢查
+↓
+證據是否充足？
+├─ 否 → 拒絕不受支持的解釋 → 說明缺少的證據
+└─ 是 → 已核准的診斷測試 → 確定性執行
+        → 獨立驗證 → 有界的分析結果
+        → 有界的原因解釋 → 限制 + 其他可能解釋
+```
+
+**關聯不等於因果。**
+
+### 能力與界線
+
+| 能力 | 狀態 |
 |---|---|
-| 營收：`12,000 USD` → `10,800 USD` | 營收下降的原因 |
-| 絕對營收變化：`-1,200 USD` | 猜測的原因或經營建議 |
+| 計算 Revenue、Orders、AOV，以及比較絕對 Revenue Change | 安裝後的公開外掛程式 |
+| 讀取 CSV/XLSX；使用已確認的非標準欄位 mapping | 安裝後的公開外掛程式 |
+| 適用時執行產品層級 Revenue 機械式分解 | Repository/MVP；尚未接到公開外掛程式 |
+| 產生受治理的診斷假設 | Repository/MVP；尚未接到公開外掛程式 |
+| 證據充足時，以 `weekly_product_presence_revenue_association@1.0.0` 測試 `product_composition_association` | Repository/MVP；尚未接到公開外掛程式 |
+| 為該單一診斷 lane 回傳有界且受支持的原因解釋 | Repository/MVP；尚未接到公開外掛程式 |
+| 因果解釋、主要／唯一原因判定、任意 root-cause analysis | 尚未建立 |
+| 折扣、庫存或外部市場診斷執行 | 不提供 |
+| Forecasting、prescriptive recommendations、統計顯著性主張 | 不提供／尚未建立 |
+| Revenue Change Percentage、一般產品／類別排名 | 公開外掛程式不支援 |
 
-計算結果有資料支持，但下降原因沒有，因此 CommerceLens 不會自行編造理由。
+<!-- fact: public-plugin=revenue,orders,aov,absolute-revenue-change,csv,xlsx,confirmed-mapping -->
+<!-- fact: repository-mvp=mechanical-product-revenue-decomposition,governed-hypothesis-generation,one-product-composition-diagnostic,bounded-why-explanation -->
+<!-- fact: unavailable=causal,primary-or-sole-cause,general-root-cause,discount-diagnostic,inventory-diagnostic,external-market-diagnostic,forecasting,prescriptive,statistical-significance -->
 
-![CommerceLens 產品流程：提供 CSV 或 Excel 檔案、提出商務問題、確認欄位與資料是否完整、執行並驗證計算，最後回答有證據支持的結果，或在證據不足時要求補充資料。](docs/assets/readme/commerce-lens-flow-zh-TW.svg)
+Revenue 是合格、折扣後且不含稅與運費的商品價值。Orders 計算不同的合格訂單。AOV 是同一 population 的 Revenue 除以 Orders，當 Orders 為零時是 `Undefined`。絕對 Revenue Change 是 comparison Revenue 減去 baseline Revenue。
 
-### 與一般 AI 分析檔案有什麼不同
-
-數字可能算對了，卻仍然無法支持商務結論，例如來源檔案漏了部分訂單。
-CommerceLens 會把計算與「這個結論能不能說」分開處理：
-
-- Codex 外掛程式負責理解問題、檢查欄位，並詢問缺少的資訊；
-- 確定性的程式負責計算與驗證目前支援的指標；
-- 證據檢查會判斷資料是否足以支持結論；
-- 資料不足時會停止回答，不會用看似合理的文字填補空缺。
-
-### 現在可以做與不會做的事
-
-<!-- fact: unsupported=diagnostic,causal,predictive,prescriptive,revenue-change-percentage,product-category-contribution-ranking -->
-
-| 現在可以做 | 現在不會做 |
-|---|---|
-| 計算營收 | 解釋營收變動原因 |
-| 計算訂單數 | 推論因果關係 |
-| 計算平均客單價 | 預測未來營收 |
-| 比較兩個期間的絕對營收變化 | 提供經營建議 |
-| 讀取 CSV 與 XLSX 檔案 | 計算營收變化百分比 |
-| 確認非標準欄名後進行分析 | 計算商品或類別的貢獻與排名 |
-
-各項指標採用明確而有限的定義：
-
-- **營收（Revenue）**是已確認範圍與期間內，折扣後、符合條件的商品價值，
-  不含稅金與運費；它不是會計營收或實際收款金額。
-- **訂單數（Orders）**計算不重複且符合條件的訂單。
-- **平均客單價（AOV）**是同一資料範圍內的營收除以訂單數。訂單數為零時，
-  結果是「無法定義」（系統狀態：`Undefined`），不是數字零。
-- **絕對營收變化（Revenue Change）**是比較期間營收減去基準期間營收；目前
-  不支援百分比變化。
-
-### 快速開始
-
-先確認 Codex 可用，再安裝外掛程式：
+### 安裝後公開外掛程式的快速開始
 
 ```bash
 codex --version
@@ -295,68 +286,15 @@ codex plugin add commerce-lens --marketplace commerce-lens
 codex plugin list
 ```
 
-安裝後請開啟新的 Codex 工作階段，提供 CSV 或 XLSX 檔案，並提出支援的問題，
-例如：
+重新開啟 Codex session，提供 CSV 或 XLSX 檔案，並提出支援的描述性問題，例如：「2026 年 Q3 到 Q4 的 Revenue 變化多少？」公開流程會在需要時詢問 mapping 或完整性資訊，再計算與驗證支援的指標。一般安裝使用者目前無法透過公開 runner 執行 R7 或取得其正向、有界的原因解釋。請參閱[公開使用說明](docs/USAGE.md)。
 
-> 2026 年第三季到第四季，營收變化多少？
+### 證據、可靠性與保留
 
-完整操作流程與支援的輸入格式請見[公開使用說明](docs/USAGE.md)。
+來源完整性與欄位 mapping 是分開的。日期範圍不能證明所有相關頁面、record、status 或 filter 都已包含。使用者確認的完整性是 `USER_DECLARED`，不是獨立驗證。
 
-### 實際使用流程
+執行與驗證是分開的。對 R7 而言，validation 會獨立重新計算診斷結果、evidence admission 會經過身分驗證，而且在 authoritative completion 前會驗證完整 R6→R7 lineage。語言模型推理不能取代確定性執行證據或 `ClaimDecision`。
 
-1. 提供 CSV 或 XLSX 檔案，並提出支援的商務問題。
-2. 確認或修正系統提出的來源欄位對應。CommerceLens 不會重新命名或覆寫來源檔。
-3. 確認匯出內容是否包含所有相關頁面、紀錄、訂單狀態、期間與篩選條件。
-4. CommerceLens 執行並驗證目前支援的計算。
-5. 系統回答有足夠證據支持的結果，或說明還缺少哪些資料。
-
-簡化後的流程是：
-
-```text
-提出商務問題
-→ 確認要計算的指標與期間
-→ 確認來源欄位
-→ 確認匯出資料是否完整
-→ 執行並驗證計算
-→ 檢查證據是否足以支持結論
-→ 回答，或因證據不足而停止下結論
-```
-
-### 如何確認來源資料是否完整
-
-檔案裡看得到要求的日期，不代表匯出資料一定完整。CommerceLens 會另外確認是否
-包含所有相關頁面與紀錄、如何處理訂單狀態、是否有隱藏篩選條件，以及資料更新到
-什麼時間。
-
-已知資訊只顯示一次；只有缺漏、模糊或互相矛盾的內容才會要求補充。完整的中文
-確認內容會以這句話結尾：
-
-```text
-請確認以上資訊是否正確。
-```
-
-直接回覆 `確認` 即可。這次確認只適用於當下顯示的來源、欄位對應、分析範圍、
-期間與資料完整性聲明；其中任何一項改變後，都必須重新確認。
-
-如果資料完整性是由使用者確認，系統會記錄為「由使用者提供判定依據」
-（系統識別為 `USER_DECLARED`）。這不代表 CommerceLens 已獨立驗證來源。
-欄位對應確認與資料完整性確認是兩個不同步驟。
-
-### 證據不足時會發生什麼
-
-來源資料的涵蓋範圍未知、模糊、互相矛盾或不完整時，CommerceLens 會阻止缺乏
-支持的實質結論。它可能算出營收減少 `1,200 USD`；但如果檔案沒有說明原因的
-證據，就會拒絕回答原因，也不會列出猜測。
-
-### 選擇性保留完整分析證據
-
-<!-- fact: retention=temporary-default,opt-in,list-inspect-verify,plaintext,no-ttl,no-encryption,no-secure-erase -->
-
-如果需要留下可供日後查核的分析紀錄，CommerceLens 可以在你明確要求後，保存
-來源快照、分析結果與驗證資訊。保存功能必須主動選擇；預設的臨時分析模式不會
-建立保留紀錄。
-
-明確要求保存後，可以用以下指令列出、查看與驗證紀錄：
+Retention 是 opt-in；temporary execution 是預設。Operator 可列出、檢視與驗證明確保留的 run：
 
 ```bash
 python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root ROOT --list-retained
@@ -364,58 +302,207 @@ python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root 
 python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root ROOT --verify-run RUN_ID
 ```
 
-只有保存的資料通過完整性檢查後，系統才會回報「證據已完整保存」
-（系統狀態：`retained_complete`）。保存成功不會讓分析結論變得更正確，也不會把
-`USER_DECLARED` 提升為獨立驗證。保留在本機的資料是明文，沒有自動保存期限
-（TTL）、加密或安全抹除功能。
+Retained bundle 只有在 integrity checks 與 completion marker 都成功後才回報 `retained_complete`。本機保留資料是明文，沒有 TTL、加密或安全抹除。請參閱[開發說明](docs/DEVELOPMENT.md)。
 
-### 如何維持分析可靠性
+<!-- fact: retention=temporary-default,opt-in,list-inspect-verify,plaintext,no-ttl,no-encryption,no-secure-erase -->
 
-CommerceLens 將計算、驗證、證據與結論是否可以提出分開處理。指標數值與驗證
-由確定性的程式負責，不是由語言模型心算。過期的確認、不支援的欄位對應、
-不完整的資料範圍、幣別不一致，或保存流程失敗，都不會被當成有證據支持的結論
-或成功保存的紀錄。
+### 診斷限制
 
-正式的資料結構、系統狀態、確認綁定方式、保存清單及完成標記設計，請見
-[開發說明](docs/DEVELOPMENT.md)。
+- MVP 只實作一個受治理的診斷 family/method。
+- 結果是觀察到的關聯，不是因果證明、主要原因判定或統計顯著性主張。
+- 時間趨勢、季節性、促銷、庫存、需求、客戶組合、折扣與外部狀況仍是其他可能解釋。
+- 方法需要足夠的有效完整週觀察值，以及受治理的 `product_id` / Revenue 證據。
+- 安裝後的公開外掛程式範圍比 repository/MVP 窄，目前會拒絕正向診斷解釋。
+- 尚未建立外部驗證；公開範例與 fixture 都是合成資料。
 
-### 目前版本與驗證狀態
+### 目前 release 與驗證狀態
 
-<!-- fact: release=v0.2.0,public,tag-v0.2.0 -->
+<!-- fact: release=v0.3.0,public,tag-v0.3.0 -->
 <!-- fact: validation=p00-pass-internal,p01-not-run,p15-not-pass -->
 
-- 目前版本：`v0.2.0`。
-- 發布狀態：已在 GitHub **[公開發布](https://github.com/daniel-j-lin/commerce-lens/releases/tag/v0.2.0)**。
-- Git 標籤：`v0.2.0`。
-- P00：**PASS**——內部專家流程演練，外部參與者為 0。
-- P01 外部首次使用者試行：**NOT RUN**（尚未執行）。
-- P15：**NOT PASS**（尚未通過）。
+- 目前版本：`v0.3.0`；Git tag：`v0.3.0`；GitHub release：publication gate 通過後公開。
+- P00：**PASS**——內部專家 rehearsal，外部參與者為 0。
+- P01 外部 first-user pilot：**NOT RUN**。P15：**NOT PASS**。
 
-P00 只代表內部流程演練，不是外部驗證、可用性證明或已適合正式環境的證據。
-詳情請見 [P00 結案紀錄](validation/p15/P00_INTERNAL_PROTOCOL_REHEARSAL_CLOSEOUT.md)。
+P00 只是內部 rehearsal 證據，不是外部驗證、usability proof 或 production-readiness evidence。請參閱 [P00 closeout](validation/p15/P00_INTERNAL_PROTOCOL_REHEARSAL_CLOSEOUT.md)。
 
-### 目前限制與資料安全
-
-- 公開流程只支援不分組的 CSV／XLSX 分析，不會直接連接 Shopify、Amazon 或其他
-  外部電商平台。
-- CommerceLens 不是託管式線上服務、REST API 或雲端部署服務。
-- CommerceLens 不會獨立驗證來源資料是否完整。
-- 公開範例與測試資料都是合成資料。
-- 請勿提交密碼、憑證、參與者個人資訊、客戶資料、雇主機密資料、私人網址、
-  保留的執行資料、資料庫、紀錄檔、快取或本機環境。
-- CommerceLens 不宣稱已完成外部使用者驗證、已適合正式環境、已證明可用性、
-  具備企業安全認證或已達成產品市場契合度。
-
-### 詳細文件、授權與版本發布
+### 文件、授權與 release
 
 - [公開使用說明](docs/USAGE.md)
 - [開發說明](docs/DEVELOPMENT.md)
 - [公開範例](examples/public_v0_1/README.md)
-- [指標定義文件](docs/frozen/CANONICAL_DATASET_AND_METRIC_DICTIONARY.md)
-- [證據契約](docs/frozen/EVIDENCE_CONTRACT_SPECIFICATION.md)
-- [架構規格](docs/frozen/ARCHITECTURE_SPECIFICATION.md)
-- [v0.2.0 版本說明](release-notes/v0.2.0.md)
-- [MIT 授權條款](LICENSE)
+- [R7 方法 authority](decisions/R7-001-first-diagnostic-method-authority.md)
+- [v0.3.0 release notes](release-notes/v0.3.0.md)
+- [v0.2.0 歷史 release notes](release-notes/v0.2.0.md)
+- [MIT License](LICENSE)
 
-凍結規格仍是專案的正式依據。本 README 以使用者容易理解的方式說明目前公開
-功能，不會取代正式規格。
+Frozen specifications 仍是權威。本 README 描述目前公開介面與 repository/MVP 能力，不會取代這些規格。
+
+---
+
+<a id="simplified-chinese"></a>
+
+## 简体中文
+
+CommerceLens 是开源 Codex 插件与受证据治理的电商 CSV/XLSX 分析 repository。它将“发生了什么”、“观察到的 Revenue 变化如何组成”，以及“一个已批准的诊断假设是否满足预先定义、由证据支持的准则”分开处理。
+
+目前安装后的公开插件支持描述性分析。repository/MVP 另外实现产品级 Revenue 机械分解与一个受治理的诊断 family；这两项能力尚未接入安装后的公开插件交互界面。
+
+<!-- fact: inputs=csv,xlsx -->
+<!-- fact: metrics=revenue,orders,aov,absolute-revenue-change -->
+<!-- fact: analytical-layers=descriptive,mechanical-decomposition,governed-diagnostic-testing -->
+<!-- fact: diagnostic-scope=repository-mvp-only,product_composition_association,weekly_product_presence_revenue_association@1.0.0 -->
+
+> CommerceLens 只陈述受治理证据支持的结论，并拒绝不受支持的解释。
+
+### 三个分析层级
+
+1. **描述性——发生了什么？** 在受治理的范围与期间内计算 Revenue、Orders、AOV 与绝对 Revenue Change。
+2. **机械分解——观察到的 Revenue 变化如何组成？** 在适用时分解产品级 Revenue contribution，但不把 contribution 视为因果关系。
+3. **受治理的诊断测试——一个已批准的假设是否满足预先定义、由证据支持的准则？** MVP 只支持 repository R7 service 中的 `product_composition_association`，方法为 `weekly_product_presence_revenue_association@1.0.0`。安装后的公开插件目前尚未提供此能力。
+
+### 合成数据示例
+
+#### 示例 1——证据不足
+
+**合成数据示例——不是真实商家或客户数据。**
+
+> **问题：** Revenue 为什么从 Q3 下降到 Q4？
+>
+> **示意输出：** Revenue 下降 18%。现有证据足以计算 Revenue 变化，但不足以测试受治理的诊断解释。证据不足，无法判断 Revenue 下降的原因。
+
+系统不会编造任何可能原因。这是目前安装后的公开插件面对诊断问题的行为。
+
+#### 示例 2——repository/MVP 诊断 service 的证据充足情形
+
+**合成数据示例——不是真实商家或客户数据。**
+
+以下数值来自经独立重新计算的 canonical R7 conformance fixture `FX-R7-PROD-001A`，不是 production benchmark：
+
+| 项目 | 合成数值 |
+|---|---:|
+| Revenue 降幅 | 18% |
+| 有效每周观察值 | 8 |
+| Baseline 周数 | 4 |
+| Comparison 周数 | 4 |
+| 经验证的 Spearman rho | -1.0 |
+| 支持准则 | rho <= -0.50 |
+| 分析结果 | `CRITERION_MET` |
+
+系统将产品组合作为一个受治理的诊断假设进行测试。在受治理的每周观察值中，较大的 product-presence composition distance 与较低的每周 Revenue 表现有关。独立验证的 Spearman rho 为 -1.0，满足预先定义的支持准则 rho <= -0.50。因此，证据支持把产品组合保留为诊断解释中的一个可能贡献因素。
+
+这不建立因果关系，也不表示产品组合是唯一或主要原因。季节性、折扣、库存、整体需求、促销、客户组合、时间趋势与外部市场状况仍是其他可能解释。
+
+`CRITERION_MET` 不等于因果关系、唯一原因判定、`ClaimDecision` 或 `Finding`。
+
+![CommerceLens 流程：业务问题经过证据 admission；证据不足时拒绝不受支持的解释，证据充足时才产生经验证且有边界的诊断解释。](docs/assets/readme/commerce-lens-flow-zh-CN.svg)
+
+### 核心流程
+
+```text
+业务问题
+↓
+指标／范围／期间定义
+↓
+来源 mapping
+↓
+来源完整性检查
+↓
+确定性指标计算
+↓
+适用时执行机械分解
+↓
+生成受治理的假设
+↓
+必要证据／admission 检查
+↓
+证据是否充足？
+├─ 否 → 拒绝不受支持的解释 → 说明缺少的证据
+└─ 是 → 已批准的诊断测试 → 确定性执行
+        → 独立验证 → 有边界的分析结果
+        → 有边界的原因解释 → 限制 + 其他可能解释
+```
+
+**关联不等于因果。**
+
+### 能力与边界
+
+| 能力 | 状态 |
+|---|---|
+| 计算 Revenue、Orders、AOV，以及比较绝对 Revenue Change | 安装后的公开插件 |
+| 读取 CSV/XLSX；使用已确认的非标准字段 mapping | 安装后的公开插件 |
+| 适用时执行产品级 Revenue 机械分解 | Repository/MVP；尚未接入公开插件 |
+| 生成受治理的诊断假设 | Repository/MVP；尚未接入公开插件 |
+| 证据充足时，以 `weekly_product_presence_revenue_association@1.0.0` 测试 `product_composition_association` | Repository/MVP；尚未接入公开插件 |
+| 为该单一诊断 lane 返回有边界且受支持的原因解释 | Repository/MVP；尚未接入公开插件 |
+| 因果解释、主要／唯一原因判定、任意 root-cause analysis | 尚未建立 |
+| 折扣、库存或外部市场诊断执行 | 不提供 |
+| Forecasting、prescriptive recommendations、统计显著性主张 | 不提供／尚未建立 |
+| Revenue Change Percentage、通用产品／类别排名 | 公开插件不支持 |
+
+<!-- fact: public-plugin=revenue,orders,aov,absolute-revenue-change,csv,xlsx,confirmed-mapping -->
+<!-- fact: repository-mvp=mechanical-product-revenue-decomposition,governed-hypothesis-generation,one-product-composition-diagnostic,bounded-why-explanation -->
+<!-- fact: unavailable=causal,primary-or-sole-cause,general-root-cause,discount-diagnostic,inventory-diagnostic,external-market-diagnostic,forecasting,prescriptive,statistical-significance -->
+
+Revenue 是合格、折扣后且不含税与运费的商品价值。Orders 计算不同的合格订单。AOV 是同一 population 的 Revenue 除以 Orders，当 Orders 为零时是 `Undefined`。绝对 Revenue Change 是 comparison Revenue 减去 baseline Revenue。
+
+### 安装后公开插件的快速开始
+
+```bash
+codex --version
+codex plugin marketplace add daniel-j-lin/commerce-lens
+codex plugin add commerce-lens --marketplace commerce-lens
+codex plugin list
+```
+
+重新启动 Codex session，提供 CSV 或 XLSX 文件，并提出支持的描述性问题，例如：“2026 年 Q3 到 Q4 的 Revenue 变化是多少？”公开流程会在需要时询问 mapping 或完整性信息，再计算与验证支持的指标。普通安装用户目前无法通过公开 runner 执行 R7 或获得其正向、有边界的原因解释。请参阅[公开使用说明](docs/USAGE.md)。
+
+### 证据、可靠性与保留
+
+来源完整性与字段 mapping 是分开的。日期范围不能证明所有相关页面、record、status 或 filter 都已包含。用户确认的完整性是 `USER_DECLARED`，不是独立验证。
+
+执行与验证是分开的。对 R7 而言，validation 会独立重新计算诊断结果、evidence admission 会经过身份验证，而且在 authoritative completion 前会验证完整 R6→R7 lineage。语言模型推理不能替代确定性执行证据或 `ClaimDecision`。
+
+Retention 是 opt-in；temporary execution 是默认方式。Operator 可列出、检查与验证明确保留的 run：
+
+```bash
+python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root ROOT --list-retained
+python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root ROOT --inspect-run RUN_ID
+python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root ROOT --verify-run RUN_ID
+```
+
+Retained bundle 只有在 integrity checks 与 completion marker 都成功后才报告 `retained_complete`。本地保留数据是明文，没有 TTL、加密或安全擦除。请参阅[开发说明](docs/DEVELOPMENT.md)。
+
+<!-- fact: retention=temporary-default,opt-in,list-inspect-verify,plaintext,no-ttl,no-encryption,no-secure-erase -->
+
+### 诊断限制
+
+- MVP 只实现一个受治理的诊断 family/method。
+- 结果是观察到的关联，不是因果证明、主要原因判定或统计显著性主张。
+- 时间趋势、季节性、促销、库存、需求、客户组合、折扣与外部状况仍是其他可能解释。
+- 方法需要足够的有效完整周观察值，以及受治理的 `product_id` / Revenue 证据。
+- 安装后的公开插件范围比 repository/MVP 窄，目前会拒绝正向诊断解释。
+- 尚未建立外部验证；公开示例与 fixture 都是合成数据。
+
+### 当前 release 与验证状态
+
+<!-- fact: release=v0.3.0,public,tag-v0.3.0 -->
+<!-- fact: validation=p00-pass-internal,p01-not-run,p15-not-pass -->
+
+- 当前版本：`v0.3.0`；Git tag：`v0.3.0`；GitHub release：publication gate 通过后公开。
+- P00：**PASS**——内部专家 rehearsal，外部参与者为 0。
+- P01 外部 first-user pilot：**NOT RUN**。P15：**NOT PASS**。
+
+P00 只是内部 rehearsal 证据，不是外部验证、usability proof 或 production-readiness evidence。请参阅 [P00 closeout](validation/p15/P00_INTERNAL_PROTOCOL_REHEARSAL_CLOSEOUT.md)。
+
+### 文档、许可与 release
+
+- [公开使用说明](docs/USAGE.md)
+- [开发说明](docs/DEVELOPMENT.md)
+- [公开示例](examples/public_v0_1/README.md)
+- [R7 方法 authority](decisions/R7-001-first-diagnostic-method-authority.md)
+- [v0.3.0 release notes](release-notes/v0.3.0.md)
+- [v0.2.0 历史 release notes](release-notes/v0.2.0.md)
+- [MIT License](LICENSE)
+
+Frozen specifications 仍是权威。本 README 描述当前公开界面与 repository/MVP 能力，不会替代这些规范。

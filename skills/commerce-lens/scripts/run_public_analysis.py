@@ -174,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
             if retained_session is not None:
                 from commerce_lens.persistence.retention import RetentionError
                 finalized_manifest = retained_session.finalize(
-                    outcome, public_payload=payload, plugin_version="0.2.0"
+                    outcome, public_payload=payload, plugin_version="0.3.0"
                 )
                 if finalized_manifest.retention_status.value != "retained_complete":
                     raise RetentionError(

@@ -52,7 +52,7 @@ def test_codex_plugin_manifest_exists_parses_and_points_to_skills() -> None:
     payload = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))
 
     assert payload["name"] == "commerce-lens"
-    assert payload["version"] == "0.2.0"
+    assert payload["version"] == "0.3.0"
     assert payload["skills"] == "./skills/"
     assert "evidence-governed" in payload["description"].lower()
     assert payload["author"]["name"] == "CommerceLens"
@@ -71,10 +71,10 @@ def test_active_product_versions_are_synchronized_without_schema_renumbering() -
     runner = RUNNER.read_text(encoding="utf-8")
     retention_manifests = RETENTION_MANIFESTS.read_text(encoding="utf-8")
 
-    assert plugin["version"] == "0.2.0"
-    assert project["project"]["version"] == "0.2.0"
-    assert '__version__ = "0.2.0"' in package_init
-    assert 'plugin_version="0.2.0"' in runner
+    assert plugin["version"] == "0.3.0"
+    assert project["project"]["version"] == "0.3.0"
+    assert '__version__ = "0.3.0"' in package_init
+    assert 'plugin_version="0.3.0"' in runner
     assert 'manifest_version: str = "f2_a_retention_v1"' in retention_manifests
 
 

@@ -1,45 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" role="img" aria-labelledby="title desc">
-  <title id="title">CommerceLens 產品流程</title>
-  <desc id="desc">CSV 或 Excel 檔案經過商務問題、欄位與來源完整性確認，以及計算與驗證後，會得到有證據支持的回答；證據不足時則要求補充資料或停止下結論。</desc>
-  <defs>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
-    </marker>
-  </defs>
-
-  <rect width="1200" height="440" fill="#ffffff"/>
-  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" text-anchor="middle">
-  <rect fill="#f8fafc" stroke="#475569" stroke-width="2" x="25" y="55" width="220" height="110" rx="14"/>
-  <text fill="#0f172a" font-size="20" font-weight="600" x="135" y="105">CSV / Excel</text>
-  <text fill="#334155" font-size="16" x="135" y="135">電商資料</text>
-
-  <path fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)" d="M 245 110 H 295"/>
-
-  <rect fill="#f8fafc" stroke="#475569" stroke-width="2" x="305" y="55" width="220" height="110" rx="14"/>
-  <text fill="#0f172a" font-size="20" font-weight="600" x="415" y="115">提出商務問題</text>
-
-  <path fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)" d="M 525 110 H 575"/>
-
-  <rect fill="#f8fafc" stroke="#475569" stroke-width="2" x="585" y="55" width="260" height="110" rx="14"/>
-  <text fill="#0f172a" font-size="20" font-weight="600" x="715" y="94">確認欄位與</text>
-  <text fill="#0f172a" font-size="20" font-weight="600" x="715" y="122">來源資料是否完整</text>
-  <text fill="#334155" font-size="16" x="715" y="148">不能只看日期就假設完整</text>
-
-  <path fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)" d="M 845 110 H 895"/>
-
-  <rect fill="#f8fafc" stroke="#475569" stroke-width="2" x="905" y="55" width="270" height="110" rx="14"/>
-  <text fill="#0f172a" font-size="20" font-weight="600" x="1040" y="115">執行並驗證計算</text>
-
-  <path fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)" d="M 1040 165 V 225 H 855 V 275"/>
-  <path fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)" d="M 1040 165 V 275"/>
-
-  <rect fill="#ecfdf5" stroke="#047857" stroke-width="2" x="710" y="285" width="290" height="105" rx="14"/>
-  <text fill="#0f172a" font-size="20" font-weight="600" x="855" y="330">有足夠證據 → 回答</text>
-  <text fill="#334155" font-size="16" x="855" y="360">資料足以支持結果</text>
-
-  <rect fill="#fff7ed" stroke="#c2410c" stroke-width="2" x="1020" y="285" width="155" height="105" rx="14"/>
-  <text fill="#0f172a" font-size="20" font-weight="600" x="1098" y="323">證據不足</text>
-  <text fill="#0f172a" font-size="20" font-weight="600" x="1098" y="349">要求補充</text>
-  <text fill="#334155" font-size="16" x="1098" y="376">或停止下結論</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820" role="img" aria-labelledby="title desc">
+  <title id="title">CommerceLens 受治理的分析流程</title>
+  <desc id="desc">商務問題依序經過 mapping、完整性、確定性計算、機械式分解、受治理的假設與證據 admission。證據不足時停止不受支持的解釋；證據充足時進行已核准的診斷測試、獨立驗證與有界的診斷解釋。關聯不等於因果。</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#64748b"/></marker></defs>
+  <style>.box{fill:#f8fafc;stroke:#475569;stroke-width:2}.ok{fill:#ecfdf5;stroke:#047857;stroke-width:2}.stop{fill:#fff7ed;stroke:#c2410c;stroke-width:2}.t{fill:#0f172a;font:600 18px system-ui,sans-serif}.s{fill:#334155;font:15px system-ui,sans-serif}.a{fill:none;stroke:#64748b;stroke-width:3;marker-end:url(#arrow)}</style>
+  <g text-anchor="middle">
+    <rect id="input" class="box" x="500" y="20" width="400" height="58" rx="12"/><text class="t" x="700" y="55">輸入／商務問題</text>
+    <path class="a" d="M700 78V108"/>
+    <rect id="mapping" class="box" x="500" y="110" width="400" height="58" rx="12"/><text class="t" x="700" y="145">Mapping + 完整性</text>
+    <path class="a" d="M700 168V198"/>
+    <rect id="calculation" class="box" x="500" y="200" width="400" height="58" rx="12"/><text class="t" x="700" y="235">確定性計算</text>
+    <path class="a" d="M700 258V288"/>
+    <rect id="decomposition" class="box" x="500" y="290" width="400" height="58" rx="12"/><text class="t" x="700" y="325">機械式分解</text>
+    <path class="a" d="M700 348V378"/>
+    <rect id="hypothesis" class="box" x="500" y="380" width="400" height="58" rx="12"/><text class="t" x="700" y="415">受治理的假設</text>
+    <path class="a" d="M700 438V468"/>
+    <rect id="admission" class="box" x="500" y="470" width="400" height="58" rx="12"/><text class="t" x="700" y="505">證據／Admission 檢查</text>
+    <path class="a" d="M600 528V570H300V600"/><text class="s" x="415" y="562">證據不足</text>
+    <path class="a" d="M800 528V570H1100V600"/><text class="s" x="985" y="562">證據充足</text>
+    <rect id="refusal" class="stop" x="100" y="602" width="400" height="82" rx="12"/><text class="t" x="300" y="637">停止不受支持的原因主張</text><text class="s" x="300" y="663">說明缺少的證據</text>
+    <rect id="diagnostic" class="ok" x="900" y="602" width="400" height="82" rx="12"/><text class="t" x="1100" y="635">已核准的診斷測試</text><text class="s" x="1100" y="661">確定性執行</text>
+    <path class="a" d="M1100 684V714"/>
+    <rect id="validation" class="ok" x="760" y="716" width="300" height="64" rx="12"/><text class="t" x="910" y="754">獨立驗證</text>
+    <path class="a" d="M1060 748H1090"/>
+    <rect id="explanation" class="ok" x="1092" y="706" width="280" height="84" rx="12"/><text class="t" x="1232" y="741">有界的診斷</text><text class="t" x="1232" y="765">解釋</text>
+    <text class="t" x="300" y="748">關聯 ≠ 因果</text>
   </g>
 </svg>
