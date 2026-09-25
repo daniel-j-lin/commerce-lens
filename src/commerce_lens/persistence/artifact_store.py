@@ -93,7 +93,7 @@ class ArtifactStore:
             if existing != content:
                 raise ValueError("existing JSON artifact content mismatch")
         else:
-            self._atomic_write_bytes(destination, content)
+            self._atomic_create_bytes(destination, content)
         artifact_fingerprint = sha256_file(destination)
         return ArtifactReference(
             artifact_id=stable_content_id("art", artifact_fingerprint),
@@ -105,6 +105,7 @@ class ArtifactStore:
 
     @staticmethod
     def _atomic_write_bytes(destination: Path, content: bytes) -> None:
+        """Atomically replace bytes for explicitly mutable lifecycle files."""
         temporary_path: Path | None = None
         try:
             with tempfile.NamedTemporaryFile(
@@ -115,6 +116,38 @@ class ArtifactStore:
                 temporary.flush()
                 os.fsync(temporary.fileno())
             os.replace(temporary_path, destination)
+        finally:
+            if temporary_path is not None and temporary_path.exists():
+                temporary_path.unlink()
+
+    @staticmethod
+    def _atomic_create_bytes(destination: Path, content: bytes) -> None:
+        """Publish immutable bytes without ever replacing an existing path.
+
+        The temporary file and destination share a directory/filesystem.  A
+        hard-link publish is atomic and fails when another writer won the
+        destination race, unlike ``os.replace`` which would overwrite it.
+        """
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                prefix=f".{destination.name}.", dir=destination.parent, delete=False
+            ) as temporary:
+                temporary_path = Path(temporary.name)
+                temporary.write(content)
+                temporary.flush()
+                os.fsync(temporary.fileno())
+            try:
+                os.link(temporary_path, destination)
+            except FileExistsError:
+                if destination.read_bytes() != content:
+                    raise ValueError("existing JSON artifact content mismatch")
+            else:
+                directory_fd = os.open(destination.parent, os.O_RDONLY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
         finally:
             if temporary_path is not None and temporary_path.exists():
                 temporary_path.unlink()

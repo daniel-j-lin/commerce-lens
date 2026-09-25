@@ -26,7 +26,7 @@ from commerce_lens.persistence.manifests import (
     RetentionStatus,
     RunLifecycleStatus,
 )
-from commerce_lens.persistence.metadata_store import MetadataStore
+from commerce_lens.persistence.metadata_store import MetadataStore, SCHEMA_VERSION
 
 
 class RetentionError(RuntimeError):
@@ -499,9 +499,9 @@ class RetentionStore:
         try:
             metadata = MetadataStore(run_root / "metadata.sqlite")
             metadata.initialize()
-            checks["metadata_schema_version"] = metadata.schema_version() == 7
+            checks["metadata_schema_version"] = metadata.schema_version() == SCHEMA_VERSION
             if not checks["metadata_schema_version"]:
-                errors.append("metadata schema is not v7")
+                errors.append(f"metadata schema is not v{SCHEMA_VERSION}")
             indexed_artifacts = {
                 item.artifact_id: item for item in metadata.list_artifact_references()
             }

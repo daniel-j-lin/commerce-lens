@@ -669,7 +669,7 @@ def test_repeated_equivalent_evaluation_fails_closed_on_existing_admissible_evid
 def test_metadata_store_v6_persistence_and_migrations(tmp_path) -> None:
     store = MetadataStore(tmp_path / "new.sqlite")
     store.initialize()
-    assert store.schema_version() == 7 == SCHEMA_VERSION
+    assert store.schema_version() == 8 == SCHEMA_VERSION
     _assert_v5_tables(store)
 
     fixture = _fixture(tmp_path / "roundtrip", ("revenue",), [_row()])

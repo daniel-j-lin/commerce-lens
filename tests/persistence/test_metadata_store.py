@@ -6,7 +6,11 @@ from commerce_lens.contracts.common import SourceType
 from commerce_lens.canonical import CanonicalizationRequest, EligibilityMode, canonicalize_dataset, identity_mapping
 from commerce_lens.intake.registry import DatasetRegistry
 from commerce_lens.persistence.artifact_store import ArtifactStore
-from commerce_lens.persistence.metadata_store import MetadataStore, SCHEMA_VERSION
+from commerce_lens.persistence.metadata_store import (
+    MetadataStore,
+    R6ArtifactIndexRecord,
+    SCHEMA_VERSION,
+)
 
 
 def test_metadata_store_initializes_schema(tmp_path) -> None:
@@ -20,6 +24,77 @@ def test_metadata_store_repeated_initialization_same_version_is_idempotent(tmp_p
     store.initialize()
     store.initialize()
     assert store.schema_version() == SCHEMA_VERSION
+
+
+def test_r6_index_uses_composite_identity_and_rejects_only_same_key_conflicts(tmp_path) -> None:
+    store = MetadataStore(tmp_path / "registry.sqlite")
+    store.initialize()
+    first = R6ArtifactIndexRecord(
+        artifact_type="diagnostic_proposition",
+        artifact_id="shared-id",
+        semantic_fingerprint="a" * 64,
+        artifact_reference_id="art-a",
+    )
+    same_domain_id_other_type = first.model_copy(
+        update={
+            "artifact_type": "generation_provenance",
+            "semantic_fingerprint": "b" * 64,
+            "artifact_reference_id": "art-b",
+        }
+    )
+
+    assert store.insert_r6_artifact_index(first) == first
+    assert store.insert_r6_artifact_index(first) == first
+    assert store.insert_r6_artifact_index(same_domain_id_other_type) == same_domain_id_other_type
+    assert len(store.list_r6_artifact_indexes()) == 2
+
+    with pytest.raises(RuntimeError, match="stable R6 artifact index conflict"):
+        store.insert_r6_artifact_index(
+            first.model_copy(update={"semantic_fingerprint": "c" * 64})
+        )
+
+
+def test_metadata_store_migrates_v7_to_v8_and_preserves_existing_rows(tmp_path) -> None:
+    db_path = tmp_path / "registry.sqlite"
+    store = MetadataStore(db_path)
+    store.initialize()
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """
+        INSERT INTO retained_runs (
+            run_id, request_id, lifecycle_status, retention_status,
+            analysis_run_status, manifest_path, manifest_fingerprint,
+            created_at, finalized_at, record_json
+        ) VALUES ('run-before-r6', NULL, 'complete', 'retained_complete',
+                  NULL, 'runs/run-before-r6/manifest.json', NULL,
+                  '2026-09-25T00:00:00+00:00', NULL, '{}')
+        """
+    )
+    conn.execute("DROP TABLE r6_artifact_index")
+    conn.execute("UPDATE schema_version SET version = 7 WHERE id = 1")
+    conn.commit()
+    conn.close()
+
+    store.initialize()
+
+    assert store.schema_version() == 8
+    reopened = sqlite3.connect(db_path)
+    try:
+        assert reopened.execute(
+            "SELECT COUNT(*) FROM retained_runs WHERE run_id = 'run-before-r6'"
+        ).fetchone()[0] == 1
+        columns = {
+            row[1] for row in reopened.execute("PRAGMA table_info(r6_artifact_index)").fetchall()
+        }
+    finally:
+        reopened.close()
+    assert columns == {
+        "artifact_type",
+        "artifact_id",
+        "semantic_fingerprint",
+        "artifact_reference_id",
+        "record_json",
+    }
 
 
 def test_dataset_registration_persists_across_connections_and_deduplicates(tmp_path) -> None:

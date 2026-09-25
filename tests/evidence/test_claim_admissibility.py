@@ -607,7 +607,7 @@ def test_schema_v5_to_v6_migration_and_claim_rows_round_trip(tmp_path) -> None:
     store = MetadataStore(db_path)
     store.initialize()
 
-    assert store.schema_version() == 7 == SCHEMA_VERSION
+    assert store.schema_version() == 8 == SCHEMA_VERSION
     with sqlite3.connect(db_path) as reopened:
         tables = {row[0] for row in reopened.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
     assert {"claim_candidates", "claim_decisions"}.issubset(tables)

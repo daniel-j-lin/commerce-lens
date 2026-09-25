@@ -113,7 +113,7 @@ def test_retained_run_corruption_fails_verification_and_delete_is_path_safe(tmp_
     assert store.list_runs()[0]["retention_status"] == "retention_failed"
 
 
-def test_v6_component_store_migrates_additively_to_v7_retention_table(tmp_path):
+def test_v6_component_store_migrates_additively_to_current_metadata_schema(tmp_path):
     db_path = tmp_path / "legacy.sqlite"
     store = MetadataStore(db_path)
     store.initialize()
@@ -122,7 +122,7 @@ def test_v6_component_store_migrates_additively_to_v7_retention_table(tmp_path):
         conn.execute("UPDATE schema_version SET version = 6 WHERE id = 1")
     reopened = MetadataStore(db_path)
     reopened.initialize()
-    assert reopened.schema_version() == SCHEMA_VERSION == 7
+    assert reopened.schema_version() == SCHEMA_VERSION == 8
     assert reopened.list_retained_runs() == []
 
 
