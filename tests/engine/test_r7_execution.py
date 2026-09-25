@@ -4,6 +4,7 @@ from decimal import Decimal
 from commerce_lens.contracts.diagnostic import AnalyticalOutcome
 from commerce_lens.contracts.r7 import DiagnosticTestRequest, diagnostic_test_request_fingerprint
 from commerce_lens.diagnostic.r7_evaluation import map_r7_outcome
+from commerce_lens.diagnostic.r7_evaluation import build_posttest_evaluation
 from commerce_lens.diagnostic.r7_method_registry import METHOD_DEFINITION, authority_ref
 from commerce_lens.engine.r7_execution import R7Transaction, average_ranks, calculate_r7_result, spearman_rho
 from commerce_lens.evidence.identifiers import stable_content_id
@@ -78,3 +79,36 @@ def test_constant_vector_and_insufficient_weeks_are_inconclusive():
     assert "MINIMUM_TOTAL_WEEKS_NOT_MET" in result.inconclusive_reasons
     assert "CONSTANT_JACCARD_VECTOR" in result.inconclusive_reasons
     assert map_r7_outcome(result.spearman_rho, result.inconclusive_reasons) is AnalyticalOutcome.NOT_EVALUATED
+
+
+def test_posttest_evaluation_has_stable_semantic_fingerprint():
+    from commerce_lens.contracts.r7 import (
+        DiagnosticExecutionRecord, DiagnosticValidationCheck, DiagnosticValidationRecord,
+        R7ExecutionStatus, R7ValidationStatus, ValidatedDiagnosticResult,
+    )
+    request = _request(); now = datetime(2026, 1, 1, tzinfo=UTC)
+    execution = DiagnosticExecutionRecord(
+        execution_event_id="exec:1", test_request_ref=request.test_request_id,
+        request_fingerprint=request.request_fingerprint, method=request.method,
+        implementation=request.implementation, started_at=now, ended_at=now,
+        status=R7ExecutionStatus.COMPLETED, result_ref="result:1",
+    )
+    check = DiagnosticValidationCheck(check_id="independent_recomputation", passed=True)
+    validation = DiagnosticValidationRecord(
+        validation_event_id="validation:1", executed_result_ref="result:1",
+        executed_result_fingerprint=HASH, validation_profile=request.validation_profile,
+        checks=(check,), status=R7ValidationStatus.PASSED, validated_result_ref="validated:1",
+        started_at=now, ended_at=now, validation_fingerprint=HASH,
+    )
+    validated = ValidatedDiagnosticResult(
+        validated_result_id="validated:1", validation_event_id="validation:1",
+        execution_event_id="exec:1", executed_result_ref="result:1", result_fingerprint=HASH,
+        validation_fingerprint=HASH, test_request_ref=request.test_request_id, method=request.method,
+        support_criterion=request.support_criterion, validation_profile=request.validation_profile,
+        baseline_week_count=4, comparison_week_count=4, spearman_rho=-1.0,
+        inconclusive_reasons=(),
+    )
+    first = build_posttest_evaluation(request=request, execution=execution, validation=validation, validated=validated)
+    second = build_posttest_evaluation(request=request, execution=execution, validation=validation, validated=validated)
+    assert first.evaluation_fingerprint == second.evaluation_fingerprint
+    assert first.analytical_outcome is AnalyticalOutcome.CRITERION_MET

@@ -93,7 +93,7 @@ def _method() -> DiagnosticMethodDefinition:
         "fixed_parameters": {"minimum_weeks": 8, "minimum_baseline_weeks": 4, "minimum_comparison_weeks": 4, "weighting": "none"},
         "maximum_permitted_meaning": "bounded observed non-causal weekly association; one plausible contributor worth retaining",
         "prohibited_meanings": ("causality", "primary_or_sole_explanation", "statistical_significance", "generalization", "finding_or_claim_permission"),
-        "limitations": ("time_trend", "seasonality", "promotion_timing", "inventory", "external_shocks", "customer_mix", "other_confounders"),
+        "limitations": ("time_trend", "seasonality", "discounting", "promotion_timing", "inventory", "demand", "external_shocks", "customer_mix", "other_confounders"),
         "support_criterion_ref": _ref(SUPPORT_CRITERION.criterion_id, SUPPORT_CRITERION.criterion_version, SUPPORT_CRITERION.criterion_fingerprint),
         "validation_profile_ref": _ref(VALIDATION_PROFILE.profile_id, VALIDATION_PROFILE.profile_version, VALIDATION_PROFILE.profile_fingerprint),
         "implementation_ref": _ref(IMPLEMENTATION_BINDING.implementation_id, IMPLEMENTATION_BINDING.implementation_version, IMPLEMENTATION_BINDING.implementation_fingerprint),

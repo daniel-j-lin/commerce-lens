@@ -1,0 +1,14 @@
+{
+  "authority_label": "TEST / CONFORMANCE AUTHORITY ONLY — NOT PRODUCTION R6 OUTPUT",
+  "method_id": "weekly_product_presence_revenue_association",
+  "method_version": "1.0.0",
+  "independent_calculation": "Average ranks followed by Pearson correlation of ranks; no production output was used to choose these values.",
+  "cases": [
+    {"case_id":"FX-R7-PROD-001A","expected_material_outcome":"CRITERION_MET","distances":[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7],"weekly_revenues":[800,700,600,500,400,300,200,100],"expected_rho":-1.0,"baseline_weeks":4,"comparison_weeks":4},
+    {"case_id":"FX-R7-NOT-MET-001","expected_material_outcome":"CRITERION_NOT_MET","distances":[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7],"weekly_revenues":[100,800,400,500,600,300,700,200],"expected_rho":0.0,"baseline_weeks":4,"comparison_weeks":4},
+    {"case_id":"FX-R7-CONTRADICTED-001","expected_material_outcome":"PROPOSITION_CONTRADICTED","distances":[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7],"weekly_revenues":[100,200,300,400,500,600,700,800],"expected_rho":1.0,"baseline_weeks":4,"comparison_weeks":4},
+    {"case_id":"FX-R7-INCONCLUSIVE-N-001","expected_material_outcome":"NOT_EVALUATED","distances":[0.0,0.1,0.2,0.3,0.4,0.5],"weekly_revenues":[600,500,400,300,200,100],"expected_rho":null,"reason":"MINIMUM_TOTAL_WEEKS_NOT_MET","baseline_weeks":3,"comparison_weeks":3},
+    {"case_id":"FX-R7-INCONCLUSIVE-X-001","expected_material_outcome":"NOT_EVALUATED","distances":[0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2],"weekly_revenues":[800,700,600,500,400,300,200,100],"expected_rho":null,"reason":"CONSTANT_JACCARD_VECTOR","baseline_weeks":4,"comparison_weeks":4},
+    {"case_id":"FX-R7-INCONCLUSIVE-Y-001","expected_material_outcome":"NOT_EVALUATED","distances":[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7],"weekly_revenues":[500,500,500,500,500,500,500,500],"expected_rho":null,"reason":"CONSTANT_REVENUE_DEVIATION_VECTOR","baseline_weeks":4,"comparison_weeks":4}
+  ]
+}

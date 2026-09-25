@@ -414,6 +414,8 @@ def executed_result_fingerprint(value: ExecutedDiagnosticResult | Mapping[str, A
 
 def posttest_evaluation_fingerprint(value: PostTestDiagnosticEvaluation | Mapping[str, Any]) -> str:
     data = _data(value)
+    data.setdefault("schema_version", "1.0.0")
+    data.setdefault("alternative_explanation_state", AlternativeExplanationState.NOT_COMPLETED.value)
     for key in ("evaluation_event_id", "evaluation_fingerprint", "finalized_at"):
         data.pop(key, None)
     return canonical_json_fingerprint(data)

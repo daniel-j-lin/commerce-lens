@@ -8,7 +8,7 @@ Authority version: 1.0.0
 
 | Authority | ID | Version | Semantic fingerprint |
 |---|---|---|---|
-| Method | `weekly_product_presence_revenue_association` | `1.0.0` | `6bfabecae8a1c0ba57f9559dedafeed54fb201868af0e13d94542e219e843d15` |
+| Method | `weekly_product_presence_revenue_association` | `1.0.0` | `b5b50d4ddcd071ce6db9d744faf6323b42a64dfe518076eefd327e563d2bad89` |
 | Support criterion | `weekly_product_presence_revenue_association_support` | `1.0.0` | `68496a1db32deab4f55156469b71365d513b8c00baa815218592adee43c9286f` |
 | Validation profile | `weekly_product_presence_revenue_association_validation` | `1.0.0` | `9358e04c31ad63b09ade90fe047d10eb8f580f722a3c39352eced8d00b4d659d` |
 | Implementation binding | `commerce_lens_r7_weekly_product_presence_revenue_association` | `1.0.0` | `253d92baa3a87aefdd037d306db068a328fc1932d28df7f5a89f895109eb7e3c` |
