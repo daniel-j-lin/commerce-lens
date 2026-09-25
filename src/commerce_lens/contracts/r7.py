@@ -11,6 +11,7 @@ from pydantic import Field, field_validator, model_validator
 
 from commerce_lens.contracts.common import ContractBase
 from commerce_lens.contracts.diagnostic import AlternativeExplanationState, AnalyticalOutcome, AuthorityBinding
+from commerce_lens.contracts.required_evidence import EvidenceRole
 from commerce_lens.evidence.identifiers import canonical_json_fingerprint, stable_content_id
 
 
@@ -98,6 +99,7 @@ class DiagnosticMethodImplementationBinding(ContractBase):
 
 class DiagnosticEvidenceInputBinding(ContractBase):
     requirement_judgment_ref: str
+    requirement_judgment_fingerprint: str = Field(pattern=SHA256_PATTERN)
     evidence_ref: str
     evidence_fingerprint: str = Field(pattern=SHA256_PATTERN)
     evidence_assessment_ref: str
@@ -106,6 +108,7 @@ class DiagnosticEvidenceInputBinding(ContractBase):
     admission_state: Literal["DIAGNOSTIC_ADMITTED"]
     fitness_state: Literal["PASSED"]
     source_class: Literal["GOVERNED_INTERNAL"]
+    evidence_role: EvidenceRole
     scope_ref: str
     period_refs: tuple[str, ...]
     population_refs: tuple[str, ...]

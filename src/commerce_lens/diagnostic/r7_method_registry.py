@@ -123,5 +123,44 @@ class R7MethodAuthorityRegistry:
             raise ValueError("method_family_mismatch")
         return METHOD_DEFINITION
 
+    def authenticate_bundle(
+        self,
+        *,
+        method: R7AuthorityReference,
+        support_criterion: R7AuthorityReference,
+        validation_profile: R7AuthorityReference,
+        implementation: R7AuthorityReference,
+        family_id: str,
+        family_version: str,
+        family_fingerprint: str,
+    ) -> tuple[
+        DiagnosticMethodDefinition,
+        DiagnosticSupportCriterionDefinition,
+        DiagnosticValidationProfile,
+        DiagnosticMethodImplementationBinding,
+    ]:
+        definition = self.authenticate(method, family_id, family_version, family_fingerprint)
+        expected = (
+            authority_ref(SUPPORT_CRITERION),
+            authority_ref(VALIDATION_PROFILE),
+            authority_ref(IMPLEMENTATION_BINDING),
+        )
+        supplied = (support_criterion, validation_profile, implementation)
+        codes = (
+            "support_criterion_unregistered_or_stale",
+            "validation_profile_unregistered_or_stale",
+            "implementation_binding_unregistered_or_stale",
+        )
+        for actual, current, code in zip(supplied, expected, codes, strict=True):
+            if actual != current:
+                raise ValueError(code)
+        if (
+            definition.support_criterion_ref != expected[0]
+            or definition.validation_profile_ref != expected[1]
+            or definition.implementation_ref != expected[2]
+        ):
+            raise ValueError("method_authority_bundle_inconsistent")
+        return definition, SUPPORT_CRITERION, VALIDATION_PROFILE, IMPLEMENTATION_BINDING
+
 
 R7_METHOD_REGISTRY = R7MethodAuthorityRegistry()

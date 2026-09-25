@@ -21,6 +21,7 @@ from commerce_lens.diagnostic.r7_method_registry import (
 )
 from commerce_lens.evidence.identifiers import stable_content_id
 from commerce_lens.contracts.diagnostic import AuthorityBinding
+from commerce_lens.contracts.required_evidence import EvidenceRole
 
 
 HASH = "a" * 64
@@ -28,10 +29,12 @@ HASH = "a" * 64
 
 def _evidence_set():
     binding = DiagnosticEvidenceInputBinding(
-        requirement_judgment_ref="judgment:1", evidence_ref="evidence:1", evidence_fingerprint=HASH,
+        requirement_judgment_ref="judgment:1", requirement_judgment_fingerprint=HASH,
+        evidence_ref="evidence:1", evidence_fingerprint=HASH,
         evidence_assessment_ref="assessment:1", evidence_assessment_fingerprint=HASH,
         diagnostic_admission_authority=AuthorityBinding(authority_ref="admission:1", authority_version="1", authority_fingerprint=HASH),
         admission_state="DIAGNOSTIC_ADMITTED", fitness_state="PASSED", source_class="GOVERNED_INTERNAL",
+        evidence_role=EvidenceRole.EXPLANATORY_VARIABLE,
         scope_ref="scope:1", period_refs=("period:b", "period:c"), population_refs=("population:b", "population:c"),
         metric_refs=("metric:revenue_change@metric_dictionary_v1",), variable_refs=("field:product_id", "field:line_revenue"),
     )

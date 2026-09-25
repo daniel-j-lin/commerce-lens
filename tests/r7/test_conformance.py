@@ -8,6 +8,7 @@ from commerce_lens.contracts.diagnostic import AnalyticalOutcome, TestEligibilit
 from commerce_lens.diagnostic.r7_evaluation import map_r7_outcome
 from commerce_lens.engine.r7_execution import spearman_rho
 from commerce_lens.application import r7_service
+from commerce_lens.diagnostic.r7_evidence_authentication import TrustedR7EvidenceAuthority
 from tests.contracts.test_r7_contracts import _evidence_set
 from tests.engine.test_r7_execution import _request
 
@@ -54,6 +55,7 @@ def test_ineligible_handoff_fails_before_executor(monkeypatch):
             request=request, evidence_inputs=evidence, canonical_dataset=None,
             baseline_population=None, comparison_population=None, r6_repository=fake_r6,
             r7_repository=None, authority_registry=None,
+            trusted_evidence_authority=TrustedR7EvidenceAuthority("unused", (), ()),
         )
     assert calls == 0
 
