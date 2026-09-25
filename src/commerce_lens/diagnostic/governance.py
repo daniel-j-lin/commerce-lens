@@ -87,6 +87,82 @@ class EvidenceOrigin(str, Enum):
     MODEL_GENERAL_KNOWLEDGE = "MODEL_GENERAL_KNOWLEDGE"
 
 
+class AuthorityClass(str, Enum):
+    INTENDED_USE = "INTENDED_USE"
+    SCOPE = "SCOPE"
+    PERIOD = "PERIOD"
+    POPULATION = "POPULATION"
+    VARIABLE = "VARIABLE"
+    SOURCE_REFERENCE = "SOURCE_REFERENCE"
+    EVIDENCE = "EVIDENCE"
+    EVIDENCE_ASSESSMENT = "EVIDENCE_ASSESSMENT"
+    DIAGNOSTIC_ADMISSION = "DIAGNOSTIC_ADMISSION"
+    EVIDENCE_CONFLICT = "EVIDENCE_CONFLICT"
+    METHOD = "METHOD"
+
+
+class RegisteredAuthority(ContractBase):
+    """One current authority registered by the trusted R6 orchestration boundary."""
+
+    authority_class: AuthorityClass
+    binding: AuthorityBinding
+    subject_refs: tuple[str, ...] = ()
+    intended_uses: tuple[str, ...] = ()
+    dependency_classification: DependencyClassification | None = None
+
+
+class PreTestAuthorityRegistry(ContractBase):
+    """Narrow trust source for authorities that have no existing project registry."""
+
+    registry_id: str = "commerce_lens_r6_pretest_authorities"
+    registry_version: str = GOVERNANCE_VERSION
+    registry_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    authorities: tuple[RegisteredAuthority, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_registry(self) -> Self:
+        keys = [
+            (item.authority_class, item.binding.authority_ref)
+            for item in self.authorities
+        ]
+        if len(keys) != len(set(keys)):
+            raise ValueError("authority registry cannot contain duplicate class/reference entries")
+        expected = pretest_authority_registry_fingerprint(self)
+        if self.registry_fingerprint != expected:
+            raise ValueError("authority registry fingerprint does not match current entries")
+        return self
+
+    def require_reference(
+        self,
+        authority_class: AuthorityClass,
+        authority_ref: str,
+    ) -> RegisteredAuthority:
+        for authority in self.authorities:
+            if (
+                authority.authority_class is authority_class
+                and authority.binding.authority_ref == authority_ref
+            ):
+                return authority
+        raise GovernanceAuthenticationError(
+            "unregistered_authority",
+            f"{authority_class.value} authority is not registered: {authority_ref}",
+        )
+
+    def authenticate_binding(
+        self,
+        authority_class: AuthorityClass,
+        binding: AuthorityBinding,
+    ) -> RegisteredAuthority:
+        registered = self.require_reference(authority_class, binding.authority_ref)
+        if registered.binding != binding:
+            raise GovernanceAuthenticationError(
+                "stale_or_untrusted_authority",
+                f"{authority_class.value} authority version or fingerprint is not current: "
+                f"{binding.authority_ref}",
+            )
+        return registered
+
+
 class PreTestDisposition(str, Enum):
     CLARIFICATION_REQUIRED = "CLARIFICATION_REQUIRED"
     HYPOTHESIS_ONLY = "HYPOTHESIS_ONLY"
@@ -179,29 +255,79 @@ def govern_pretest(
     template_binding: AuthorityBinding | None,
     evidence_assessments: tuple[RequirementEvidenceAssessment, ...],
     *,
+    authority_registry: PreTestAuthorityRegistry,
     finalized_at: datetime,
     requested_claim_type: ClaimType = ClaimType.DIAGNOSTIC,
     conflict_assessment: EvidenceConflictAssessment | None = None,
-    proposed_method_refs: tuple[str, ...] = (),
+    proposed_method_refs: tuple[AuthorityBinding, ...] = (),
 ) -> PreTestGovernanceResult:
     """Authenticate exact R2/R3 authority and derive immutable pre-test state."""
 
+    _authenticate_authority_registry(authority_registry)
     proposition = _authenticate_proposition(proposition)
     family, template = _authenticate_family_and_template(proposition, template_binding)
+    _authenticate_proposition_context(proposition, family, authority_registry)
+
+    if requested_claim_type is not ClaimType.DIAGNOSTIC:
+        slot_bindings = _claim_restricted_slot_bindings(
+            proposition,
+            candidate,
+            family.required_proposition_slots,
+        )
+        decisions = resolve_dimension_applicability(template, proposition)
+        profile = _build_profile(proposition, template, slot_bindings, decisions, ())
+        judgments = _build_judgments(family, template, decisions, {})
+        return _finalize_pretest_result(
+            proposition=proposition,
+            profile=profile,
+            judgments=judgments,
+            finalized_at=finalized_at,
+            requested_claim_type=requested_claim_type,
+            conflict_assessment=None,
+            method_bindings=(),
+        )
+
     slot_bindings = _authenticate_exact_binding(proposition, candidate, family.required_proposition_slots)
     decisions = resolve_dimension_applicability(template, proposition)
-    profile = _build_profile(proposition, template, slot_bindings, decisions)
-    assessments = _authenticate_assessments(proposition, template, evidence_assessments)
+    method_bindings = _authenticate_method_bindings(proposed_method_refs, authority_registry)
+    profile = _build_profile(proposition, template, slot_bindings, decisions, method_bindings)
+    assessments = _authenticate_assessments(
+        proposition,
+        template,
+        evidence_assessments,
+        authority_registry,
+    )
     judgments = _build_judgments(family, template, decisions, assessments)
 
     if conflict_assessment is not None:
-        _authenticate_conflict(proposition, conflict_assessment)
+        _authenticate_conflict(proposition, conflict_assessment, authority_registry)
 
+    return _finalize_pretest_result(
+        proposition=proposition,
+        profile=profile,
+        judgments=judgments,
+        finalized_at=finalized_at,
+        requested_claim_type=requested_claim_type,
+        conflict_assessment=conflict_assessment,
+        method_bindings=method_bindings,
+    )
+
+
+def _finalize_pretest_result(
+    *,
+    proposition: DiagnosticProposition,
+    profile: ResolvedRequiredEvidenceProfile,
+    judgments: tuple[RequirementJudgment, ...],
+    finalized_at: datetime,
+    requested_claim_type: ClaimType,
+    conflict_assessment: EvidenceConflictAssessment | None,
+    method_bindings: tuple[AuthorityBinding, ...],
+) -> PreTestGovernanceResult:
     disposition, readiness, blocker = _derive_first_blocker(
         requested_claim_type=requested_claim_type,
         judgments=judgments,
         conflict_assessment=conflict_assessment,
-        proposed_method_refs=proposed_method_refs,
+        method_bindings=method_bindings,
     )
     bundle_fingerprint = requirement_judgment_bundle_fingerprint(judgments)
     bundle_ref = stable_content_id("reqbundle", bundle_fingerprint)
@@ -310,6 +436,29 @@ def requirement_evidence_assessment_fingerprint(
     return canonical_json_fingerprint(payload)
 
 
+def pretest_authority_registry_fingerprint(
+    registry: PreTestAuthorityRegistry | Mapping[str, Any],
+) -> str:
+    data = _data(registry)
+    authorities = sorted(
+        (_json(item) for item in data["authorities"]),
+        key=lambda item: (
+            item["authority_class"],
+            item["binding"]["authority_ref"],
+        ),
+    )
+    return canonical_json_fingerprint(
+        {
+            "registry_id": data.get(
+                "registry_id",
+                "commerce_lens_r6_pretest_authorities",
+            ),
+            "registry_version": data.get("registry_version", GOVERNANCE_VERSION),
+            "authorities": authorities,
+        }
+    )
+
+
 def evidence_conflict_assessment_fingerprint(
     assessment: EvidenceConflictAssessment | Mapping[str, Any],
 ) -> str:
@@ -335,6 +484,26 @@ def requirement_judgment_bundle_fingerprint(
     return canonical_json_fingerprint(payload)
 
 
+def _authenticate_authority_registry(registry: PreTestAuthorityRegistry) -> None:
+    try:
+        authenticated = PreTestAuthorityRegistry.model_validate(
+            registry.model_dump(mode="python")
+        )
+    except ValueError as exc:
+        raise GovernanceAuthenticationError(
+            "authority_registry_authentication_failed",
+            "R6 pre-test authority registry is invalid or tampered",
+        ) from exc
+    if (
+        authenticated.registry_id != "commerce_lens_r6_pretest_authorities"
+        or authenticated.registry_version != GOVERNANCE_VERSION
+    ):
+        raise GovernanceAuthenticationError(
+            "stale_or_untrusted_authority_registry",
+            "R6 pre-test authority registry identity or version is not current",
+        )
+
+
 def _authenticate_proposition(proposition: DiagnosticProposition) -> DiagnosticProposition:
     try:
         authenticated = DiagnosticProposition.model_validate(proposition.model_dump(mode="python"))
@@ -353,6 +522,50 @@ def _authenticate_proposition(proposition: DiagnosticProposition) -> DiagnosticP
             "DiagnosticProposition authority bindings must be unique",
         )
     return authenticated
+
+
+def _authenticate_proposition_context(
+    proposition: DiagnosticProposition,
+    family: HypothesisFamilyDefinition,
+    registry: PreTestAuthorityRegistry,
+) -> None:
+    for binding in proposition.authority_bindings:
+        registered = registry.authenticate_binding(AuthorityClass.INTENDED_USE, binding)
+        if proposition.intended_use not in registered.intended_uses:
+            raise GovernanceAuthenticationError(
+                "intended_use_authority_mismatch",
+                f"authority does not approve {proposition.intended_use} intended use",
+            )
+        _require_authority_subjects(registered, {proposition.proposition_id})
+    context_refs = {
+        AuthorityClass.SCOPE: (proposition.scope_ref,),
+        AuthorityClass.PERIOD: (
+            proposition.baseline_period_ref,
+            proposition.comparison_period_ref,
+        ),
+        AuthorityClass.POPULATION: (
+            proposition.baseline_population_ref,
+            proposition.comparison_population_ref,
+        ),
+        AuthorityClass.VARIABLE: proposition.variable_refs,
+        AuthorityClass.SOURCE_REFERENCE: (
+            *proposition.source_observation_refs,
+            *proposition.source_mechanical_result_refs,
+        ),
+    }
+    for authority_class, references in context_refs.items():
+        for reference in references:
+            registered = registry.require_reference(authority_class, reference)
+            if (
+                authority_class in {AuthorityClass.VARIABLE, AuthorityClass.SOURCE_REFERENCE}
+                and registered.dependency_classification is not None
+                and registered.dependency_classification not in family.dependency_classifications
+            ):
+                raise GovernanceAuthenticationError(
+                    "source_class_mismatch",
+                    f"{authority_class.value} authority class mismatches family: {reference}",
+                )
+    _authenticated_metric_ids(proposition.metric_refs)
 
 
 def _authenticate_family_and_template(
@@ -480,11 +693,78 @@ def _authenticate_exact_binding(
     )
 
 
+def _claim_restricted_slot_bindings(
+    proposition: DiagnosticProposition,
+    candidate: CandidateProposal,
+    required_slots: tuple[str, ...],
+) -> tuple[SlotBinding, ...]:
+    """Bind only authenticated proposition semantics after the step-one short circuit."""
+
+    candidate_values = {item.slot: item.value for item in candidate.structured_slot_values}
+    exact_values: dict[str, Any] = {
+        "outcome_ref": proposition.outcome_ref,
+        "baseline_period_ref": proposition.baseline_period_ref,
+        "comparison_period_ref": proposition.comparison_period_ref,
+        "baseline_population_ref": proposition.baseline_population_ref,
+        "comparison_population_ref": proposition.comparison_population_ref,
+        "scope_ref": proposition.scope_ref,
+        "source_observation_refs": proposition.source_observation_refs,
+    }
+    authority_refs = tuple(binding.authority_ref for binding in proposition.authority_bindings)
+    for slot in required_slots:
+        if slot in exact_values:
+            continue
+        candidate_value = candidate_values.get(slot)
+        permitted_refs = {
+            *proposition.variable_refs,
+            *proposition.source_observation_refs,
+            *authority_refs,
+        }
+        if isinstance(candidate_value, tuple):
+            if set(str(item) for item in candidate_value).issubset(permitted_refs):
+                exact_values[slot] = candidate_value
+                continue
+        elif candidate_value is not None and str(candidate_value) in permitted_refs:
+            exact_values[slot] = candidate_value
+            continue
+        if slot == "external_evidence_dependency_ref":
+            exact_values[slot] = proposition.source_observation_refs[0]
+        elif slot == "explicit_activation_ref":
+            exact_values[slot] = authority_refs[-1]
+        else:
+            exact_values[slot] = (
+                "proposition_refs_sha256:"
+                + canonical_json_fingerprint(sorted(proposition.variable_refs))
+            )
+    return tuple(
+        SlotBinding(slot=slot, bound_ref=_slot_binding_ref(exact_values[slot]))
+        for slot in sorted(required_slots)
+    )
+
+
+def _authenticate_method_bindings(
+    supplied: tuple[AuthorityBinding, ...],
+    registry: PreTestAuthorityRegistry,
+) -> tuple[AuthorityBinding, ...]:
+    by_ref: dict[str, AuthorityBinding] = {}
+    for binding in supplied:
+        registry.authenticate_binding(AuthorityClass.METHOD, binding)
+        existing = by_ref.get(binding.authority_ref)
+        if existing is not None and existing != binding:
+            raise GovernanceAuthenticationError(
+                "conflicting_method_authority",
+                f"multiple method authorities supplied for {binding.authority_ref}",
+            )
+        by_ref[binding.authority_ref] = binding
+    return tuple(by_ref[reference] for reference in sorted(by_ref))
+
+
 def _build_profile(
     proposition: DiagnosticProposition,
     template: HypothesisFamilyRequirementTemplate,
     slot_bindings: tuple[SlotBinding, ...],
     decisions: tuple[DimensionRequirement, ...],
+    method_bindings: tuple[AuthorityBinding, ...],
 ) -> ResolvedRequiredEvidenceProfile:
     data: dict[str, Any] = {
         "profile_id": "pending",
@@ -500,7 +780,9 @@ def _build_profile(
         "dimension_applicability_decisions": decisions,
         "dependency_classifications": template.dependency_source_classifications,
         "measurement_classifications": template.measurement_classifications,
-        "method_requirement_refs": (),
+        "method_requirement_refs": tuple(
+            binding.model_dump_json() for binding in method_bindings
+        ),
         "blocking_rules": template.known_blocking_conditions,
         "qualification_rules": (),
         "narrowing_rules": (),
@@ -517,6 +799,7 @@ def _authenticate_assessments(
     proposition: DiagnosticProposition,
     template: HypothesisFamilyRequirementTemplate,
     assessments: tuple[RequirementEvidenceAssessment, ...],
+    registry: PreTestAuthorityRegistry,
 ) -> dict[str, RequirementEvidenceAssessment]:
     expected_classification = _expected_requirement_classifications(template)
     by_ref: dict[str, RequirementEvidenceAssessment] = {}
@@ -545,6 +828,55 @@ def _authenticate_assessments(
                 "source_class_mismatch",
                 f"assessment source class mismatches {assessment.requirement_ref}",
             )
+        required_subjects = {
+            proposition.proposition_id,
+            assessment.requirement_ref,
+        }
+        for binding in assessment.authority_bindings:
+            registered = registry.authenticate_binding(
+                AuthorityClass.EVIDENCE_ASSESSMENT,
+                binding,
+            )
+            _require_authority_subjects(registered, required_subjects)
+            if registered.dependency_classification is not expected:
+                raise GovernanceAuthenticationError(
+                    "source_class_mismatch",
+                    f"assessment authority source class mismatches {assessment.requirement_ref}",
+                )
+        for evidence_ref in assessment.evidence_refs:
+            registered_evidence = registry.require_reference(
+                AuthorityClass.EVIDENCE,
+                evidence_ref,
+            )
+            if registered_evidence.dependency_classification is not expected:
+                raise GovernanceAuthenticationError(
+                    "source_class_mismatch",
+                    f"evidence source class mismatches {assessment.requirement_ref}",
+                )
+        if assessment.admission_state is DiagnosticAdmissionState.DIAGNOSTIC_ADMITTED:
+            admission = registry.authenticate_binding(
+                AuthorityClass.DIAGNOSTIC_ADMISSION,
+                assessment.diagnostic_admission_authority,
+            )
+            if "diagnostic" not in admission.intended_uses:
+                raise GovernanceAuthenticationError(
+                    "diagnostic_admission_intended_use_mismatch",
+                    "diagnostic admission authority does not approve diagnostic intended use",
+                )
+            if admission.dependency_classification is not expected:
+                raise GovernanceAuthenticationError(
+                    "source_class_mismatch",
+                    f"diagnostic admission source class mismatches {assessment.requirement_ref}",
+                )
+            _require_authority_subjects(
+                admission,
+                {*required_subjects, *assessment.evidence_refs},
+            )
+        elif assessment.diagnostic_admission_authority is not None:
+            raise GovernanceAuthenticationError(
+                "diagnostic_admission_state_mismatch",
+                "diagnostic admission authority cannot accompany a non-admitted state",
+            )
         if expected is DependencyClassification.EXTERNAL:
             permitted = {
                 EvidenceOrigin.GOVERNED_EXTERNAL,
@@ -564,6 +896,19 @@ def _authenticate_assessments(
             )
         by_ref[assessment.requirement_ref] = assessment
     return by_ref
+
+
+def _require_authority_subjects(
+    authority: RegisteredAuthority,
+    required_subjects: set[str],
+) -> None:
+    missing = required_subjects - set(authority.subject_refs)
+    if missing:
+        raise GovernanceAuthenticationError(
+            "authority_subject_substitution",
+            "authority does not bind exact governed subject(s): "
+            + ", ".join(sorted(missing)),
+        )
 
 
 def _authenticate_assessment_context(
@@ -641,7 +986,6 @@ def _build_judgments(
         assessment = assessments.get(dependency.requirement_ref)
         family_policy_blocks_satisfaction = (
             FamilyClassification.MISSING_INTERNAL_EVIDENCE_ONLY in family.classifications
-            or FamilyClassification.EXTERNAL_EVIDENCE_REQUIRED in family.classifications
         )
         if (
             family_policy_blocks_satisfaction
@@ -719,6 +1063,8 @@ def _judgment_from_assessment(
 def _assessment_outcome(
     assessment: RequirementEvidenceAssessment,
 ) -> tuple[RequirementOutcome, str]:
+    if assessment.fitness_state is EvidenceFitnessState.FAILED:
+        return RequirementOutcome.FAILED, "evidence_fitness_failed"
     if assessment.availability is EvidenceAvailability.MISSING:
         if assessment.dependency_classification is DependencyClassification.EXTERNAL:
             return RequirementOutcome.EXTERNAL_UNMET, "external_evidence_unmet"
@@ -738,8 +1084,6 @@ def _assessment_outcome(
         return RequirementOutcome.PRESENT_BUT_INADMISSIBLE, "diagnostic_evidence_inadmissible"
     if assessment.admission_state is DiagnosticAdmissionState.UNRESOLVED:
         return RequirementOutcome.UNRESOLVED, "diagnostic_admission_unresolved"
-    if assessment.fitness_state is EvidenceFitnessState.FAILED:
-        return RequirementOutcome.FAILED, "evidence_fitness_failed"
     if assessment.fitness_state is EvidenceFitnessState.UNRESOLVED:
         return RequirementOutcome.UNRESOLVED, "evidence_fitness_unresolved"
     return RequirementOutcome.SATISFIED, "authenticated_requirement_satisfied"
@@ -791,7 +1135,7 @@ def _derive_first_blocker(
     requested_claim_type: ClaimType,
     judgments: tuple[RequirementJudgment, ...],
     conflict_assessment: EvidenceConflictAssessment | None,
-    proposed_method_refs: tuple[str, ...],
+    method_bindings: tuple[AuthorityBinding, ...],
 ) -> tuple[PreTestDisposition, EvidenceReadiness, str]:
     if requested_claim_type is not ClaimType.DIAGNOSTIC:
         return (
@@ -826,7 +1170,19 @@ def _derive_first_blocker(
         RequirementOutcome.UNRESOLVED,
         RequirementOutcome.PRESENT_BUT_INADMISSIBLE,
     }
-    defective = [item for item in judgments if item.outcome in blocking_outcomes]
+    internal_outcome_precedence = {
+        RequirementOutcome.FAILED: 0,
+        RequirementOutcome.MISSING: 1,
+        RequirementOutcome.UNRESOLVED: 2,
+        RequirementOutcome.PRESENT_BUT_INADMISSIBLE: 3,
+    }
+    defective = sorted(
+        (item for item in judgments if item.outcome in blocking_outcomes),
+        key=lambda item: (
+            internal_outcome_precedence[item.outcome],
+            item.requirement_ref,
+        ),
+    )
     if defective:
         first = defective[0]
         return (
@@ -842,11 +1198,14 @@ def _derive_first_blocker(
             f"unresolved_evidence_conflict:{conflict_assessment.conflict_id}",
         )
 
-    _ = proposed_method_refs
     return (
         PreTestDisposition.HYPOTHESIS_ONLY,
         EvidenceReadiness.READY_FOR_TEST,
-        "method_authority_unavailable",
+        (
+            "method_execution_authority_unavailable"
+            if method_bindings
+            else "method_authority_unavailable"
+        ),
     )
 
 
@@ -925,11 +1284,17 @@ def _authenticated_metric_ids(metric_refs: tuple[str, ...]) -> tuple[str, ...]:
     registry = get_metric_registry()
     ids: list[str] = []
     for reference in metric_refs:
-        if not reference.startswith("metric:"):
+        if not reference.startswith("metric:") or "@" not in reference:
             raise GovernanceAuthenticationError("metric_mismatch", f"invalid governed Metric reference: {reference}")
-        metric_id = reference.removeprefix("metric:").split("@", maxsplit=1)[0]
-        if registry.get(metric_id) is None:
+        metric_id, version = reference.removeprefix("metric:").split("@", maxsplit=1)
+        definition = registry.get(metric_id)
+        if definition is None:
             raise GovernanceAuthenticationError("metric_mismatch", f"unknown governed Metric: {metric_id}")
+        if version != definition.definition_version:
+            raise GovernanceAuthenticationError(
+                "stale_metric_authority",
+                f"Metric definition version is not current for {metric_id}: {version}",
+            )
         ids.append(metric_id)
     return tuple(sorted(ids))
 
@@ -937,6 +1302,7 @@ def _authenticated_metric_ids(metric_refs: tuple[str, ...]) -> tuple[str, ...]:
 def _authenticate_conflict(
     proposition: DiagnosticProposition,
     supplied: EvidenceConflictAssessment,
+    registry: PreTestAuthorityRegistry,
 ) -> None:
     try:
         assessment = EvidenceConflictAssessment.model_validate(supplied.model_dump(mode="python"))
@@ -953,6 +1319,17 @@ def _authenticate_conflict(
             "proposition_authority_mismatch",
             "evidence conflict authority does not bind the exact proposition",
         )
+    for binding in assessment.authority_bindings:
+        registered = registry.authenticate_binding(
+            AuthorityClass.EVIDENCE_CONFLICT,
+            binding,
+        )
+        _require_authority_subjects(
+            registered,
+            {proposition.proposition_id, *assessment.evidence_refs},
+        )
+    for evidence_ref in assessment.evidence_refs:
+        registry.require_reference(AuthorityClass.EVIDENCE, evidence_ref)
 
 
 def _equivalent_slot_value(actual: Any, expected: Any) -> bool:
@@ -1004,6 +1381,7 @@ def _enum(value: Any) -> Any:
 
 
 __all__ = [
+    "AuthorityClass",
     "DiagnosticAdmissionState",
     "EvidenceAvailability",
     "EvidenceConflictAssessment",
@@ -1011,10 +1389,13 @@ __all__ = [
     "EvidenceOrigin",
     "GovernanceAuthenticationError",
     "PreTestDisposition",
+    "PreTestAuthorityRegistry",
     "PreTestGovernanceResult",
+    "RegisteredAuthority",
     "RequirementEvidenceAssessment",
     "evidence_conflict_assessment_fingerprint",
     "govern_pretest",
+    "pretest_authority_registry_fingerprint",
     "requirement_evidence_assessment_fingerprint",
     "requirement_judgment_bundle_fingerprint",
     "resolve_dimension_applicability",
