@@ -54,7 +54,7 @@ def test_r6_index_uses_composite_identity_and_rejects_only_same_key_conflicts(tm
         )
 
 
-def test_metadata_store_migrates_v7_to_v8_and_preserves_existing_rows(tmp_path) -> None:
+def test_metadata_store_migrates_v7_through_v9_and_preserves_existing_rows(tmp_path) -> None:
     db_path = tmp_path / "registry.sqlite"
     store = MetadataStore(db_path)
     store.initialize()
@@ -77,7 +77,7 @@ def test_metadata_store_migrates_v7_to_v8_and_preserves_existing_rows(tmp_path) 
 
     store.initialize()
 
-    assert store.schema_version() == 8
+    assert store.schema_version() == 9
     reopened = sqlite3.connect(db_path)
     try:
         assert reopened.execute(

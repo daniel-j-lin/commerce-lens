@@ -28,13 +28,14 @@ from commerce_lens.persistence.artifact_store import ArtifactStore
 from commerce_lens.persistence.manifests import RetainedRunRecord
 
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 PHASE2_SCHEMA_VERSION = 2
 PHASE3_SCHEMA_VERSION = 3
 PHASE4_SCHEMA_VERSION = 4
 PHASE5_SCHEMA_VERSION = 5
 PHASE6_SCHEMA_VERSION = 6
 PHASE7_SCHEMA_VERSION = 7
+PHASE8_SCHEMA_VERSION = 8
 
 _PHASE1_TABLE_COLUMNS = {
     "dataset_registrations": {
@@ -219,6 +220,13 @@ _PHASE8_TABLE_COLUMNS = {
     }
 }
 
+_PHASE9_TABLE_COLUMNS = {
+    "r7_artifact_index": {
+        "artifact_type", "artifact_id", "semantic_fingerprint",
+        "artifact_reference_id", "record_json",
+    }
+}
+
 
 class R6ArtifactIndexRecord(ContractBase):
     """Non-authoritative locator for one immutable R6 domain artifact."""
@@ -227,6 +235,10 @@ class R6ArtifactIndexRecord(ContractBase):
     artifact_id: str = Field(min_length=1)
     semantic_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     artifact_reference_id: str = Field(min_length=1)
+
+
+class R7ArtifactIndexRecord(R6ArtifactIndexRecord):
+    """Non-authoritative locator for one immutable R7 domain artifact."""
 
 
 class MetadataStore:
@@ -260,6 +272,8 @@ class MetadataStore:
                 self._verify_phase7_schema(conn)
                 self._create_phase8_tables(conn)
                 self._verify_phase8_schema(conn)
+                self._create_phase9_tables(conn)
+                self._verify_phase9_schema(conn)
                 conn.execute("INSERT INTO schema_version (id, version) VALUES (1, ?)", (SCHEMA_VERSION,))
                 return
 
@@ -272,6 +286,7 @@ class MetadataStore:
                 self._migrate_v5_to_v6(conn)
                 self._migrate_v6_to_v7(conn)
                 self._migrate_v7_to_v8(conn)
+                self._migrate_v8_to_v9(conn)
                 return
             if stored_version == PHASE2_SCHEMA_VERSION:
                 self._migrate_v2_to_v3(conn)
@@ -280,6 +295,7 @@ class MetadataStore:
                 self._migrate_v5_to_v6(conn)
                 self._migrate_v6_to_v7(conn)
                 self._migrate_v7_to_v8(conn)
+                self._migrate_v8_to_v9(conn)
                 return
             if stored_version == PHASE3_SCHEMA_VERSION:
                 self._migrate_v3_to_v4(conn)
@@ -287,27 +303,35 @@ class MetadataStore:
                 self._migrate_v5_to_v6(conn)
                 self._migrate_v6_to_v7(conn)
                 self._migrate_v7_to_v8(conn)
+                self._migrate_v8_to_v9(conn)
                 return
             if stored_version == PHASE4_SCHEMA_VERSION:
                 self._migrate_v4_to_v5(conn)
                 self._migrate_v5_to_v6(conn)
                 self._migrate_v6_to_v7(conn)
                 self._migrate_v7_to_v8(conn)
+                self._migrate_v8_to_v9(conn)
                 return
             if stored_version == PHASE5_SCHEMA_VERSION:
                 self._migrate_v5_to_v6(conn)
                 self._migrate_v6_to_v7(conn)
                 self._migrate_v7_to_v8(conn)
+                self._migrate_v8_to_v9(conn)
                 return
             if stored_version == PHASE6_SCHEMA_VERSION:
                 self._migrate_v6_to_v7(conn)
                 self._migrate_v7_to_v8(conn)
+                self._migrate_v8_to_v9(conn)
                 return
             if stored_version == PHASE7_SCHEMA_VERSION:
                 self._migrate_v7_to_v8(conn)
+                self._migrate_v8_to_v9(conn)
+                return
+            if stored_version == PHASE8_SCHEMA_VERSION:
+                self._migrate_v8_to_v9(conn)
                 return
             if stored_version == SCHEMA_VERSION:
-                self._verify_phase8_schema(conn)
+                self._verify_phase9_schema(conn)
                 return
             raise RuntimeError(
                 f"metadata schema version mismatch: stored={stored_version} expected={SCHEMA_VERSION}"
@@ -443,6 +467,28 @@ class MetadataStore:
                 """
             ).fetchall()
         return [R6ArtifactIndexRecord.model_validate(json.loads(row["record_json"])) for row in rows]
+
+    def insert_r7_artifact_index(self, record: R7ArtifactIndexRecord) -> R7ArtifactIndexRecord:
+        payload = record.model_dump_json()
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO r7_artifact_index (artifact_type, artifact_id, semantic_fingerprint, artifact_reference_id, record_json) VALUES (?, ?, ?, ?, ?)",
+                (record.artifact_type, record.artifact_id, record.semantic_fingerprint, record.artifact_reference_id, payload),
+            )
+            row = conn.execute("SELECT record_json FROM r7_artifact_index WHERE artifact_type = ? AND artifact_id = ?", (record.artifact_type, record.artifact_id)).fetchone()
+            if row is None or json.loads(row["record_json"]) != json.loads(payload):
+                raise RuntimeError(f"stable R7 artifact index conflict for ({record.artifact_type}, {record.artifact_id})")
+        return record
+
+    def get_r7_artifact_index(self, artifact_type: str, artifact_id: str) -> R7ArtifactIndexRecord | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT record_json FROM r7_artifact_index WHERE artifact_type = ? AND artifact_id = ?", (artifact_type, artifact_id)).fetchone()
+        return None if row is None else R7ArtifactIndexRecord.model_validate(json.loads(row["record_json"]))
+
+    def list_r7_artifact_indexes(self) -> list[R7ArtifactIndexRecord]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT record_json FROM r7_artifact_index ORDER BY artifact_type, artifact_id").fetchall()
+        return [R7ArtifactIndexRecord.model_validate(json.loads(row["record_json"])) for row in rows]
 
     def get_dataset(self, dataset_id: str) -> DatasetReference | None:
         with self._connect() as conn:
@@ -1351,6 +1397,12 @@ class MetadataStore:
         self._verify_phase7_schema(conn)
         self._create_phase8_tables(conn)
         self._verify_phase8_schema(conn)
+        conn.execute("UPDATE schema_version SET version = ? WHERE id = 1", (PHASE8_SCHEMA_VERSION,))
+
+    def _migrate_v8_to_v9(self, conn: sqlite3.Connection) -> None:
+        self._verify_phase8_schema(conn)
+        self._create_phase9_tables(conn)
+        self._verify_phase9_schema(conn)
         conn.execute("UPDATE schema_version SET version = ? WHERE id = 1", (SCHEMA_VERSION,))
 
     def _create_phase1_tables(self, conn: sqlite3.Connection) -> None:
@@ -1585,6 +1637,20 @@ class MetadataStore:
             """
         )
 
+    def _create_phase9_tables(self, conn: sqlite3.Connection) -> None:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS r7_artifact_index (
+                artifact_type TEXT NOT NULL,
+                artifact_id TEXT NOT NULL,
+                semantic_fingerprint TEXT NOT NULL,
+                artifact_reference_id TEXT NOT NULL,
+                record_json TEXT NOT NULL,
+                PRIMARY KEY (artifact_type, artifact_id)
+            )
+            """
+        )
+
     def _verify_phase1_schema(self, conn: sqlite3.Connection) -> None:
         for table, expected_columns in _PHASE1_TABLE_COLUMNS.items():
             actual_columns = self._table_columns(conn, table)
@@ -1639,6 +1705,12 @@ class MetadataStore:
             actual_columns = self._table_columns(conn, table)
             if actual_columns != expected_columns:
                 raise RuntimeError(f"metadata schema version 8 is incompatible: {table}")
+
+    def _verify_phase9_schema(self, conn: sqlite3.Connection) -> None:
+        self._verify_phase8_schema(conn)
+        for table, expected_columns in _PHASE9_TABLE_COLUMNS.items():
+            if self._table_columns(conn, table) != expected_columns:
+                raise RuntimeError(f"metadata schema version 9 is incompatible: {table}")
 
     def _table_columns(self, conn: sqlite3.Connection, table: str) -> set[str]:
         rows = conn.execute(f"PRAGMA table_info({self._quote_literal(table)})").fetchall()

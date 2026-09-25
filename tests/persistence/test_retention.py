@@ -122,7 +122,7 @@ def test_v6_component_store_migrates_additively_to_current_metadata_schema(tmp_p
         conn.execute("UPDATE schema_version SET version = 6 WHERE id = 1")
     reopened = MetadataStore(db_path)
     reopened.initialize()
-    assert reopened.schema_version() == SCHEMA_VERSION == 8
+    assert reopened.schema_version() == SCHEMA_VERSION == 9
     assert reopened.list_retained_runs() == []
 
 
