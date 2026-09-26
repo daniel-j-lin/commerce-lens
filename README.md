@@ -8,12 +8,12 @@
 
 CommerceLens is an open-source Codex plugin for analyzing commerce data in CSV and XLSX files. It calculates revenue, order count, average order value, and absolute revenue change. It shows what the data supports and refuses explanations when the evidence is not sufficient.
 
-The installed public plugin currently supports descriptive analysis. The repository/MVP also contains product-level revenue decomposition and one product-mix diagnostic test, but those capabilities are not yet connected to the installed public plugin.
+The installed public plugin supports descriptive analysis, product-level revenue decomposition, and one bounded product-mix diagnostic test.
 
 <!-- fact: inputs=csv,xlsx -->
 <!-- fact: metrics=revenue,orders,aov,absolute-revenue-change -->
 <!-- fact: analytical-layers=descriptive,mechanical-decomposition,governed-diagnostic-testing -->
-<!-- fact: diagnostic-scope=repository-mvp-only,product_composition_association,weekly_product_presence_revenue_association@1.0.0 -->
+<!-- fact: diagnostic-scope=public-plugin,product_composition_association,weekly_product_presence_revenue_association@1.0.0 -->
 
 > CommerceLens reports only conclusions supported by the available evidence. It does not invent missing causes.
 
@@ -23,9 +23,9 @@ The installed public plugin currently supports descriptive analysis. The reposit
 
 > **Question:** Why did revenue decline from Q3 to Q4?
 >
-> **Current public-plugin response:** Revenue declined by 18%. The data is sufficient to calculate the revenue change, but not sufficient to test why it happened. CommerceLens therefore does not provide a cause.
+> **Current public-plugin response:** Revenue declined by 18%. When the file has enough complete weekly evidence, CommerceLens can test whether larger product-mix changes are consistently related to lower weekly revenue. A supported result is one possible explanation, not proof of cause.
 
-The installed plugin can answer what changed. It cannot yet run the repository's product-mix test or return a positive why-explanation.
+The installed plugin can answer what changed and run the approved product-mix test when the evidence requirements are met.
 
 ### Why this is different from generic AI file analysis
 
@@ -39,12 +39,12 @@ When evidence is missing or cannot be checked, CommerceLens says so instead of g
 |---|---|
 | Calculate revenue, count orders, calculate average order value (AOV), and compare absolute revenue change | Available in the installed public plugin |
 | Read CSV/XLSX files and use a confirmed non-standard column mapping | Available in the installed public plugin |
-| Break down how product-level changes contribute to the observed revenue change | Repository/MVP only; not yet connected to the installed public plugin |
-| Suggest testable possible explanations based on the data | Repository/MVP only; not yet connected to the installed public plugin |
-| When enough evidence is available, test whether product-mix changes are consistently related to lower revenue | Repository/MVP only; not yet connected to the installed public plugin |
-| When supported by the data, explain which possible reason currently has evidence behind it | Repository/MVP only; not yet connected to the installed public plugin |
+| Break down how product-level changes contribute to the observed revenue change | Available in the installed public plugin |
+| Suggest testable possible explanations based on the data | Available in the installed public plugin for the supported product-mix family |
+| When enough evidence is available, test whether product-mix changes are consistently related to lower revenue | Available in the installed public plugin |
+| When supported by the data, explain which possible reason currently has evidence behind it | Available in the installed public plugin with explicit non-causal limits |
 
-<!-- fact: public-plugin=revenue,orders,aov,absolute-revenue-change,csv,xlsx,confirmed-mapping -->
+<!-- fact: public-plugin=revenue,orders,aov,absolute-revenue-change,csv,xlsx,confirmed-mapping,mechanical-product-revenue-decomposition,governed-hypothesis-generation,one-product-composition-diagnostic,bounded-why-explanation -->
 <!-- fact: repository-mvp=mechanical-product-revenue-decomposition,governed-hypothesis-generation,one-product-composition-diagnostic,bounded-why-explanation -->
 <!-- fact: unavailable=causal,primary-or-sole-cause,general-root-cause,discount-diagnostic,inventory-diagnostic,external-market-diagnostic,forecasting,prescriptive,statistical-significance -->
 
@@ -79,9 +79,9 @@ codex plugin list
 
 Start a fresh Codex session, provide a CSV or XLSX file, and ask a descriptive question such as: “How did revenue change from Q3 2026 to Q4 2026?” CommerceLens asks for column-mapping or completeness details when needed, then calculates and validates the supported metric. See [Public usage](docs/USAGE.md).
 
-### How the repository/MVP diagnostic workflow works
+### How the public diagnostic workflow works
 
-The diagnostic workflow below exists in the repository but is not yet available to a normal installed-plugin user.
+The installed plugin uses the workflow below for the supported product-mix diagnostic.
 
 ```text
 Business question
@@ -135,10 +135,10 @@ Technical note: the repository method is `weekly_product_presence_revenue_associ
 
 ### Reliability, data safety, and limitations
 
-- Only one product-mix diagnostic method is implemented in the repository/MVP.
+- Only one product-mix diagnostic method is available in the installed public plugin.
 - The result is an observed relationship, not causal proof, a primary-cause determination, or a statistical-significance claim.
 - The diagnostic method needs enough valid full weeks. It can be inconclusive when there are too few observations, product mix does not vary, revenue performance does not vary, or the correlation is undefined.
-- The installed public plugin is narrower than the repository/MVP and currently refuses positive diagnostic explanations.
+- The installed public plugin returns only the bounded product-mix explanation supported by the authenticated result.
 - External validation is not established. Public examples and fixtures are synthetic.
 - User-confirmed source completeness is recorded as `USER_DECLARED`; it is not independent verification.
 
@@ -156,10 +156,10 @@ A retained bundle reports `retained_complete` only after its integrity checks an
 
 ### Release status and technical documentation
 
-<!-- fact: release=v0.3.0,public,tag-v0.3.0 -->
+<!-- fact: release=v0.3.1,public,tag-v0.3.1 -->
 <!-- fact: validation=p00-pass-internal,p01-not-run,p15-not-pass -->
 
-- Current version and Git tag: `v0.3.0`. The GitHub release is public.
+- Current version and Git tag: `v0.3.1`. The GitHub release is public.
 - P00: **PASS** — internal expert rehearsal with 0 external participants.
 - P01 external first-user pilot: **NOT RUN**. P15: **NOT PASS**.
 
@@ -169,7 +169,8 @@ P00 is internal rehearsal evidence only. It is not external validation, usabilit
 - [Development notes](docs/DEVELOPMENT.md)
 - [Public examples](examples/public_v0_1/README.md)
 - [R7 method authority](decisions/R7-001-first-diagnostic-method-authority.md)
-- [v0.3.0 release notes](release-notes/v0.3.0.md)
+- [v0.3.1 release notes](release-notes/v0.3.1.md)
+- [v0.3.0 historical release notes](release-notes/v0.3.0.md)
 - [v0.2.0 historical release notes](release-notes/v0.2.0.md)
 - [MIT License](LICENSE)
 
@@ -183,12 +184,12 @@ The frozen specifications remain authoritative. This README explains the current
 
 CommerceLens 是一套開源 Codex 外掛程式，可分析 CSV 與 XLSX 格式的電商資料。它能計算營收、訂單數、平均客單價，以及兩個期間之間的絕對營收變化。系統只說明目前資料能支持的結論；證據不足時，不會猜測原因。
 
-目前安裝後的公開外掛程式支援描述性分析。repository/MVP 另有產品層級的營收數值分解，以及一項產品組合診斷測試，但這些功能尚未接到安裝後的公開外掛程式。
+目前安裝後的公開外掛程式支援描述性分析、產品層級營收數值分解，以及一項有明確範圍限制的產品組合診斷測試。
 
 <!-- fact: inputs=csv,xlsx -->
 <!-- fact: metrics=revenue,orders,aov,absolute-revenue-change -->
 <!-- fact: analytical-layers=descriptive,mechanical-decomposition,governed-diagnostic-testing -->
-<!-- fact: diagnostic-scope=repository-mvp-only,product_composition_association,weekly_product_presence_revenue_association@1.0.0 -->
+<!-- fact: diagnostic-scope=public-plugin,product_composition_association,weekly_product_presence_revenue_association@1.0.0 -->
 
 > CommerceLens 只回報現有證據支持的結論，不會編造缺少的原因。
 
@@ -198,9 +199,9 @@ CommerceLens 是一套開源 Codex 外掛程式，可分析 CSV 與 XLSX 格式�
 
 > **問題：** 為什麼營收從第三季到第四季下降？
 >
-> **目前公開外掛程式的回答：** 營收下降了 18%。現有資料足以計算營收變化，但不足以檢查下降原因。因此，CommerceLens 不會提供原因判定。
+> **目前公開外掛程式的回答：** 營收下降了 18%。如果檔案包含足夠且完整的每週證據，CommerceLens 可以檢查產品組合變化較大的週是否持續伴隨較低營收。達到支持門檻只代表可能原因之一，不是因果證明。
 
-安裝後的公開外掛程式可以回答「發生了什麼變化」，但目前還不能執行 repository 中的產品組合測試，也不能提供正向的原因解釋。
+安裝後的公開外掛程式可以回答「發生了什麼變化」，並在證據要求滿足時執行已核准的產品組合測試。
 
 ### 與一般 AI 檔案分析有什麼不同？
 
@@ -214,12 +215,12 @@ CommerceLens 會用固定、可重現的方式計算重要數字，並另外驗�
 |---|---|
 | 計算營收、訂單數、平均客單價（AOV），以及比較絕對營收變化 | 安裝後的公開外掛程式可用 |
 | 讀取 CSV/XLSX 檔案，並使用經確認的非標準欄位對應 | 安裝後的公開外掛程式可用 |
-| 適用時，分解不同產品對營收變化的數值影響 | Repository/MVP；尚未接到安裝後的公開外掛程式 |
-| 根據資料提出可檢查的可能原因 | Repository/MVP；尚未接到安裝後的公開外掛程式 |
-| 證據足夠時，檢查產品組合變化是否與營收下降存在穩定關聯 | Repository/MVP；尚未接到安裝後的公開外掛程式 |
-| 在資料足夠時，說明目前有哪些可能原因受到資料支持 | Repository/MVP；尚未接到安裝後的公開外掛程式 |
+| 適用時，分解不同產品對營收變化的數值影響 | 安裝後的公開外掛程式可用 |
+| 根據資料提出可檢查的可能原因 | 安裝後的公開外掛程式可用，但只限支援的產品組合類型 |
+| 證據足夠時，檢查產品組合變化是否與營收下降存在穩定關聯 | 安裝後的公開外掛程式可用 |
+| 在資料足夠時，說明目前有哪些可能原因受到資料支持 | 安裝後的公開外掛程式可用，並會清楚說明非因果限制 |
 
-<!-- fact: public-plugin=revenue,orders,aov,absolute-revenue-change,csv,xlsx,confirmed-mapping -->
+<!-- fact: public-plugin=revenue,orders,aov,absolute-revenue-change,csv,xlsx,confirmed-mapping,mechanical-product-revenue-decomposition,governed-hypothesis-generation,one-product-composition-diagnostic,bounded-why-explanation -->
 <!-- fact: repository-mvp=mechanical-product-revenue-decomposition,governed-hypothesis-generation,one-product-composition-diagnostic,bounded-why-explanation -->
 <!-- fact: unavailable=causal,primary-or-sole-cause,general-root-cause,discount-diagnostic,inventory-diagnostic,external-market-diagnostic,forecasting,prescriptive,statistical-significance -->
 
@@ -254,9 +255,9 @@ codex plugin list
 
 重新開啟 Codex 工作階段，提供 CSV 或 XLSX 檔案，並提出描述性問題，例如：「2026 年第三季到第四季的營收變化是多少？」如果需要，CommerceLens 會詢問欄位對應或資料完整性，再計算並驗證支援的指標。請參閱[公開使用說明](docs/USAGE.md)。
 
-### repository/MVP 的診斷流程
+### 公開外掛程式的診斷流程
 
-下列診斷流程已存在於 repository，但一般安裝使用者目前還不能透過公開外掛程式使用。
+安裝後的公開外掛程式會以以下流程執行支援的產品組合診斷。
 
 ```text
 商務問題
@@ -310,10 +311,10 @@ CommerceLens 會比較每週實際賣出的產品，和基準期間常見的產�
 
 ### 可靠性、資料安全與限制
 
-- repository/MVP 目前只實作一項產品組合診斷方法。
+- 安裝後的公開外掛程式目前只提供一項產品組合診斷方法。
 - 結果只表示觀察到的關聯，不是因果證明、主要原因判定或統計顯著性主張。
 - 診斷方法需要足夠的有效完整週。如果週數不足、產品組合沒有變化、營收表現沒有變化，或無法計算相關係數，結果可能無法判定。
-- 安裝後的公開外掛程式範圍比 repository/MVP 窄，目前會拒絕正向診斷解釋。
+- 安裝後的公開外掛程式只會回傳經驗證結果支持、且有明確範圍限制的產品組合解釋。
 - 尚未完成外部驗證；公開範例與測試資料都是合成資料。
 - 使用者確認的來源完整性會記錄為 `USER_DECLARED`，不代表已經過獨立驗證。
 
@@ -331,10 +332,10 @@ python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root 
 
 ### 發布狀態與技術文件
 
-<!-- fact: release=v0.3.0,public,tag-v0.3.0 -->
+<!-- fact: release=v0.3.1,public,tag-v0.3.1 -->
 <!-- fact: validation=p00-pass-internal,p01-not-run,p15-not-pass -->
 
-- 目前版本與 Git 標籤：`v0.3.0`。GitHub release 已公開。
+- 目前版本與 Git 標籤：`v0.3.1`。GitHub release 已公開。
 - P00：**PASS**——內部專家演練，外部參與者為 0。
 - P01 外部首批使用者測試：**NOT RUN**。P15：**NOT PASS**。
 
@@ -344,7 +345,8 @@ P00 只是內部演練證據，不是外部驗證、易用性證明或正式環�
 - [開發說明](docs/DEVELOPMENT.md)
 - [公開範例](examples/public_v0_1/README.md)
 - [R7 方法技術依據](decisions/R7-001-first-diagnostic-method-authority.md)
-- [v0.3.0 發布說明](release-notes/v0.3.0.md)
+- [v0.3.1 發布說明](release-notes/v0.3.1.md)
+- [v0.3.0 歷史發布說明](release-notes/v0.3.0.md)
 - [v0.2.0 歷史發布說明](release-notes/v0.2.0.md)
 - [MIT 授權條款](LICENSE)
 
@@ -358,12 +360,12 @@ P00 只是內部演練證據，不是外部驗證、易用性證明或正式環�
 
 CommerceLens 是一款开源 Codex 插件，可分析 CSV 和 XLSX 格式的电商数据。它能计算营收、订单数、平均客单价，以及两个期间之间的绝对营收变化。系统只说明当前数据能够支持的结论；证据不足时，不会猜测原因。
 
-目前安装后的公开插件支持描述性分析。repository/MVP 还包含产品级营收数值分解和一项产品组合诊断测试，但这些功能尚未接入安装后的公开插件。
+目前安装后的公开插件支持描述性分析、产品级营收数值分解，以及一项有明确范围限制的产品组合诊断测试。
 
 <!-- fact: inputs=csv,xlsx -->
 <!-- fact: metrics=revenue,orders,aov,absolute-revenue-change -->
 <!-- fact: analytical-layers=descriptive,mechanical-decomposition,governed-diagnostic-testing -->
-<!-- fact: diagnostic-scope=repository-mvp-only,product_composition_association,weekly_product_presence_revenue_association@1.0.0 -->
+<!-- fact: diagnostic-scope=public-plugin,product_composition_association,weekly_product_presence_revenue_association@1.0.0 -->
 
 > CommerceLens 只报告现有证据支持的结论，不会编造缺少的原因。
 
@@ -373,9 +375,9 @@ CommerceLens 是一款开源 Codex 插件，可分析 CSV 和 XLSX 格式的电�
 
 > **问题：** 为什么营收从第三季度到第四季度下降？
 >
-> **当前公开插件的回答：** 营收下降了 18%。现有数据足以计算营收变化，但不足以检查下降原因。因此，CommerceLens 不会提供原因判断。
+> **当前公开插件的回答：** 营收下降了 18%。如果文件包含足够且完整的每周证据，CommerceLens 可以检查产品组合变化较大的周是否持续伴随较低营收。达到支持门槛只代表可能原因之一，不是因果证明。
 
-安装后的公开插件可以回答“发生了什么变化”，但目前还不能运行 repository 中的产品组合测试，也不能提供正向的原因解释。
+安装后的公开插件可以回答“发生了什么变化”，并在证据要求满足时运行已经批准的产品组合测试。
 
 ### 与一般 AI 文件分析有什么不同？
 
@@ -389,12 +391,12 @@ CommerceLens 会用固定、可复现的方式计算重要数字，并单独验�
 |---|---|
 | 计算营收、订单数、平均客单价（AOV），以及比较绝对营收变化 | 安装后的公开插件可用 |
 | 读取 CSV/XLSX 文件，并使用经过确认的非标准字段对应关系 | 安装后的公开插件可用 |
-| 适用时，分解不同产品对营收变化的数值影响 | Repository/MVP；尚未接入安装后的公开插件 |
-| 根据数据提出可以检查的可能原因 | Repository/MVP；尚未接入安装后的公开插件 |
-| 证据足够时，检查产品组合变化是否与营收下降存在稳定关联 | Repository/MVP；尚未接入安装后的公开插件 |
-| 在数据足够时，说明目前有哪些可能原因得到数据支持 | Repository/MVP；尚未接入安装后的公开插件 |
+| 适用时，分解不同产品对营收变化的数值影响 | 安装后的公开插件可用 |
+| 根据数据提出可以检查的可能原因 | 安装后的公开插件可用，但仅限支持的产品组合类型 |
+| 证据足够时，检查产品组合变化是否与营收下降存在稳定关联 | 安装后的公开插件可用 |
+| 在数据足够时，说明目前有哪些可能原因得到数据支持 | 安装后的公开插件可用，并会明确说明非因果限制 |
 
-<!-- fact: public-plugin=revenue,orders,aov,absolute-revenue-change,csv,xlsx,confirmed-mapping -->
+<!-- fact: public-plugin=revenue,orders,aov,absolute-revenue-change,csv,xlsx,confirmed-mapping,mechanical-product-revenue-decomposition,governed-hypothesis-generation,one-product-composition-diagnostic,bounded-why-explanation -->
 <!-- fact: repository-mvp=mechanical-product-revenue-decomposition,governed-hypothesis-generation,one-product-composition-diagnostic,bounded-why-explanation -->
 <!-- fact: unavailable=causal,primary-or-sole-cause,general-root-cause,discount-diagnostic,inventory-diagnostic,external-market-diagnostic,forecasting,prescriptive,statistical-significance -->
 
@@ -429,9 +431,9 @@ codex plugin list
 
 重新启动 Codex 会话，提供 CSV 或 XLSX 文件，并提出描述性问题，例如：“2026 年第三季度到第四季度的营收变化是多少？”如果需要，CommerceLens 会询问字段对应关系或数据完整性，再计算并验证支持的指标。请参阅[公开使用说明](docs/USAGE.md)。
 
-### repository/MVP 的诊断流程
+### 公开插件的诊断流程
 
-以下诊断流程已经存在于 repository，但普通安装用户目前还不能通过公开插件使用。
+安装后的公开插件会按以下流程运行支持的产品组合诊断。
 
 ```text
 业务问题
@@ -485,10 +487,10 @@ CommerceLens 会比较每周实际卖出的产品，与基准期间常见的产�
 
 ### 可靠性、数据安全和限制
 
-- repository/MVP 目前只实现一项产品组合诊断方法。
+- 安装后的公开插件目前只提供一项产品组合诊断方法。
 - 结果只表示观察到的关联，不是因果证明、主要原因判断或统计显著性声明。
 - 诊断方法需要足够的有效完整周。如果周数不足、产品组合没有变化、营收表现没有变化，或无法计算相关系数，结果可能无法判断。
-- 安装后的公开插件范围比 repository/MVP 窄，目前会拒绝正向诊断解释。
+- 安装后的公开插件只会返回经过验证的结果所支持、且有明确范围限制的产品组合解释。
 - 尚未完成外部验证；公开示例和测试数据都是合成数据。
 - 用户确认的来源完整性会记录为 `USER_DECLARED`，不代表已经过独立验证。
 
@@ -506,10 +508,10 @@ python3.11 skills/commerce-lens/scripts/run_public_analysis.py --retention-root 
 
 ### 发布状态和技术文档
 
-<!-- fact: release=v0.3.0,public,tag-v0.3.0 -->
+<!-- fact: release=v0.3.1,public,tag-v0.3.1 -->
 <!-- fact: validation=p00-pass-internal,p01-not-run,p15-not-pass -->
 
-- 当前版本和 Git 标签：`v0.3.0`。GitHub release 已公开。
+- 当前版本和 Git 标签：`v0.3.1`。GitHub release 已公开。
 - P00：**PASS**——内部专家演练，外部参与者为 0。
 - P01 外部首批用户测试：**NOT RUN**。P15：**NOT PASS**。
 
@@ -519,7 +521,8 @@ P00 只是内部演练证据，不是外部验证、易用性证明或正式环�
 - [开发说明](docs/DEVELOPMENT.md)
 - [公开示例](examples/public_v0_1/README.md)
 - [R7 方法技术依据](decisions/R7-001-first-diagnostic-method-authority.md)
-- [v0.3.0 发布说明](release-notes/v0.3.0.md)
+- [v0.3.1 发布说明](release-notes/v0.3.1.md)
+- [v0.3.0 历史发布说明](release-notes/v0.3.0.md)
 - [v0.2.0 历史发布说明](release-notes/v0.2.0.md)
 - [MIT 许可证](LICENSE)
 

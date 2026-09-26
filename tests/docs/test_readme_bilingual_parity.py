@@ -95,10 +95,10 @@ def test_links_release_note_and_versions_resolve() -> None:
         if target.startswith(("#", "http://", "https://")):
             continue
         assert (ROOT / target.split("#", 1)[0]).exists(), target
-    assert (ROOT / "release-notes/v0.3.0.md").exists()
-    assert 'version = "0.3.0"' in (ROOT / "pyproject.toml").read_text()
-    assert '__version__ = "0.3.0"' in (ROOT / "src/commerce_lens/__init__.py").read_text()
-    assert json.loads((ROOT / ".codex-plugin/plugin.json").read_text())["version"] == "0.3.0"
+    assert (ROOT / "release-notes/v0.3.1.md").exists()
+    assert 'version = "0.3.1"' in (ROOT / "pyproject.toml").read_text()
+    assert '__version__ = "0.3.1"' in (ROOT / "src/commerce_lens/__init__.py").read_text()
+    assert json.loads((ROOT / ".codex-plugin/plugin.json").read_text())["version"] == "0.3.1"
 
 
 def test_three_flow_assets_are_valid_and_share_topology() -> None:

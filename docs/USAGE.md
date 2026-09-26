@@ -1,7 +1,7 @@
 # CommerceLens Public Usage
 
 This document keeps operational details out of the main README while preserving
-the current CommerceLens v0.3.0 usage surface while preserving the Public v0.1
+the current CommerceLens v0.3.1 usage surface while preserving the Public v0.1
 analytical contract.
 
 ## Install The Codex Plugin
@@ -62,14 +62,20 @@ Why did revenue drop from Q3 2026 to Q4 2026?
 What was AOV in Q4 2026?
 ```
 
-CommerceLens v0.3.0 supports:
+CommerceLens v0.3.1 supports:
 
 - single-period Revenue;
 - single-period Orders;
 - single-period AOV;
 - Revenue Change between two explicitly governed comparable periods.
+- the bounded `product_composition_association` diagnostic for Revenue decline,
+  using `weekly_product_presence_revenue_association@1.0.0` when the governed
+  evidence and full-week requirements are met.
 
-Grouping is `NONE`. Positive material claims are descriptive only.
+Grouping is `NONE`. Positive material claims remain descriptive. A validated
+diagnostic outcome is rendered only as a bounded non-causal possible
+explanation; it is not a `ClaimDecision`, sole/primary-cause finding,
+statistical-significance claim, confidence score, or recommendation.
 
 ## Revenue Meaning
 
@@ -121,7 +127,7 @@ confirmation and deterministic validation.
 ## Deterministic Runner
 
 CommerceLens does not expose a standalone `commerce-lens` shell CLI or hosted
-API in CommerceLens v0.3.0. The repository includes a deterministic runner script used
+API in CommerceLens v0.3.1. The repository includes a deterministic runner script used
 by the Skill and developer verification.
 
 The default is temporary: without `--retention-root`, isolated stores are
@@ -181,6 +187,14 @@ python3.11 skills/commerce-lens/scripts/run_public_analysis.py \
 The runner translates already-interpreted structured arguments into
 `PublicAnalysisIntent`, `PublicSourceSelection`, and `run_public_analysis(...)`.
 It does not independently calculate Revenue, Orders, AOV, or Revenue Change.
+
+For the supported diagnostic, use `--question-class diagnostic_revenue_drop`,
+`--metric revenue_change`, and optionally
+`--diagnostic-family product_composition_association`. The runner preserves the
+descriptive Revenue Change answer, calls the governed R6 and R7 services, and
+renders only the independently validated and recursively authenticated terminal
+result. Missing `product_id`, incomplete weekly evidence, non-eligible R6
+handoffs, unsupported families, or failed lineage authentication fail closed.
 
 ## Date And Money Formats
 

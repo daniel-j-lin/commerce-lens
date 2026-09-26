@@ -1,6 +1,6 @@
 ---
 name: commerce-lens
-description: "Evidence-governed commerce and e-commerce analytics for supported Public v0.1 structured-data questions over CSV/XLSX files, including Revenue, Orders, AOV, and absolute Revenue Change."
+description: "Evidence-governed commerce and e-commerce analytics for supported Public v0.1 CSV/XLSX questions, including Revenue, Orders, AOV, absolute Revenue Change, and one bounded product-mix diagnostic."
 ---
 
 # CommerceLens Public v0.1 Skill
@@ -22,7 +22,12 @@ The Skill may decide what to ask. It must not decide what is true.
 6. Bind `ClaimCandidate` authority only from exact `AnalysisResult` references
    and persisted kernel authority.
 7. Invoke `evaluate_claim(...)` for every material supported public Claim.
-8. Render only the Public Response Projection.
+8. For `diagnostic_revenue_drop`, request only
+   `product_composition_association`, require production R6
+   `ELIGIBLE_NOT_EXECUTED`, then invoke the existing R7 service.
+9. Consume only the independently validated and recursively authenticated R7
+   terminal lineage.
+10. Render only the Public Response Projection.
 
 ## Supported Public v0.1 Questions
 
@@ -38,7 +43,9 @@ Supported analytical classes are exactly:
 - single governed-period Revenue;
 - single governed-period Orders;
 - single governed-period AOV; and
-- Revenue Change between two explicitly governed comparable periods.
+- Revenue Change between two explicitly governed comparable periods; and
+- the bounded `product_composition_association` test for a Revenue decline,
+  using only `weekly_product_presence_revenue_association@1.0.0`.
 
 Grouping is `NONE`.
 
@@ -78,10 +85,11 @@ Map supported user requests as follows:
   baseline/comparison periods, and a descriptive Claim intent.
 - "Why did revenue drop from Q3 2026 to Q4 2026?" maps to
   `question-class=diagnostic_revenue_drop`, `metric=revenue_change`, explicit
-  governed baseline/comparison periods, one descriptive Claim intent, and one
-  diagnostic Claim intent. The descriptive Revenue Change may be shown only if
-  permitted by CommerceLens authority. The diagnostic explanation must be
-  refused under Public v0.1.
+  governed baseline/comparison periods,
+  `diagnostic-family=product_composition_association`, and one descriptive Claim
+  intent. The descriptive Revenue Change may be shown only if permitted by
+  CommerceLens authority. The diagnostic outcome may be shown only from the
+  authenticated R7 terminal lineage and remains non-causal.
 
 If the user has not provided a source file, source type, selected XLSX sheet
 when needed, or explicit governed periods, ask for clarification. Unsupported
@@ -313,21 +321,18 @@ deterministic CommerceLens engine.
 Material Metric values must come from the deterministic runner. The Skill must
 not calculate Revenue, Orders, AOV, Revenue Change, or any derivative value.
 
-Diagnostic, causal, predictive, and prescriptive claims remain fail-closed
-under Public v0.1. Unsupported requests must not be approximated.
+Diagnostic `ClaimDecision` promotion, causal, predictive, and prescriptive
+claims remain fail-closed under Public v0.1. The one supported R7 analytical
+outcome is not a Claim or Finding. Unsupported requests must not be approximated.
 
 For questions such as "Why did revenue drop from Q3 2026 to Q4 2026?", keep
-the supported descriptive Revenue Change proposition separate from the
-unsupported diagnostic proposition. The descriptive portion may proceed through
-`run_analysis(...)` and `evaluate_claim(...)`. The diagnostic portion must be
-submitted only as an unsupported Claim intent and rendered as refused if the
-ClaimDecision is inadmissible.
-
-Use this exact bounded refusal where applicable:
-
-Insufficient evidence to conclude why Revenue declined.
-
-Do not list speculative causes.
+the supported descriptive Revenue Change Claim separate from the R7 analytical
+outcome. The descriptive portion proceeds through `run_analysis(...)` and
+`evaluate_claim(...)`. The diagnostic portion proceeds only through production
+R6 eligibility, the approved R7 method, independent R7 validation, and complete
+lineage authentication. If R6 is not eligible or authentication fails, return
+“Insufficient evidence to conclude.” and identify the exact blocker. Do not list
+speculative causes.
 
 ## Response Rendering
 
@@ -338,9 +343,18 @@ Keep Metric State, Claim State, and public support disposition distinct. AOV
 with Orders equal to zero is MetricState `UNDEFINED`, value `None`, and
 `undefined_reason` `orders_equals_zero`; this is not numeric zero.
 
-The public response may include Supported Claims / Answer, Evidence Summary,
-Metric State, Claim Status, Limitations, Unsupported Conclusions, Additional
-Evidence Needed, Clarification Required, and Blocked / Insufficient Evidence.
+The public response may include Supported Claims / Answer, bounded Diagnostic
+Analysis, Evidence Summary, Metric State, Claim Status, Limitations, Unsupported
+Conclusions, Additional Evidence Needed, Clarification Required, and Blocked /
+Insufficient Evidence.
+
+For `CRITERION_MET`, state that larger product-mix changes and lower weekly
+revenue show a consistent relationship and that product mix is one possible
+explanation under the current test. Immediately state that this does not prove
+causation or establish the only or primary reason. For `CRITERION_NOT_MET`, say
+the method did not reach its support threshold; do not say there was no effect.
+For `PROPOSITION_CONTRADICTED`, describe only the opposite direction of the
+tested relationship. For `NOT_EVALUATED`, name the exact inconclusive reason.
 
 Do not create new Metric values, formulas, Evidence, validation results,
 Findings, Alternative Explanations, or Recommendations in the response.

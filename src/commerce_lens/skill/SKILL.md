@@ -17,7 +17,12 @@ The Skill may decide what to ask. It must not decide what is true.
 6. Bind `ClaimCandidate` authority only from exact `AnalysisResult` references
    and persisted kernel authority.
 7. Invoke `evaluate_claim(...)` for every material supported public Claim.
-8. Render only the Public Response Projection.
+8. For `diagnostic_revenue_drop`, request only
+   `product_composition_association`, require production R6
+   `ELIGIBLE_NOT_EXECUTED`, then invoke the existing R7 service.
+9. Consume only the independently validated and recursively authenticated R7
+   terminal lineage.
+10. Render only the Public Response Projection.
 
 ## Supported Public v0.1 Questions
 
@@ -33,7 +38,9 @@ Supported analytical classes are exactly:
 - single governed-period Revenue;
 - single governed-period Orders;
 - single governed-period AOV; and
-- Revenue Change between two explicitly governed comparable periods.
+- Revenue Change between two explicitly governed comparable periods; and
+- the bounded `product_composition_association` test for a Revenue decline,
+  using only `weekly_product_presence_revenue_association@1.0.0`.
 
 Grouping is `NONE`.
 
@@ -63,17 +70,17 @@ Reject or refuse unsupported requests, including:
 
 - Revenue Change percentage;
 - Product or Category analysis;
-- contribution, ranking, Finding, AlternativeExplanation, or Recommendation;
-- positive Diagnostic, Causal, Predictive, or Prescriptive conclusions;
+- ranking, Finding, AlternativeExplanation, or Recommendation;
+- Diagnostic `ClaimDecision` promotion, Causal, Predictive, or Prescriptive conclusions;
 - arbitrary tabular analytics; and
 - external connectors, APIs, or web Evidence.
 
 For questions such as "Why did revenue drop from Q3 2026 to Q4 2026?", keep
-the supported descriptive Revenue Change proposition separate from the
-unsupported diagnostic proposition. The descriptive portion may proceed through
-`run_analysis(...)` and `evaluate_claim(...)`. The diagnostic portion must be
-submitted only as an unsupported Claim intent and rendered as refused if the
-ClaimDecision is inadmissible.
+the supported descriptive Revenue Change Claim separate from the R7 analytical
+outcome. The descriptive portion proceeds through `run_analysis(...)` and
+`evaluate_claim(...)`. The diagnostic portion proceeds only through production
+R6 eligibility, the approved R7 method, independent R7 validation, and complete
+lineage authentication. It is not a Claim or Finding.
 
 Retention is decided by the host before execution. When the user explicitly
 asks to retain the full evidence for later inspection, the host passes the
@@ -91,9 +98,10 @@ These operations establish persistence integrity only: retention never upgrades
 correct. Without an explicit retention request, use temporary mode and create no
 retained run.
 
-Use this exact bounded refusal where applicable:
+If R6 is not eligible or authentication fails, use this bounded refusal and
+identify the exact blocker:
 
-Insufficient evidence to conclude why Revenue declined.
+Insufficient evidence to conclude.
 
 Do not list speculative causes.
 
@@ -106,9 +114,18 @@ Keep Metric State, Claim State, and public support disposition distinct. AOV
 with Orders equal to zero is MetricState `UNDEFINED`, value `None`, and
 `undefined_reason` `orders_equals_zero`; this is not numeric zero.
 
-The public response may include Supported Claims / Answer, Evidence Summary,
-Metric State, Claim Status, Limitations, Unsupported Conclusions, Additional
-Evidence Needed, Clarification Required, and Blocked / Insufficient Evidence.
+The public response may include Supported Claims / Answer, bounded Diagnostic
+Analysis, Evidence Summary, Metric State, Claim Status, Limitations, Unsupported
+Conclusions, Additional Evidence Needed, Clarification Required, and Blocked /
+Insufficient Evidence.
+
+For `CRITERION_MET`, state that larger product-mix changes and lower weekly
+revenue show a consistent relationship and that product mix is one possible
+explanation under the current test. Immediately state that this does not prove
+causation or establish the only or primary reason. For `CRITERION_NOT_MET`, say
+the method did not reach its support threshold; do not say there was no effect.
+For `PROPOSITION_CONTRADICTED`, describe only the opposite direction of the
+tested relationship. For `NOT_EVALUATED`, name the exact inconclusive reason.
 
 Do not create new Metric values, formulas, Evidence, validation results,
 Findings, Alternative Explanations, or Recommendations in the response.

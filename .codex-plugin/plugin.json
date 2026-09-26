@@ -1,7 +1,7 @@
 {
   "name": "commerce-lens",
   "description": "Evidence-governed commerce analytics Skill for supported Public v0.1 CSV/XLSX questions.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": {
     "name": "CommerceLens"
   },
@@ -17,7 +17,7 @@
   "interface": {
     "displayName": "CommerceLens",
     "shortDescription": "Evidence-governed commerce analytics for CSV/XLSX questions.",
-    "longDescription": "CommerceLens answers supported Public v0.1 commerce analytics questions by invoking a deterministic governed runner and refusing unsupported diagnostic, causal, predictive, or prescriptive conclusions.",
+    "longDescription": "CommerceLens answers supported Public v0.1 commerce analytics questions with deterministic governed analysis, including one bounded product-mix diagnostic, while refusing unsupported causal, predictive, or prescriptive conclusions.",
     "developerName": "CommerceLens",
     "category": "Productivity",
     "capabilities": [

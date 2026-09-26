@@ -127,6 +127,7 @@ def main(argv: list[str] | None = None) -> int:
             original_question_text=args.original_question,
             result_period_role=args.result_period_role,
             claim_intents=claim_intents,
+            diagnostic_family_id=args.diagnostic_family,
         )
         if args.retention_root:
             from commerce_lens.persistence.retention import RetainedRunSession
@@ -174,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
             if retained_session is not None:
                 from commerce_lens.persistence.retention import RetentionError
                 finalized_manifest = retained_session.finalize(
-                    outcome, public_payload=payload, plugin_version="0.3.0"
+                    outcome, public_payload=payload, plugin_version="0.3.1"
                 )
                 if finalized_manifest.retention_status.value != "retained_complete":
                     raise RetentionError(
@@ -217,6 +218,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--result-period-role", choices=("baseline", "comparison"))
     parser.add_argument("--claim-type", action="append", default=["descriptive"])
     parser.add_argument("--original-question")
+    parser.add_argument(
+        "--diagnostic-family",
+        default="product_composition_association",
+        help="Diagnostic family requested by the host; only product_composition_association is supported.",
+    )
     parser.add_argument(
         "--mapping-json",
         help='Confirmed source-to-canonical mapping JSON, e.g. {"Order ID":"order_id"}.',

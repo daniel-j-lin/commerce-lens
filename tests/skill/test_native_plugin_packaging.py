@@ -52,14 +52,14 @@ def test_codex_plugin_manifest_exists_parses_and_points_to_skills() -> None:
     payload = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))
 
     assert payload["name"] == "commerce-lens"
-    assert payload["version"] == "0.3.0"
+    assert payload["version"] == "0.3.1"
     assert payload["skills"] == "./skills/"
     assert "evidence-governed" in payload["description"].lower()
     assert payload["author"]["name"] == "CommerceLens"
     assert payload["interface"]["displayName"] == "CommerceLens"
     assert payload["interface"]["category"] == "Productivity"
     assert payload["interface"]["capabilities"] == ["Skills"]
-    assert "deterministic governed runner" in payload["interface"]["longDescription"]
+    assert "bounded product-mix diagnostic" in payload["interface"]["longDescription"]
     assert "apps" not in payload
     assert "mcpServers" not in payload
 
@@ -71,10 +71,10 @@ def test_active_product_versions_are_synchronized_without_schema_renumbering() -
     runner = RUNNER.read_text(encoding="utf-8")
     retention_manifests = RETENTION_MANIFESTS.read_text(encoding="utf-8")
 
-    assert plugin["version"] == "0.3.0"
-    assert project["project"]["version"] == "0.3.0"
-    assert '__version__ = "0.3.0"' in package_init
-    assert 'plugin_version="0.3.0"' in runner
+    assert plugin["version"] == "0.3.1"
+    assert project["project"]["version"] == "0.3.1"
+    assert '__version__ = "0.3.1"' in package_init
+    assert 'plugin_version="0.3.1"' in runner
     assert 'manifest_version: str = "f2_a_retention_v1"' in retention_manifests
 
 
@@ -85,7 +85,8 @@ def test_installable_skill_exists_and_frontmatter_parses() -> None:
     assert frontmatter["name"] == "commerce-lens"
     assert "description" in frontmatter
     assert "e-commerce" in frontmatter["description"]
-    assert "Insufficient evidence to conclude why Revenue declined." in text
+    assert "Insufficient evidence to conclude." in text
+    assert "weekly_product_presence_revenue_association@1.0.0" in text
     assert "Material Metric values must come from the deterministic runner" in text
 
 
@@ -162,7 +163,7 @@ def test_runner_revenue_change_csv_preserves_expected_result_with_fixture_author
     assert "Recommendation" not in rendered
 
 
-def test_runner_diagnostic_revenue_drop_preserves_bounded_refusal_with_fixture_authority() -> None:
+def test_runner_diagnostic_revenue_drop_returns_bounded_inconclusive_with_fixture_authority() -> None:
     payload = _run_json(
         "--source",
         str(ORDERS_CSV),
@@ -193,7 +194,8 @@ def test_runner_diagnostic_revenue_drop_preserves_bounded_refusal_with_fixture_a
     rendered = payload["rendered_text"]
 
     assert "Revenue Change for Q4 2026: -20.00 USD." in rendered
-    assert "Insufficient evidence to conclude why Revenue declined." in rendered
+    assert "The current product-mix test was not evaluated because" in rendered
+    assert "no variation in product mix" in rendered
     for prohibited in ("promotion", "seasonality", "competition", "traffic", "inventory", "demand"):
         assert prohibited not in rendered.lower()
 

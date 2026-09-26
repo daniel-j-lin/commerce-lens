@@ -23,7 +23,8 @@ def test_public_critical_skill_instructions_have_behavioral_parity() -> None:
         "list",
         "inspect",
         "verify",
-        "Insufficient evidence to conclude why Revenue declined.",
+        "Insufficient evidence to conclude.",
+        "weekly_product_presence_revenue_association@1.0.0",
         "fail-closed",
     )
 
