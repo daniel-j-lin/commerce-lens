@@ -664,6 +664,15 @@ class R6Repository:
             ),
             (profile.profile_id, profile.profile_version, profile.profile_fingerprint),
             (governance.authority_ref, governance.authority_version, governance.authority_fingerprint),
+            *(
+                (
+                    binding.authority_ref,
+                    binding.authority_version,
+                    binding.authority_fingerprint,
+                )
+                for encoded in profile.method_requirement_refs
+                for binding in (AuthorityBinding.model_validate_json(encoded),)
+            ),
         }
         actual = {
             (item.authority_ref, item.authority_version, item.authority_fingerprint)

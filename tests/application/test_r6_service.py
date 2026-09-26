@@ -11,6 +11,7 @@ from commerce_lens.contracts.diagnostic import EvidenceReadiness, TestEligibilit
 from commerce_lens.contracts.hypotheses import CandidateProposal, CandidateProposalBatch, CandidateSlot, GenerationParameters
 from commerce_lens.diagnostic.generator import CandidateProducerDescriptor, FamilyActivation, build_generation_request
 from commerce_lens.diagnostic.governance import GovernanceAuthenticationError
+from commerce_lens.diagnostic.r7_method_registry import R7_METHOD_REGISTRY
 from commerce_lens.evidence.identifiers import stable_content_id
 from commerce_lens.persistence.r6_repository import R6ArtifactIntegrityError, R6ArtifactType, R6Repository
 from tests.engine.test_execution import _row
@@ -75,7 +76,16 @@ def _fixture(tmp_path):
     )
 
 
-def _run(tmp_path, producer, *, requested=(), activations=(), handoff=False, with_r4=False):
+def _run(
+    tmp_path,
+    producer,
+    *,
+    requested=(),
+    activations=(),
+    handoff=False,
+    with_r4=False,
+    r7_method_registry=None,
+):
     fixture = _fixture(tmp_path)
     request = build_generation_request(
         analysis_request_ref=fixture.scalar.request.request_id,
@@ -100,6 +110,7 @@ def _run(tmp_path, producer, *, requested=(), activations=(), handoff=False, wit
         finalized_at=NOW,
         r4_validated_result_artifact=r4_artifact,
         persist_handoff=handoff,
+        r7_method_registry=r7_method_registry,
     )
     return fixture, request, outcome
 
@@ -368,6 +379,73 @@ def test_optional_handoff_is_persisted_but_never_executes_r7(tmp_path) -> None:
     handoff = _artifact_payload(fixture, R6ArtifactType.R6_TO_R7_HANDOFF, outcome.chains[0].handoff_ref)
     assert handoff["test_eligibility"] == EligibilityState.NOT_ELIGIBLE.value
     assert "execute" not in handoff
+
+
+def test_current_r7_registry_enables_authentic_product_pretest_handoff(tmp_path) -> None:
+    fixture, _, outcome = _run(
+        tmp_path,
+        BoundedProducer(),
+        handoff=True,
+        r7_method_registry=R7_METHOD_REGISTRY,
+    )
+    assert outcome.completion_status is R6CompletionStatus.COMPLETE
+    assert len(outcome.chains) == 1
+    chain = outcome.chains[0]
+    assert chain.test_eligibility is EligibilityState.ELIGIBLE_NOT_EXECUTED
+    assert chain.handoff_ref is not None
+
+    evaluation = _artifact_payload(
+        fixture,
+        R6ArtifactType.PRETEST_DIAGNOSTIC_EVALUATION,
+        chain.pretest_evaluation_ref,
+    )
+    assert evaluation["evidence_readiness"] == EvidenceReadiness.READY_FOR_TEST.value
+    assert evaluation["test_eligibility"] == EligibilityState.ELIGIBLE_NOT_EXECUTED.value
+    assert evaluation["first_controlling_blocker"] is None
+    assert evaluation["analytical_outcome"] == "NOT_EVALUATED"
+    assert evaluation["alternative_explanation_state"] == "NOT_COMPLETED"
+
+    judgments = _artifact_payload(
+        fixture,
+        R6ArtifactType.REQUIREMENT_JUDGMENT_BUNDLE,
+        chain.requirement_judgment_bundle_ref,
+    )["judgments"]
+    assert {item["outcome"] for item in judgments} == {"SATISFIED"}
+
+    profile = _artifact_payload(
+        fixture,
+        R6ArtifactType.RESOLVED_REQUIRED_EVIDENCE_PROFILE,
+        chain.resolved_profile_ref,
+    )
+    assert len(profile["method_requirement_refs"]) == 4
+
+    handoff = _artifact_payload(
+        fixture,
+        R6ArtifactType.R6_TO_R7_HANDOFF,
+        chain.handoff_ref,
+    )
+    assert handoff["method_ref"] == "weekly_product_presence_revenue_association"
+    assert handoff["support_criterion_ref"] == "weekly_product_presence_revenue_association_support"
+    assert handoff["validation_profile_ref"] == "weekly_product_presence_revenue_association_validation"
+    assert handoff["test_eligibility"] == EligibilityState.ELIGIBLE_NOT_EXECUTED.value
+
+
+def test_current_product_method_does_not_enable_other_families(tmp_path) -> None:
+    _, _, outcome = _run(
+        tmp_path,
+        BoundedProducer(("discounting_association", "product_composition_association")),
+        r7_method_registry=R7_METHOD_REGISTRY,
+    )
+    by_family = {
+        diagnostic.family_id: diagnostic
+        for diagnostic in outcome.diagnostics
+        if diagnostic.family_id is not None
+    }
+    assert by_family == {}
+    assert sorted(chain.test_eligibility.value for chain in outcome.chains) == [
+        "ELIGIBLE_NOT_EXECUTED",
+        "NOT_ELIGIBLE",
+    ]
 
 
 def test_authenticated_r4_is_retained_as_mechanical_reference_only(tmp_path) -> None:

@@ -111,6 +111,34 @@ class RegisteredAuthority(ContractBase):
     dependency_classification: DependencyClassification | None = None
 
 
+class PreTestExecutionAuthority(ContractBase):
+    """Complete independently trusted execution bundle for one exact family."""
+
+    family_id: str = Field(min_length=1)
+    family_version: str = Field(min_length=1)
+    family_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    method: AuthorityBinding
+    support_criterion: AuthorityBinding
+    validation_profile: AuthorityBinding
+    implementation: AuthorityBinding
+
+    @property
+    def bindings(self) -> tuple[AuthorityBinding, ...]:
+        return (
+            self.method,
+            self.support_criterion,
+            self.validation_profile,
+            self.implementation,
+        )
+
+    @model_validator(mode="after")
+    def validate_distinct_bundle(self) -> Self:
+        references = [binding.authority_ref for binding in self.bindings]
+        if len(references) != len(set(references)):
+            raise ValueError("execution authority bundle references must be distinct")
+        return self
+
+
 class PreTestAuthorityRegistry(ContractBase):
     """Narrow trust source for authorities that have no existing project registry."""
 
@@ -169,6 +197,7 @@ class PreTestDisposition(str, Enum):
     MISSING_EVIDENCE = "MISSING_EVIDENCE"
     EXTERNAL_EVIDENCE_REQUIRED = "EXTERNAL_EVIDENCE_REQUIRED"
     CONFLICTING_EVIDENCE = "CONFLICTING_EVIDENCE"
+    ELIGIBLE_NOT_EXECUTED = "ELIGIBLE_NOT_EXECUTED"
 
 
 class RequirementEvidenceAssessment(ContractBase):
@@ -247,6 +276,7 @@ class PreTestGovernanceResult(ContractBase):
     requirement_judgment_bundle_fingerprint: str = Field(pattern=SHA256_PATTERN)
     evaluation: PreTestDiagnosticEvaluation
     derived_disposition: PreTestDisposition
+    execution_authority: PreTestExecutionAuthority | None = None
 
 
 def govern_pretest(
@@ -260,6 +290,7 @@ def govern_pretest(
     requested_claim_type: ClaimType = ClaimType.DIAGNOSTIC,
     conflict_assessment: EvidenceConflictAssessment | None = None,
     proposed_method_refs: tuple[AuthorityBinding, ...] = (),
+    execution_authority: PreTestExecutionAuthority | None = None,
 ) -> PreTestGovernanceResult:
     """Authenticate exact R2/R3 authority and derive immutable pre-test state."""
 
@@ -289,7 +320,23 @@ def govern_pretest(
 
     slot_bindings = _authenticate_exact_binding(proposition, candidate, family.required_proposition_slots)
     decisions = resolve_dimension_applicability(template, proposition)
-    method_bindings = _authenticate_method_bindings(proposed_method_refs, authority_registry)
+    proposed_method_bindings = _authenticate_method_bindings(
+        proposed_method_refs,
+        authority_registry,
+    )
+    authenticated_execution_authority = _authenticate_execution_authority(
+        proposition,
+        execution_authority,
+        authority_registry,
+    )
+    method_bindings = _merge_method_bindings(
+        proposed_method_bindings,
+        (
+            authenticated_execution_authority.bindings
+            if authenticated_execution_authority is not None
+            else ()
+        ),
+    )
     profile = _build_profile(proposition, template, slot_bindings, decisions, method_bindings)
     assessments = _authenticate_assessments(
         proposition,
@@ -310,6 +357,7 @@ def govern_pretest(
         requested_claim_type=requested_claim_type,
         conflict_assessment=conflict_assessment,
         method_bindings=method_bindings,
+        execution_authority=authenticated_execution_authority,
     )
 
 
@@ -322,12 +370,14 @@ def _finalize_pretest_result(
     requested_claim_type: ClaimType,
     conflict_assessment: EvidenceConflictAssessment | None,
     method_bindings: tuple[AuthorityBinding, ...],
+    execution_authority: PreTestExecutionAuthority | None = None,
 ) -> PreTestGovernanceResult:
-    disposition, readiness, blocker = _derive_first_blocker(
+    disposition, readiness, eligibility, blocker = _derive_first_blocker(
         requested_claim_type=requested_claim_type,
         judgments=judgments,
         conflict_assessment=conflict_assessment,
         method_bindings=method_bindings,
+        execution_authority=execution_authority,
     )
     bundle_fingerprint = requirement_judgment_bundle_fingerprint(judgments)
     bundle_ref = stable_content_id("reqbundle", bundle_fingerprint)
@@ -337,7 +387,9 @@ def _finalize_pretest_result(
         bundle_ref=bundle_ref,
         bundle_fingerprint=bundle_fingerprint,
         readiness=readiness,
+        eligibility=eligibility,
         blocker=blocker,
+        method_bindings=method_bindings,
         finalized_at=finalized_at,
     )
     return PreTestGovernanceResult(
@@ -347,6 +399,7 @@ def _finalize_pretest_result(
         requirement_judgment_bundle_fingerprint=bundle_fingerprint,
         evaluation=evaluation,
         derived_disposition=disposition,
+        execution_authority=execution_authority,
     )
 
 
@@ -759,6 +812,55 @@ def _authenticate_method_bindings(
     return tuple(by_ref[reference] for reference in sorted(by_ref))
 
 
+def _authenticate_execution_authority(
+    proposition: DiagnosticProposition,
+    supplied: PreTestExecutionAuthority | None,
+    registry: PreTestAuthorityRegistry,
+) -> PreTestExecutionAuthority | None:
+    if supplied is None:
+        return None
+    try:
+        authority = PreTestExecutionAuthority.model_validate(
+            supplied.model_dump(mode="python")
+        )
+    except ValueError as exc:
+        raise GovernanceAuthenticationError(
+            "execution_authority_bundle_invalid",
+            "execution authority bundle is incomplete or malformed",
+        ) from exc
+    if (
+        authority.family_id,
+        authority.family_version,
+        authority.family_fingerprint,
+    ) != (
+        proposition.family_id,
+        proposition.family_version,
+        proposition.family_fingerprint,
+    ):
+        raise GovernanceAuthenticationError(
+            "method_family_mismatch",
+            "execution authority does not bind the exact proposition family",
+        )
+    for binding in authority.bindings:
+        registry.authenticate_binding(AuthorityClass.METHOD, binding)
+    return authority
+
+
+def _merge_method_bindings(
+    *groups: tuple[AuthorityBinding, ...],
+) -> tuple[AuthorityBinding, ...]:
+    by_ref: dict[str, AuthorityBinding] = {}
+    for binding in (item for group in groups for item in group):
+        existing = by_ref.get(binding.authority_ref)
+        if existing is not None and existing != binding:
+            raise GovernanceAuthenticationError(
+                "conflicting_method_authority",
+                f"multiple method authorities supplied for {binding.authority_ref}",
+            )
+        by_ref[binding.authority_ref] = binding
+    return tuple(by_ref[reference] for reference in sorted(by_ref))
+
+
 def _build_profile(
     proposition: DiagnosticProposition,
     template: HypothesisFamilyRequirementTemplate,
@@ -1136,11 +1238,13 @@ def _derive_first_blocker(
     judgments: tuple[RequirementJudgment, ...],
     conflict_assessment: EvidenceConflictAssessment | None,
     method_bindings: tuple[AuthorityBinding, ...],
-) -> tuple[PreTestDisposition, EvidenceReadiness, str]:
+    execution_authority: PreTestExecutionAuthority | None,
+) -> tuple[PreTestDisposition, EvidenceReadiness, TestEligibility, str | None]:
     if requested_claim_type is not ClaimType.DIAGNOSTIC:
         return (
             PreTestDisposition.CLARIFICATION_REQUIRED,
             EvidenceReadiness.UNRESOLVED,
+            TestEligibility.NOT_ELIGIBLE,
             "claim_class_restricted",
         )
 
@@ -1161,6 +1265,7 @@ def _derive_first_blocker(
         return (
             PreTestDisposition.EXTERNAL_EVIDENCE_REQUIRED,
             EvidenceReadiness.EXTERNAL_EVIDENCE_REQUIRED,
+            TestEligibility.NOT_ELIGIBLE,
             f"external_evidence_unmet:{external[0].requirement_ref}",
         )
 
@@ -1188,6 +1293,7 @@ def _derive_first_blocker(
         return (
             PreTestDisposition.MISSING_EVIDENCE,
             EvidenceReadiness.MISSING_INTERNAL_EVIDENCE,
+            TestEligibility.NOT_ELIGIBLE,
             f"{first.reason_code}:{first.requirement_ref}",
         )
 
@@ -1195,12 +1301,22 @@ def _derive_first_blocker(
         return (
             PreTestDisposition.CONFLICTING_EVIDENCE,
             EvidenceReadiness.UNRESOLVED,
+            TestEligibility.NOT_ELIGIBLE,
             f"unresolved_evidence_conflict:{conflict_assessment.conflict_id}",
+        )
+
+    if execution_authority is not None:
+        return (
+            PreTestDisposition.ELIGIBLE_NOT_EXECUTED,
+            EvidenceReadiness.READY_FOR_TEST,
+            TestEligibility.ELIGIBLE_NOT_EXECUTED,
+            None,
         )
 
     return (
         PreTestDisposition.HYPOTHESIS_ONLY,
         EvidenceReadiness.READY_FOR_TEST,
+        TestEligibility.NOT_ELIGIBLE,
         (
             "method_execution_authority_unavailable"
             if method_bindings
@@ -1216,7 +1332,9 @@ def _build_evaluation(
     bundle_ref: str,
     bundle_fingerprint: str,
     readiness: EvidenceReadiness,
-    blocker: str,
+    eligibility: TestEligibility,
+    blocker: str | None,
+    method_bindings: tuple[AuthorityBinding, ...],
     finalized_at: datetime,
 ) -> PreTestDiagnosticEvaluation:
     governance_fingerprint = canonical_json_fingerprint(
@@ -1233,7 +1351,7 @@ def _build_evaluation(
         "requirement_judgment_bundle_ref": bundle_ref,
         "requirement_judgment_bundle_fingerprint": bundle_fingerprint,
         "evidence_readiness": readiness,
-        "test_eligibility": TestEligibility.NOT_ELIGIBLE,
+        "test_eligibility": eligibility,
         "first_controlling_blocker": blocker,
         "analytical_outcome": AnalyticalOutcome.NOT_EVALUATED,
         "alternative_explanation_state": AlternativeExplanationState.NOT_COMPLETED,
@@ -1253,6 +1371,7 @@ def _build_evaluation(
                 authority_version=GOVERNANCE_VERSION,
                 authority_fingerprint=governance_fingerprint,
             ),
+            *method_bindings,
         ),
         "finalized_at": finalized_at,
     }
@@ -1390,6 +1509,7 @@ __all__ = [
     "GovernanceAuthenticationError",
     "PreTestDisposition",
     "PreTestAuthorityRegistry",
+    "PreTestExecutionAuthority",
     "PreTestGovernanceResult",
     "RegisteredAuthority",
     "RequirementEvidenceAssessment",

@@ -56,6 +56,11 @@ from commerce_lens.diagnostic.governance import (
     govern_pretest,
     pretest_authority_registry_fingerprint,
 )
+from commerce_lens.diagnostic.r6_r7_authority import (
+    ProductionPreTestAuthorityResolution,
+    resolve_production_pretest_authority,
+)
+from commerce_lens.diagnostic.r7_method_registry import R7MethodAuthorityRegistry
 from commerce_lens.engine.plan_builder import build_execution_plan
 from commerce_lens.engine.populations import population_fingerprint, population_id_for_fingerprint
 from commerce_lens.evidence.identifiers import canonical_json_fingerprint, stable_content_id
@@ -139,6 +144,7 @@ def run_r6(
     finalized_at: datetime,
     r4_validated_result_artifact: ArtifactReference | None = None,
     persist_handoff: bool = False,
+    r7_method_registry: R7MethodAuthorityRegistry | None = None,
 ) -> R6RunOutcome:
     """Run private R6 orchestration without creating analytical authority itself."""
 
@@ -234,7 +240,20 @@ def run_r6(
     for item in validation.accepted:
         proposition = item.proposition
         try:
-            authority_registry = _build_pretest_registry(proposition, source_views)
+            production_authority = (
+                resolve_production_pretest_authority(
+                    proposition,
+                    source_views,
+                    method_registry=r7_method_registry,
+                )
+                if r7_method_registry is not None
+                else None
+            )
+            authority_registry = _build_pretest_registry(
+                proposition,
+                source_views,
+                production_authority=production_authority,
+            )
             template = MVP_FAMILY_REGISTRY.get_requirement_template(proposition.family_id)
             template_binding = AuthorityBinding(
                 authority_ref=template.template_id,
@@ -245,9 +264,18 @@ def run_r6(
                 proposition,
                 item.candidate,
                 template_binding,
-                (),
+                (
+                    production_authority.evidence_assessments
+                    if production_authority is not None
+                    else ()
+                ),
                 authority_registry=authority_registry,
                 finalized_at=finalized_at,
+                execution_authority=(
+                    production_authority.execution_authority
+                    if production_authority is not None
+                    else None
+                ),
             )
         except GovernanceAuthenticationError as exc:
             governance_failures += 1
@@ -687,7 +715,19 @@ def _slot_bindings(
     return tuple(sorted(bindings, key=lambda item: (item.family_id, item.slot)))
 
 
-def _build_pretest_registry(proposition, source_views: tuple[SourceAuthorityView, ...]) -> PreTestAuthorityRegistry:
+def _build_pretest_registry(
+    proposition,
+    source_views: tuple[SourceAuthorityView, ...],
+    *,
+    production_authority: ProductionPreTestAuthorityResolution | None = None,
+    r7_method_registry: R7MethodAuthorityRegistry | None = None,
+) -> PreTestAuthorityRegistry:
+    if production_authority is None and r7_method_registry is not None:
+        production_authority = resolve_production_pretest_authority(
+            proposition,
+            source_views,
+            method_registry=r7_method_registry,
+        )
     views = {item.authority_ref: item for item in source_views}
     records: list[RegisteredAuthority] = []
     for binding in proposition.authority_bindings:
@@ -740,6 +780,8 @@ def _build_pretest_registry(proposition, source_views: tuple[SourceAuthorityView
                 dependency_classification=view.dependency_classification,
             )
         )
+    if production_authority is not None:
+        records.extend(production_authority.registered_authorities)
     data: dict[str, Any] = {
         "registry_id": "commerce_lens_r6_pretest_authorities",
         "registry_version": "1.0.0",
@@ -839,6 +881,7 @@ def _build_handoff(proposition, governed, hypothesis, provenance) -> R6ToR7Hando
         if item.dependency_classification is DependencyClassification.EXTERNAL
         and item.outcome in {*blocking, RequirementOutcome.EXTERNAL_UNMET}
     ))
+    execution_authority = governed.execution_authority
     data = {
         "handoff_id": "pending",
         "handoff_schema_version": "1.0.0",
@@ -864,12 +907,36 @@ def _build_handoff(proposition, governed, hypothesis, provenance) -> R6ToR7Hando
         "evidence_readiness": governed.evaluation.evidence_readiness,
         "missing_internal_requirement_refs": missing_internal,
         "unmet_external_requirement_refs": unmet_external,
-        "method_ref": None,
-        "method_version": None,
-        "support_criterion_ref": None,
-        "support_criterion_version": None,
-        "validation_profile_ref": None,
-        "validation_profile_version": None,
+        "method_ref": (
+            execution_authority.method.authority_ref
+            if execution_authority is not None
+            else None
+        ),
+        "method_version": (
+            execution_authority.method.authority_version
+            if execution_authority is not None
+            else None
+        ),
+        "support_criterion_ref": (
+            execution_authority.support_criterion.authority_ref
+            if execution_authority is not None
+            else None
+        ),
+        "support_criterion_version": (
+            execution_authority.support_criterion.authority_version
+            if execution_authority is not None
+            else None
+        ),
+        "validation_profile_ref": (
+            execution_authority.validation_profile.authority_ref
+            if execution_authority is not None
+            else None
+        ),
+        "validation_profile_version": (
+            execution_authority.validation_profile.authority_version
+            if execution_authority is not None
+            else None
+        ),
         "test_eligibility": governed.evaluation.test_eligibility,
         "first_controlling_blocker": governed.evaluation.first_controlling_blocker,
         "governed_hypothesis_ref": hypothesis.governed_hypothesis_id,
