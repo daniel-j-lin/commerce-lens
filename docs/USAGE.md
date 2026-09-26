@@ -324,7 +324,7 @@ wording separately. If the basis is missing or uncertain, ask for clarification
 and remain blocked. Do not paraphrase uncertain/free-form replies into the fixed
 assertion.
 
-## Common blocked outcomes and diagnostic refusal
+## Common blocked outcomes and diagnostic limits
 
 - Missing or unconfirmed mapping: clarify or confirm the mapping; do not run
   material analysis.
@@ -335,6 +335,10 @@ assertion.
   claims.
 - Retention finalization failure: report the failure; never emit
   `retained_complete`.
-- Diagnostic “why” request: the descriptive Revenue Change may be supported,
-  but the explanation must be refused with `Insufficient evidence to conclude
-  why Revenue declined.`
+- Diagnostic “why” request: the descriptive Revenue Change may still be supported.
+  The diagnostic explanation proceeds only when production R6 returns an
+  authenticated `ELIGIBLE_NOT_EXECUTED` handoff and the approved R7 result
+  passes independent validation and lineage authentication. If those
+  requirements are not met, CommerceLens returns
+  `Insufficient evidence to conclude.` and identifies the blocking evidence
+  or eligibility requirement.
