@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from commerce_lens.contracts.common import ClaimState, ClaimType, MetricState, RunStatus
+from commerce_lens.contracts.diagnostic import AnalyticalOutcome
 from commerce_lens.contracts.evidence import AdmissibleEvidence, ClaimCandidate, ClaimDecision
 from commerce_lens.contracts.requests import AnalysisRequest
 from commerce_lens.contracts.results import AnalysisResult
@@ -15,6 +16,7 @@ from commerce_lens.metrics import get_metric_registry
 from commerce_lens.persistence.metadata_store import MetadataStore
 
 if TYPE_CHECKING:
+    from commerce_lens.persistence.r7_repository import CompleteR7Lineage
     from commerce_lens.skill.integration import PublicAnalysisIntent
 
 
@@ -63,6 +65,16 @@ class PublicMappingProposal:
 
 
 @dataclass(frozen=True)
+class PublicDiagnosticProjection:
+    family_id: str
+    method_id: str
+    analytical_outcome: AnalyticalOutcome
+    evaluation_state: str
+    controlling_reason: str
+    explanation: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class PublicResponse:
     supported_claims: tuple[PublicClaimProjection, ...] = ()
     evidence_summary: tuple[PublicEvidenceSummary, ...] = ()
@@ -75,6 +87,7 @@ class PublicResponse:
     blocked: bool = False
     insufficient_evidence_message: str | None = None
     coverage_provenance: tuple[dict, ...] = ()
+    diagnostic_analysis: PublicDiagnosticProjection | None = None
 
     def render_text(self) -> str:
         if self.clarification_required:
@@ -91,6 +104,9 @@ class PublicResponse:
             lines.append("Supported Claims / Answer")
             for claim in self.supported_claims:
                 lines.append(f"- {_claim_sentence(claim)}")
+        if self.diagnostic_analysis is not None:
+            lines.append("Diagnostic Analysis")
+            lines.extend(f"- {item}" for item in self.diagnostic_analysis.explanation)
         if self.unsupported_conclusions:
             lines.append("Unsupported Conclusions")
             lines.extend(f"- {item}" for item in self.unsupported_conclusions)
@@ -113,6 +129,80 @@ class PublicResponse:
         if not lines:
             return "Insufficient evidence to conclude."
         return "\n".join(lines)
+
+
+def with_public_diagnostic(
+    response: PublicResponse,
+    *,
+    lineage: CompleteR7Lineage | None = None,
+    blocker: str | None = None,
+) -> PublicResponse:
+    """Attach only recursively authenticated R7 lineage or a fail-closed blocker."""
+
+    if lineage is None:
+        if blocker is None:
+            return response
+        return replace(
+            response,
+            blocked=True,
+            insufficient_evidence_message="Insufficient evidence to conclude.",
+            additional_evidence_needed=tuple(
+                dict.fromkeys((*response.additional_evidence_needed, blocker))
+            ),
+        )
+    evaluation = lineage.evaluation
+    return replace(
+        response,
+        diagnostic_analysis=PublicDiagnosticProjection(
+            family_id=lineage.r6_handoff.family_id,
+            method_id=lineage.request.method.authority_id,
+            analytical_outcome=evaluation.analytical_outcome,
+            evaluation_state=evaluation.evaluation_state.value,
+            controlling_reason=evaluation.controlling_reason,
+            explanation=_diagnostic_explanation(lineage),
+        ),
+    )
+
+
+def _diagnostic_explanation(lineage: CompleteR7Lineage) -> tuple[str, ...]:
+    outcome = lineage.evaluation.analytical_outcome
+    if outcome is AnalyticalOutcome.CRITERION_MET:
+        return (
+            "The data shows a consistent relationship between larger product-mix changes and lower weekly revenue. Under the current CommerceLens test, product mix is supported as one possible explanation.",
+            "This does not prove that product mix caused the decline or that it was the only or primary reason.",
+        )
+    if outcome is AnalyticalOutcome.CRITERION_NOT_MET:
+        return (
+            "The current product-mix test did not reach the support threshold, so the available data does not support product mix as an explanation under this method.",
+        )
+    if outcome is AnalyticalOutcome.PROPOSITION_CONTRADICTED:
+        return (
+            "The observed relationship moved in the opposite direction from the tested explanation.",
+        )
+    reasons = lineage.validated_result.inconclusive_reasons
+    rendered = tuple(_inconclusive_reason(reason) for reason in reasons)
+    if not rendered:
+        rendered = (lineage.evaluation.controlling_reason,)
+    return ("The current product-mix test was not evaluated because " + "; ".join(rendered) + ".",)
+
+
+def _inconclusive_reason(reason: str) -> str:
+    translations = {
+        "total_valid_weeks<8": "there were too few complete weeks overall",
+        "MINIMUM_TOTAL_WEEKS_NOT_MET": "there were too few complete weeks overall",
+        "baseline_valid_weeks<4": "there were too few complete baseline weeks",
+        "MINIMUM_BASELINE_WEEKS_NOT_MET": "there were too few complete baseline weeks",
+        "comparison_valid_weeks<4": "there were too few complete comparison weeks",
+        "MINIMUM_COMPARISON_WEEKS_NOT_MET": "there were too few complete comparison weeks",
+        "constant_distance": "there was no variation in product mix",
+        "CONSTANT_JACCARD_VECTOR": "there was no variation in product mix",
+        "constant_revenue_deviation": "there was no variation in weekly revenue performance",
+        "CONSTANT_REVENUE_DEVIATION_VECTOR": "there was no variation in weekly revenue performance",
+        "undefined_denominator": "the correlation was undefined",
+        "UNDEFINED_SPEARMAN_DENOMINATOR": "the correlation was undefined",
+        "observation_construction_failed": "complete weekly observations could not be constructed",
+    }
+    return translations.get(reason, reason.replace("_", " "))
 
 
 def project_public_response(

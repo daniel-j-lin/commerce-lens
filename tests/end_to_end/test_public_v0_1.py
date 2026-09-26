@@ -79,9 +79,10 @@ def test_public_v0_1_killer_demos_and_aov_undefined_end_to_end(tmp_path) -> None
     assert "Recommendation" not in demo_1.response.render_text()
 
     assert demo_2.response.supported_claims[0].value == Decimal("-20.00")
-    assert demo_2.claim_decisions[1].claim_state is ClaimState.INADMISSIBLE
-    assert demo_2.claim_decisions[1].failure_code == "unsupported_claim_type"
-    assert "Insufficient evidence to conclude why Revenue declined." in demo_2.response.render_text()
+    assert len(demo_2.claim_decisions) == 1
+    assert demo_2.response.diagnostic_analysis is not None
+    assert demo_2.response.diagnostic_analysis.analytical_outcome.value == "NOT_EVALUATED"
+    assert "no variation in product mix" in demo_2.response.render_text()
 
     assert aov.response.supported_claims[0].metric_state is MetricState.UNDEFINED
     assert aov.response.supported_claims[0].value is None
@@ -104,6 +105,11 @@ def _intent(
         source=PublicSourceSelection(source, SourceType.CSV),
         original_question_text=question,
         claim_intents=claim_intents,
+        diagnostic_family_id=(
+            "product_composition_association"
+            if question_class is PublicQuestionClass.DIAGNOSTIC_REVENUE_DROP
+            else None
+        ),
     )
 
 

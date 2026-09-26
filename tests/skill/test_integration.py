@@ -135,7 +135,7 @@ def test_aov_orders_zero_binds_metric_state_is_undefined_not_zero(tmp_path) -> N
     assert Decimal("0") != claim.value
 
 
-def test_diagnostic_killer_demo_2_supports_descriptive_change_and_refuses_why(tmp_path) -> None:
+def test_diagnostic_killer_demo_2_supports_descriptive_change_and_reports_inconclusive(tmp_path) -> None:
     source = _write_csv(
         tmp_path / "orders.csv",
         [
@@ -146,6 +146,7 @@ def test_diagnostic_killer_demo_2_supports_descriptive_change_and_refuses_why(tm
     intent = replace(
         _revenue_change_intent(source, "Why did revenue drop from Q3 2026 to Q4 2026?"),
         question_class=PublicQuestionClass.DIAGNOSTIC_REVENUE_DROP,
+        diagnostic_family_id="product_composition_association",
         claim_intents=(
             PublicClaimIntent(ClaimType.DESCRIPTIVE, "Revenue Change descriptive portion"),
             PublicClaimIntent(ClaimType.DIAGNOSTIC, "Diagnostic reason for Revenue decline"),
@@ -154,14 +155,11 @@ def test_diagnostic_killer_demo_2_supports_descriptive_change_and_refuses_why(tm
     outcome = _run(tmp_path, intent)
     rendered = outcome.response.render_text()
 
-    assert [decision.claim_state for decision in outcome.claim_decisions] == [
-        ClaimState.ADMISSIBLE,
-        ClaimState.INADMISSIBLE,
-    ]
-    assert outcome.claim_decisions[1].failure_code == "unsupported_claim_type"
+    assert [decision.claim_state for decision in outcome.claim_decisions] == [ClaimState.ADMISSIBLE]
     assert outcome.response.supported_claims[0].value == Decimal("-20.00")
-    assert "Insufficient evidence to conclude why Revenue declined." in rendered
-    assert "approved diagnostic workflow" in rendered
+    assert outcome.response.diagnostic_analysis is not None
+    assert outcome.response.diagnostic_analysis.analytical_outcome.value == "NOT_EVALUATED"
+    assert "too few complete weeks" in rendered
     for prohibited in ("promotion", "seasonality", "competition", "traffic", "inventory", "demand"):
         assert prohibited not in rendered.lower()
 

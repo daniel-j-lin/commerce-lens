@@ -53,8 +53,8 @@ def run_r7_diagnostic(*, request: DiagnosticTestRequest, evidence_inputs: Diagno
         or request.scope_ref != handoff.scope_ref
         or (request.baseline_period_ref, request.comparison_period_ref)
         != (handoff.baseline_period_ref, handoff.comparison_period_ref)
-        or (request.baseline_population_ref, request.comparison_population_ref)
-        != tuple(handoff.population_refs)
+        or {request.baseline_population_ref, request.comparison_population_ref}
+        != set(handoff.population_refs)
     ):
         raise ValueError("R7_GATE_HANDOFF_LINEAGE_MISMATCH")
     if request.evidence_input_set_ref != evidence_inputs.evidence_input_set_id or request.evidence_input_set_fingerprint != evidence_inputs.evidence_input_set_fingerprint:

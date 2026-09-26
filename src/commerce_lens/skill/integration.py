@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from commerce_lens.application import evaluate_claim, run_analysis
+from commerce_lens.application.public_r7_service import run_public_r7_flow
 from commerce_lens.canonical import CanonicalizationRequest, EligibilityMode, EligibilityState, EligibilityValueMapping
 from commerce_lens.canonical.mapping import CanonicalMapping, identity_mapping, validate_mapping
 from commerce_lens.canonical.quality import DataQualityConsequence
@@ -49,6 +50,7 @@ from commerce_lens.skill.public_response import (
     PublicMappingProposal,
     PublicResponse,
     project_public_response,
+    with_public_diagnostic,
 )
 from commerce_lens.skill.schema_mapping import assess_schema_mapping
 from commerce_lens.skill.coverage_intake import (
@@ -60,6 +62,7 @@ from commerce_lens.skill.coverage_intake import (
 
 PUBLIC_V0_1_METRICS = frozenset({"revenue", "orders", "aov", "revenue_change"})
 PUBLIC_SINGLE_PERIOD_METRICS = frozenset({"revenue", "orders", "aov"})
+PUBLIC_DIAGNOSTIC_FAMILY = "product_composition_association"
 _SUPPORTED_SOURCE_TYPES = frozenset({SourceType.CSV, SourceType.EXCEL_XLSX})
 _SUPPORTED_QUESTION_CLASSES = frozenset(
     {
@@ -150,6 +153,7 @@ class PublicAnalysisIntent:
     grouping: GroupingDimension = GroupingDimension.NONE
     result_period_role: str | None = None
     claim_intents: tuple[PublicClaimIntent, ...] = (PublicClaimIntent(),)
+    diagnostic_family_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -195,7 +199,19 @@ def validate_public_intent(intent: PublicAnalysisIntent) -> tuple[str, ...]:
         failures.append("Revenue Change public response uses the governed comparison result")
     if not intent.claim_intents:
         failures.append("at least one Claim intent is required")
+    if question_class == PublicQuestionClass.DIAGNOSTIC_REVENUE_DROP.value:
+        if (
+            intent.diagnostic_family_id is not None
+            and intent.diagnostic_family_id != PUBLIC_DIAGNOSTIC_FAMILY
+        ):
+            failures.append(f"unsupported diagnostic family: {intent.diagnostic_family_id}")
     for claim_intent in intent.claim_intents:
+        if (
+            question_class == PublicQuestionClass.DIAGNOSTIC_REVENUE_DROP.value
+            and intent.diagnostic_family_id == PUBLIC_DIAGNOSTIC_FAMILY
+            and claim_intent.claim_type is ClaimType.DIAGNOSTIC
+        ):
+            continue
         if claim_intent.claim_type in (ClaimType.PREDICTIVE, ClaimType.CAUSAL, ClaimType.PRESCRIPTIVE):
             failures.append(f"unsupported Claim type: {claim_intent.claim_type.value}")
     return tuple(dict.fromkeys(failures))
@@ -220,6 +236,7 @@ def run_public_analysis(
     coverage_declarations is external input and must pass deterministic intake.
     Mixing the boundaries fails closed.
     """
+    question_class = _question_class_value(intent.question_class)
     validation_failures = validate_public_intent(intent)
     if validation_failures:
         return PublicAnalysisOutcome(
@@ -323,6 +340,12 @@ def run_public_analysis(
     candidates: list[ClaimCandidate] = []
     decisions: list[ClaimDecision] = []
     for claim_intent in intent.claim_intents:
+        if (
+            question_class == PublicQuestionClass.DIAGNOSTIC_REVENUE_DROP.value
+            and intent.diagnostic_family_id == PUBLIC_DIAGNOSTIC_FAMILY
+            and claim_intent.claim_type is ClaimType.DIAGNOSTIC
+        ):
+            continue
         try:
             candidate, validated, evidence = bind_claim_candidate_from_authority(
                 intent,
@@ -346,19 +369,76 @@ def run_public_analysis(
             )
         )
 
+    response = _with_coverage_disclosure(project_public_response(
+        intent=intent,
+        request=request,
+        result=result,
+        evaluated_claims=tuple(evaluated),
+        metadata_store=metadata_store,
+    ), coverage_provenance)
+    if (
+        question_class == PublicQuestionClass.DIAGNOSTIC_REVENUE_DROP.value
+        and intent.diagnostic_family_id == PUBLIC_DIAGNOSTIC_FAMILY
+    ):
+        response = _run_public_diagnostic(
+            intent=intent,
+            result=result,
+            source_headers=source_headers,
+            artifact_store=artifact_store,
+            metadata_store=metadata_store,
+            response=response,
+        )
+
     return PublicAnalysisOutcome(
         intent=intent,
         request=request,
         analysis_result=result,
         claim_candidates=tuple(candidates),
         claim_decisions=tuple(decisions),
-        response=_with_coverage_disclosure(project_public_response(
-            intent=intent,
-            request=request,
-            result=result,
-            evaluated_claims=tuple(evaluated),
+        response=response,
+    )
+
+
+def _run_public_diagnostic(
+    *,
+    intent: PublicAnalysisIntent,
+    result: AnalysisResult,
+    source_headers: tuple[str, ...],
+    artifact_store: ArtifactStore,
+    metadata_store: MetadataStore,
+    response: PublicResponse,
+) -> PublicResponse:
+    mapping = intent.source.mapping or identity_mapping(source_headers, require_eligibility=True)
+    if mapping.source_for("product_id") is None:
+        return with_public_diagnostic(
+            response,
+            blocker="A governed product_id mapping is required for the product-composition test.",
+        )
+    metric = _metric_result(result, "revenue_change")
+    if metric is None:
+        return with_public_diagnostic(
+            response,
+            blocker="An authenticated Revenue Change result is required before diagnostic testing.",
+        )
+    try:
+        validated = _select_validated_result_from_metric(
+            metric, intent, artifact_store, metadata_store
+        )
+        diagnostic = run_public_r7_flow(
+            analysis_result=result,
+            revenue_change_validated_result_ref=validated.validated_result_id,
+            artifact_store=artifact_store,
             metadata_store=metadata_store,
-        ), coverage_provenance),
+        )
+    except (ValueError, RuntimeError) as exc:
+        return with_public_diagnostic(
+            response,
+            blocker=f"Diagnostic authority authentication failed: {exc}",
+        )
+    return with_public_diagnostic(
+        response,
+        lineage=diagnostic.authenticated_lineage,
+        blocker=diagnostic.blocker,
     )
 
 

@@ -249,7 +249,7 @@ def run_r6(
                 if r7_method_registry is not None
                 else None
             )
-            authority_registry = _build_pretest_registry(
+            authority_registry = build_pretest_authority_registry(
                 proposition,
                 source_views,
                 production_authority=production_authority,
@@ -715,7 +715,7 @@ def _slot_bindings(
     return tuple(sorted(bindings, key=lambda item: (item.family_id, item.slot)))
 
 
-def _build_pretest_registry(
+def build_pretest_authority_registry(
     proposition,
     source_views: tuple[SourceAuthorityView, ...],
     *,
@@ -789,6 +789,10 @@ def _build_pretest_registry(
     }
     data["registry_fingerprint"] = pretest_authority_registry_fingerprint(data)
     return PreTestAuthorityRegistry(**data)
+
+
+# Backward-compatible private alias for existing internal callers and tests.
+_build_pretest_registry = build_pretest_authority_registry
 
 
 def _context_binding(kind: str, reference: str) -> AuthorityBinding:
@@ -982,5 +986,6 @@ __all__ = [
     "R6ChainReferences",
     "R6CompletionStatus",
     "R6RunOutcome",
+    "build_pretest_authority_registry",
     "run_r6",
 ]

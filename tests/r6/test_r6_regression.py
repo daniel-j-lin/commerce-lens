@@ -53,7 +53,9 @@ def test_public_revenue_change_schema_and_behavior_remain_unchanged(tmp_path: Pa
         "blocked",
         "insufficient_evidence_message",
         "coverage_provenance",
+        "diagnostic_analysis",
     }
+    assert outcome.response.diagnostic_analysis is None
     forbidden = {
         "hypothesis",
         "hypotheses",
