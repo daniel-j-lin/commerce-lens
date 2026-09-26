@@ -119,13 +119,16 @@ artifact/record linkages, integrity checks, and final `complete.marker` all
 agree. Runs without that finalization state remain visible as incomplete or
 failed and must not be treated as retained evidence.
 
-The supported answer is absolute Revenue Change. CommerceLens v0.3.0 does not add a
-percentage, causal explanation, or recommendation.
+The supported descriptive answer is absolute Revenue Change. CommerceLens v0.3.1
+still does not add Revenue Change Percentage, causal conclusions, or
+recommendations. It adds one bounded public diagnostic path for the approved
+product-composition association only.
 
 ## Verification
 
-CommerceLens v0.3.0 release verification records the exact focused and full
-suite results in the local release report. Test counts are evidence from a
+CommerceLens v0.3.1 release verification records the exact focused and full
+suite results from the release verification run. Test counts are evidence from
+a specific run, not a permanent contract. Test counts are evidence from a
 specific run, not a permanent contract.
 
 Useful focused checks:
@@ -210,7 +213,7 @@ dataset dates.
 The two repository Skills require behavioral parity for mapping/coverage
 separation, consolidated confirmation, `USER_DECLARED` disclosure, cutoff and
 missing-fact behavior, proposal binding, temporary/retained routing,
-`list`/`inspect`/`verify`, diagnostic refusal, and fail-closed behavior. They do
+`list`/`inspect`/`verify`,diagnostic routing, execution/refusal behavior, bounded diagnostic rendering, and fail-closed behavior. They do
 not need byte-for-byte identity. The deterministic parity test is
 `tests/skill/test_skill_distribution_parity.py`.
 
@@ -239,7 +242,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src \
 ```
 
 The release gate also requires focused coverage and retention tests, packaging
-and diagnostic refusal regressions, README parity, the complete suite,
+and diagnostic execution and refusal regressions, README parity, the complete suite,
 `git diff --check`, data-safety review, and an isolated install from the exact
 candidate commit.
 
@@ -251,16 +254,33 @@ blocking, diagnostic refusal, and absence of a retained run in temporary mode.
 Any divergence is fixed in canonical repository source, committed, and retested.
 # R7 repository capability and public boundary
 
-CommerceLens v0.3.0 contains the approved R7 repository/MVP diagnostic vertical
-for `product_composition_association` through
-`weekly_product_presence_revenue_association@1.0.0`. The R7 application service
-authenticates admitted evidence, verifies complete R6→R7 lineage, executes the
-deterministic weekly product-presence/Revenue association, and validates it by
-independent recomputation before authoritative completion.
+# R7 public diagnostic capability
 
-This service is not wired into the installed Public v0.1 Skill, public runner,
-or `run_public_analysis(...)`. The public path continues to return its governed
-diagnostic refusal. Do not present the R7 service as public usage or route around
-the public `ClaimDecision` boundary. R7 `CRITERION_MET` records only that the
-governed analytical criterion was met; it is not causality, a sole/primary-cause
-determination, a `ClaimDecision`, or a `Finding`.
+CommerceLens v0.3.1 exposes the approved R7 diagnostic vertical through the
+installed public plugin for `product_composition_association` using
+`weekly_product_presence_revenue_association@1.0.0`.
+
+The public path is:
+
+`diagnostic_revenue_drop`
+→ governed descriptive Revenue Change
+→ production R6 hypothesis, evidence, and eligibility checks
+→ authenticated `ELIGIBLE_NOT_EXECUTED` handoff
+→ approved R7 execution
+→ independent validation
+→ recursive lineage authentication
+→ bounded public explanation.
+
+R6 remains responsible for hypothesis governance, evidence sufficiency,
+diagnostic admission, fitness, and pre-test eligibility.
+
+R7 remains responsible for the diagnostic method, execution, independent
+validation, and post-test evaluation.
+
+`CRITERION_MET` means only that the predefined diagnostic criterion was met.
+It is not causality, a sole or primary cause, statistical significance,
+a `ClaimDecision`, a `Finding`, or a recommendation.
+
+If R6 is not eligible, required evidence is missing, or R7 authentication fails,
+the public path fails closed and does not produce an authoritative diagnostic
+explanation.

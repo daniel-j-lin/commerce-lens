@@ -110,7 +110,7 @@ It then checks whether weeks with larger product-mix changes also tend to have l
 
 For the current MVP, CommerceLens treats rho <= -0.50 as the predefined support threshold. This is a product rule for this method, not a statistical-significance rule.
 
-#### Synthetic repository/MVP diagnostic example
+#### Synthetic diagnostic example
 
 **Synthetic example — not real merchant or customer data.** The values come from the independently recomputed fixture `FX-R7-PROD-001A`, not from a production benchmark.
 
@@ -286,7 +286,7 @@ CommerceLens 會比較每週實際賣出的產品，和基準期間常見的產�
 
 目前 MVP 預先設定的支持門檻是 rho <= -0.50。這是 CommerceLens 對這項方法設定的判斷規則，不代表統計顯著。
 
-#### repository/MVP 合成診斷範例
+#### 合成診斷範例
 
 **這是合成資料，不是真實商家或客戶資料。** 數值來自經獨立重新計算的測試資料 `FX-R7-PROD-001A`，不是正式環境的效能基準。
 
@@ -462,7 +462,7 @@ CommerceLens 会比较每周实际卖出的产品，与基准期间常见的产�
 
 目前 MVP 预先设定的支持门槛是 rho <= -0.50。这是 CommerceLens 为这项方法设定的判断规则，不代表统计显著。
 
-#### repository/MVP 合成诊断示例
+#### 合成诊断示例
 
 **这是合成数据，不是真实商家或客户数据。** 数值来自经过独立重新计算的测试数据 `FX-R7-PROD-001A`，不是正式环境的性能基准。
 

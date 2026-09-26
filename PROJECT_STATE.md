@@ -49,6 +49,49 @@ controlled deterministic executor boundary
 This direction does not adopt an external executor adapter or MCP execution architecture. DuckDB remains the current approved MVP executor, and future executor reuse must be justified by evidence.
 
 ---
+## 2026-09-26 Current Release State
+
+Current public release:
+
+`v0.3.1`
+
+Current public capability includes:
+
+- governed Revenue, Orders, AOV, and absolute Revenue Change;
+- confirmed CSV/XLSX schema mapping;
+- product-level Revenue change decomposition where applicable;
+- governed hypothesis generation for the supported product-composition family;
+- production R6 pre-test eligibility with authenticated R7 method authority;
+- one public diagnostic method:
+  `weekly_product_presence_revenue_association@1.0.0`;
+- independent R7 validation and recursive lineage authentication; and
+- a bounded non-causal product-composition explanation when evidence and
+  eligibility requirements are satisfied.
+
+Current diagnostic scope remains exactly one public family:
+
+`product_composition_association`
+
+The public product does not establish causality, sole or primary cause,
+statistical significance, forecasting, or prescriptive recommendations.
+
+R6 status:
+
+`FINAL APPROVED / CLOSED / FROZEN`
+
+R7 status:
+
+`FINAL APPROVED / CLOSED / FROZEN`
+
+Public R7 wiring status:
+
+`COMPLETE in v0.3.1`
+
+External validation status remains unchanged:
+
+- P00: internal protocol rehearsal only;
+- P01: NOT RUN;
+- P15: NOT PASS.
 
 ## Frozen Governing Specifications
 
