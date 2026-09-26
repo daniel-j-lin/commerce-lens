@@ -17,15 +17,80 @@ The installed public plugin supports descriptive analysis, product-level revenue
 
 > CommerceLens reports only conclusions supported by the available evidence. It does not invent missing causes.
 
-### A simple example
+### A complete example from question to answer
 
 **Synthetic example — not real merchant or customer data.**
 
-> **Question:** Why did revenue decline from Q3 to Q4?
->
-> **Current public-plugin response:** Revenue declined by 18%. When the file has enough complete weekly evidence, CommerceLens can test whether larger product-mix changes are consistently related to lower weekly revenue. A supported result is one possible explanation, not proof of cause.
+Suppose you upload a CSV or XLSX file and ask:
 
-The installed plugin can answer what changed and run the approved product-mix test when the evidence requirements are met.
+> **Why did revenue decline from Q3 to Q4?**
+
+CommerceLens does not jump directly to a cause. It works through the question step by step.
+
+**1. Check the data**
+
+CommerceLens first checks the column mapping and whether the file contains the data needed for the requested periods and analysis.
+
+If important information is missing or cannot be confirmed, the workflow stops and explains what is needed.
+
+**2. Calculate what changed**
+
+In this synthetic example:
+
+- Q4 revenue is 18% lower than Q3.
+- Where the data supports it, CommerceLens can also break down how product-level changes contribute to the observed revenue change.
+
+This describes what changed. It does not yet explain why it changed.
+
+**3. Form a testable explanation**
+
+For the currently supported diagnostic path, CommerceLens can ask:
+
+> Were larger changes in product mix consistently associated with lower weekly revenue?
+
+CommerceLens treats this as a hypothesis to test, not as an assumed cause.
+
+**4. Check whether there is enough evidence**
+
+The current diagnostic method requires enough complete weekly observations, plus authenticated product and Revenue evidence.
+
+For the synthetic test case used in this repository:
+
+- 8 valid full weeks are available;
+- 4 belong to the baseline period;
+- 4 belong to the comparison period.
+
+If these requirements are not met, CommerceLens returns:
+
+> **Insufficient evidence to conclude.**
+
+and identifies what evidence is missing.
+
+**5. Run and independently check the approved diagnostic test**
+
+CommerceLens compares weekly product-mix change with weekly Revenue performance.
+
+In this synthetic example:
+
+- Spearman rho = -1.0
+- predefined support threshold: rho <= -0.50
+- result: `CRITERION_MET`
+
+The result is independently recomputed and checked before it can support the final explanation.
+
+**6. Return a bounded answer**
+
+A supported final answer can say:
+
+> Revenue declined by 18%. Across the available weekly observations, larger product-mix changes were associated with lower weekly Revenue. Product mix is therefore one possible explanation supported by the available data.
+
+It must also state what the evidence does **not** establish:
+
+> This does not prove that product mix caused the decline or that it was the only or primary reason. Seasonality, discounting, inventory, overall demand, promotions, customer mix, time trend, and external market conditions remain possible explanations.
+
+That is the main CommerceLens workflow:
+
+**question → evidence check → calculation → testable explanation → evidence sufficiency → deterministic test → independent validation → bounded conclusion**
 
 ### Why this is different from generic AI file analysis
 
@@ -193,15 +258,80 @@ CommerceLens 是一套開源 Codex 外掛程式，可分析 CSV 與 XLSX 格式�
 
 > CommerceLens 只回報現有證據支持的結論，不會編造缺少的原因。
 
-### 一個簡單範例
+### 從問題到答案的完整範例
 
-**合成資料範例，不是真實商家或客戶資料。**
+**以下使用合成資料，不是真實商家或客戶資料。**
 
-> **問題：** 為什麼營收從第三季到第四季下降？
->
-> **目前公開外掛程式的回答：** 營收下降了 18%。如果檔案包含足夠且完整的每週證據，CommerceLens 可以檢查產品組合變化較大的週是否持續伴隨較低營收。達到支持門檻只代表可能原因之一，不是因果證明。
+假設你上傳一份 CSV 或 XLSX 檔案，然後問：
 
-安裝後的公開外掛程式可以回答「發生了什麼變化」，並在證據要求滿足時執行已核准的產品組合測試。
+> **為什麼營收從第三季到第四季下降？**
+
+CommerceLens 不會直接猜一個原因，而是一步一步完成分析。
+
+**1. 先檢查資料**
+
+CommerceLens 會先確認欄位對應，以及檔案是否包含分析這兩個期間所需要的資料。
+
+如果重要資訊缺少或無法確認，系統會停止分析，並說明還缺少什麼。
+
+**2. 計算發生了什麼變化**
+
+在這個合成範例中：
+
+- 第四季營收比第三季低 18%。
+- 資料條件允許時，CommerceLens 也可以分解不同產品對這次營收變化的數值影響。
+
+這一步只說明「發生了什麼」，還沒有回答「為什麼」。
+
+**3. 提出可以檢查的可能原因**
+
+目前公開版本支援的診斷問題是：
+
+> 產品組合變化較大的週，是否也持續伴隨較低的每週營收？
+
+CommerceLens 會把它當成需要驗證的假設，而不是直接認定為原因。
+
+**4. 檢查證據是否足夠**
+
+目前的方法需要足夠的完整每週資料，以及經確認的產品與營收資料。
+
+這個合成測試範例中有：
+
+- 8 個有效完整週；
+- 4 個基準期間週；
+- 4 個比較期間週。
+
+如果這些條件不符合，CommerceLens 會回覆：
+
+> **Insufficient evidence to conclude.**
+
+並清楚指出缺少哪些證據。
+
+**5. 執行並獨立驗證已核准的診斷測試**
+
+CommerceLens 會比較每週產品組合的變化程度，以及每週營收表現。
+
+這個合成範例的結果是：
+
+- Spearman rho = -1.0
+- 預先設定的支持門檻：rho <= -0.50
+- 結果：`CRITERION_MET`
+
+在結果可以用於最終說明之前，系統還會另外重新計算並驗證一次。
+
+**6. 回傳有明確界線的答案**
+
+在這個範例中，最後可以說：
+
+> 營收下降了 18%。在目前可用的每週資料中，產品組合變化較大的週通常也伴隨較低營收。因此，產品組合變化是目前資料支持的可能原因之一。
+
+但同時必須說明：
+
+> 這不能證明產品組合造成營收下降，也不能證明它是唯一或主要原因。季節性、折扣、庫存、整體需求、促銷、顧客組合、時間趨勢與外部市場狀況仍可能是其他原因。
+
+這就是 CommerceLens 的核心流程：
+
+**提出問題 → 檢查證據 → 計算變化 → 提出可檢查的可能原因 → 確認證據足夠 → 執行測試 → 獨立驗證 → 有界線地說明結論**
 
 ### 與一般 AI 檔案分析有什麼不同？
 
@@ -305,7 +435,7 @@ CommerceLens 會比較每週實際賣出的產品，和基準期間常見的產�
 **這不代表什麼？**
 這不能證明產品組合造成營收下降，也不能證明它是唯一或最主要的原因。季節性、折扣、庫存、整體需求、促銷、顧客組合、時間趨勢與外部市場狀況仍是其他可能原因。
 
-技術說明：repository 方法是 `weekly_product_presence_revenue_association@1.0.0`，適用於 `product_composition_association`。它需要足夠的完整每週資料，以及經確認的 `product_id` 與 Revenue 證據。`CRITERION_MET` 不是 `ClaimDecision`，也不是 `Finding`。
+技術說明：儲存庫中使用的方法是 `weekly_product_presence_revenue_association@1.0.0`，適用於 `product_composition_association`。它需要足夠的完整每週資料，以及經確認的 `product_id` 與 Revenue 證據。`CRITERION_MET` 不是 `ClaimDecision`，也不是 `Finding`。
 
 ![CommerceLens 流程：從商務問題開始檢查證據；證據不足時拒絕沒有支持的解釋，證據足夠時才提供經獨立驗證的說明。](docs/assets/readme/commerce-lens-flow-zh-TW.svg)
 
@@ -369,15 +499,80 @@ CommerceLens 是一款开源 Codex 插件，可分析 CSV 和 XLSX 格式的电�
 
 > CommerceLens 只报告现有证据支持的结论，不会编造缺少的原因。
 
-### 一个简单示例
+### 从问题到答案的完整示例
 
-**合成数据示例，不是真实商家或客户数据。**
+**以下使用合成数据，不是真实商家或客户数据。**
 
-> **问题：** 为什么营收从第三季度到第四季度下降？
->
-> **当前公开插件的回答：** 营收下降了 18%。如果文件包含足够且完整的每周证据，CommerceLens 可以检查产品组合变化较大的周是否持续伴随较低营收。达到支持门槛只代表可能原因之一，不是因果证明。
+假设你上传一份 CSV 或 XLSX 文件，然后问：
 
-安装后的公开插件可以回答“发生了什么变化”，并在证据要求满足时运行已经批准的产品组合测试。
+> **为什么营收从第三季度到第四季度下降？**
+
+CommerceLens 不会直接猜一个原因，而是一步一步完成分析。
+
+**1. 先检查数据**
+
+CommerceLens 会先确认字段对应关系，以及文件是否包含分析这两个期间所需要的数据。
+
+如果重要信息缺失或无法确认，系统会停止分析，并说明还缺少什么。
+
+**2. 计算发生了什么变化**
+
+在这个合成示例中：
+
+- 第四季度营收比第三季度低 18%。
+- 数据条件允许时，CommerceLens 也可以分解不同产品对这次营收变化的数值影响。
+
+这一步只说明“发生了什么”，还没有回答“为什么”。
+
+**3. 提出可以检查的可能原因**
+
+当前公开版本支持的诊断问题是：
+
+> 产品组合变化较大的周，是否也持续伴随较低的每周营收？
+
+CommerceLens 会把它当作需要验证的假设，而不是直接认定为原因。
+
+**4. 检查证据是否足够**
+
+当前方法需要足够的完整每周数据，以及经过确认的产品和营收数据。
+
+这个合成测试示例中有：
+
+- 8 个有效完整周；
+- 4 个基准期间周；
+- 4 个比较期间周。
+
+如果这些条件不满足，CommerceLens 会返回：
+
+> **Insufficient evidence to conclude.**
+
+并明确指出缺少哪些证据。
+
+**5. 运行并独立验证已经批准的诊断测试**
+
+CommerceLens 会比较每周产品组合的变化程度，以及每周营收表现。
+
+这个合成示例的结果是：
+
+- Spearman rho = -1.0
+- 预先设定的支持门槛：rho <= -0.50
+- 结果：`CRITERION_MET`
+
+在结果可以用于最终说明之前，系统还会另外重新计算并验证一次。
+
+**6. 返回有明确边界的答案**
+
+在这个示例中，最终可以说：
+
+> 营收下降了 18%。在当前可用的每周数据中，产品组合变化较大的周通常也伴随较低营收。因此，产品组合变化是当前数据支持的可能原因之一。
+
+但同时必须说明：
+
+> 这不能证明产品组合导致营收下降，也不能证明它是唯一或主要原因。季节性、折扣、库存、整体需求、促销、客户组合、时间趋势和外部市场状况仍可能是其他原因。
+
+这就是 CommerceLens 的核心流程：
+
+**提出问题 → 检查证据 → 计算变化 → 提出可检查的可能原因 → 确认证据足够 → 运行测试 → 独立验证 → 有边界地说明结论**
 
 ### 与一般 AI 文件分析有什么不同？
 
@@ -481,7 +676,7 @@ CommerceLens 会比较每周实际卖出的产品，与基准期间常见的产�
 **这不代表什么？**
 这不能证明产品组合导致营收下降，也不能证明它是唯一或最主要的原因。季节性、折扣、库存、整体需求、促销、客户组合、时间趋势和外部市场状况仍是其他可能原因。
 
-技术说明：repository 方法是 `weekly_product_presence_revenue_association@1.0.0`，适用于 `product_composition_association`。它需要足够的完整每周数据，以及经过确认的 `product_id` 和 Revenue 证据。`CRITERION_MET` 不是 `ClaimDecision`，也不是 `Finding`。
+技术说明：代码库中使用的方法是 `weekly_product_presence_revenue_association@1.0.0`，适用于 `product_composition_association`。它需要足够的完整每周数据，以及经过确认的 `product_id` 和 Revenue 证据。`CRITERION_MET` 不是 `ClaimDecision`，也不是 `Finding`。
 
 ![CommerceLens 流程：从业务问题开始检查证据；证据不足时拒绝没有支持的解释，证据足够时才提供经过独立验证的说明。](docs/assets/readme/commerce-lens-flow-zh-CN.svg)
 

@@ -128,8 +128,7 @@ product-composition association only.
 
 CommerceLens v0.3.1 release verification records the exact focused and full
 suite results from the release verification run. Test counts are evidence from
-a specific run, not a permanent contract. Test counts are evidence from a
-specific run, not a permanent contract.
+a specific run, not a permanent contract.
 
 Useful focused checks:
 
@@ -213,7 +212,7 @@ dataset dates.
 The two repository Skills require behavioral parity for mapping/coverage
 separation, consolidated confirmation, `USER_DECLARED` disclosure, cutoff and
 missing-fact behavior, proposal binding, temporary/retained routing,
-`list`/`inspect`/`verify`,diagnostic routing, execution/refusal behavior, bounded diagnostic rendering, and fail-closed behavior. They do
+`list`/`inspect`/`verify`, diagnostic routing, execution/refusal behavior, bounded diagnostic rendering, and fail-closed behavior. They do
 not need byte-for-byte identity. The deterministic parity test is
 `tests/skill/test_skill_distribution_parity.py`.
 
